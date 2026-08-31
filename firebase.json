@@ -1,0 +1,118 @@
+{
+  "functions": [
+    {
+      "source": "src/functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" install",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ],
+      "runtime": "nodejs20"
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "//": "PASS 3: index.html must NEVER be cached. Without no-cache, browsers serve a stale shell that points to deleted hashed asset URLs after a deploy → blank page until manual refresh.",
+        "source": "/index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+          { "key": "Pragma", "value": "no-cache" },
+          { "key": "Expires", "value": "0" }
+        ]
+      },
+      {
+        "//": "PASS 3: Hashed asset filenames are immutable — content hash changes when content changes. Safe to cache for 1 year with `immutable` so browsers never revalidate.",
+        "source": "/assets/**/*.@(js|css)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "//": "Hashed image / font assets — same immutable strategy.",
+        "source": "/assets/**/*.@(jpg|jpeg|gif|png|svg|webp|woff|woff2|ttf|eot)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "//": "PASS 3: Security headers for ALL responses. The CSP in index.html still applies as a fallback for environments that ignore HTTP headers, but HTTP headers are the canonical place.",
+        "source": "**",
+        "headers": [
+          {
+            "//": "Strict-Transport-Security: force HTTPS for 2 years, include subdomains, allow preload.",
+            "key": "Strict-Transport-Security",
+            "value": "max-age=63072000; includeSubDomains; preload"
+          },
+          {
+            "//": "Disable MIME-type sniffing — eliminates XSS via type confusion.",
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "//": "Disallow framing — prevents clickjacking attacks. Firebase Auth iframes for popup login are same-origin so this is safe.",
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "//": "Don't leak the URL on cross-origin navigation.",
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "//": "Disable browser features the app doesn't use.",
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), magnetometer=(), gyroscope=(), accelerometer=(), midi=(), interest-cohort=()"
+          },
+          {
+            "//": "Cross-Origin-Opener-Policy: same-origin-allow-popups required for Firebase Auth popup flow. Without this, signInWithPopup hangs in some browsers.",
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
+          }
+        ]
+      }
+    ]
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "//": "Pass 8: Local emulator config for rules tests. CI workflow runs `npm run test:rules` which spins up the firestore emulator, runs vitest, then tears down.",
+    "firestore": {
+      "port": 8080,
+      "host": "localhost"
+    },
+    "functions": {
+      "port": 5001
+    },
+    "auth": {
+      "port": 9099
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  }
+}

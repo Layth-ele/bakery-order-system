@@ -1,0 +1,291 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   IMPORT ORDER - Optimized for proper CSS cascade
+   ═══════════════════════════════════════════════════════════════
+   
+   1. Base framework (Tailwind)
+   2. Design tokens (literal values - colors, spacing, etc.)
+   3. Theme system (semantic tokens - --bg, --fg, etc.)
+   4. Typography system (font families, sizes, weights)
+   5. Icon system (font icons, SVG icons)
+   6. Animations (global @keyframes)
+   7. Component systems (modals, forms)
+   8. Layout systems (z-index hierarchy)
+   9. Performance optimizations (below)
+   
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 1. Base Framework */
+/* (Tailwind imported above) */
+
+/* 2. Design Tokens */
+@import './tokens.css';
+
+/* 3. Theme System */
+@import './theme.css';
+
+/* 4. Typography System */
+@import './typography.css';
+
+/* 5. Icon System */
+@import './icons.css';
+
+/* 6. Animations */
+@import './animations.css';
+
+/* 7. Component Systems */
+@import './modals.css';
+
+/* 8. Layout Systems */
+@import './z-index.css';
+
+/* ── Global Font ──────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 9. Performance Optimizations (defined below) */
+
+/* ═══════════════════════════════════════════════════════════════
+   PERFORMANCE OPTIMIZATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ✅ Reduce repaints for animated content */
+.content-wrapper {
+  contain: layout style paint;
+}
+
+/* ✅ Optimize transforms and opacity animations */
+[class*="transition-transform"],
+[class*="hover:scale"],
+[class*="animate-"] {
+  will-change: transform;
+}
+
+/* ✅ Remove will-change after animation completes (prevents GPU memory buildup) */
+@media (prefers-reduced-motion: no-preference) {
+  [class*="transition-"]:not(:hover):not(:focus):not(.active) {
+    will-change: auto;
+  }
+}
+
+/* ✅ Scroll anchoring - prevents jumps during dynamic content loading */
+.main-content-scroll {
+  overflow-anchor: auto;
+  overscroll-behavior: contain; /* Prevents scroll chaining */
+  /* Custom scrollbar for product table */
+  scrollbar-width: thin;
+  scrollbar-color: #D4A574 #f5f1eb;
+}
+
+.main-content-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.main-content-scroll::-webkit-scrollbar-track {
+  background: #f5f1eb;
+  border-radius: 4px;
+}
+
+.main-content-scroll::-webkit-scrollbar-thumb {
+  background: #D4A574;
+  border-radius: 4px;
+}
+
+.main-content-scroll::-webkit-scrollbar-thumb:hover {
+  background: #C8A882;
+}
+
+/* ✅ Content visibility - defers rendering of off-screen content */
+.products-table {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px; /* Estimate: 10 rows × 50px per row */
+}
+
+/* ✅ Optimize scrollable containers */
+.overflow-y-auto,
+.overflow-auto {
+  overscroll-behavior-y: contain; /* Prevents rubber-banding from propagating */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+/* ✅ Prevent layout shift on image load */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ✅ Images with explicit width/height maintain aspect ratio */
+img[width][height] {
+  aspect-ratio: attr(width) / attr(height);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE-SPECIFIC OPTIMIZATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ✅ Prevent iOS zoom on input focus (requires 16px minimum font size) */
+@media (max-width: 768px) {
+  input[type="number"],
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+  
+  /* ✅ RESPONSIVE TYPOGRAPHY - Smaller fonts on mobile */
+  :root {
+    /* Headings - reduced by ~20% on mobile */
+    --text-heading-1: 1.75rem;      /* 28px (from 36px) */
+    --text-heading-2: 1.5rem;       /* 24px (from 30px) */
+    --text-heading-3: 1.25rem;      /* 20px (from 24px) */
+    --text-heading-4: 1.125rem;     /* 18px (from 20px) */
+    --text-heading-5: 1rem;         /* 16px (from 18px) */
+    
+    /* Body text - reduced slightly */
+    --text-body-lg: 1rem;           /* 16px (from 18px) */
+    --text-body-base: 1rem;         /* 16px (unchanged) */
+    --text-body-sm: 0.8125rem;      /* 13px (from 14px) */
+    --text-body-xs: 0.6875rem;      /* 11px (from 12px) */
+    
+    /* UI elements - slightly smaller */
+    --text-button-lg: 0.9375rem;    /* 15px (from 16px) */
+    --text-button-base: 0.8125rem;  /* 13px (from 14px) */
+    --text-button-sm: 0.6875rem;    /* 11px (from 12px) */
+    
+    --text-label: 0.8125rem;        /* 13px (from 14px) */
+    --text-caption: 0.6875rem;      /* 11px (from 12px) */
+    --text-overline: 0.625rem;      /* 10px (unchanged) */
+  }
+}
+
+/* ✅ Remove tap delay on all interactive elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ✅ Specific class for number inputs without spinners */
+.number-input-no-spinner::-webkit-inner-spin-button,
+.number-input-no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.number-input-no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ✅ GLOBAL: Hide number input spinners everywhere */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+  display: none !important;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+/* ✅ Active scale effect for buttons */
+.active\:scale-98:active {
+  transform: scale(0.98);
+}
+
+/* Animations now imported from animations.css */
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE LAYOUT
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ✅ Page wrapper - outer container */
+.page {
+  min-height: 100vh;
+  width: 100%;
+}
+
+:root {
+  --font-size: 16px;
+
+  /* ✅ STICKY POSITIONING VARIABLES (FEB 9, 2026)
+     These variables control sticky header offsets throughout the app.
+     Update these if you change header/navbar heights. */
+  --app-header-height: 64px;
+  --nav-bar-offset: 64px;
+  --sub-page-offset: 120px;
+
+  /* IMPORTANT:
+     The app theme is driven by src/styles/theme.css using CSS variables
+     (--bg, --fg, --border, --ring, etc). These shadcn-style variables must
+     reference the theme variables or the app will look "half light / half dark".
+  */
+  --background: var(--bg);
+  --foreground: var(--fg);
+
+  /* avoid name recursion: use ui-* for the shadcn/tailwind bridge */
+  --ui-border: var(--border);
+  --ui-ring: var(--ring);
+}
+
+/* ✅ Responsive sticky positioning offsets */
+@media (min-width: 640px) {
+  :root {
+    --app-header-height: 73px;
+    --nav-bar-offset: 73px;
+    --sub-page-offset: 133px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-header-height: 81px;
+    --nav-bar-offset: 81px;
+    --sub-page-offset: 145px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ESSENTIAL LAYOUT UTILITIES
+   ═══════════════════════════════════════════════════════════════
+   
+   Moved from layouts.css and components.css for minimal imports.
+   These are the only custom layout classes used in the codebase.
+   All other layouts use Tailwind CSS.
+   
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ✅ Page container - max-width wrapper for content */
+.page-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .page-container {
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    padding: 2rem 2rem;
+  }
+}
+
+/* ✅ Flex utility - space-between layout */
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

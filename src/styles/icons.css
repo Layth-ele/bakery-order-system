@@ -1,0 +1,548 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * ICON SIZING SYSTEM
+ * ═══════════════════════════════════════════════════════════════
+ * 
+ * Consistent icon sizes using CSS variables and utility classes.
+ * Icons automatically adapt to mobile screen sizes.
+ * 
+ * USAGE:
+ * Instead of: <Icon className="w-5 h-5" />
+ * Use: <Icon className="icon-md" />
+ * 
+ * All sizes are consistent with typography and spacing scale.
+ * 
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+:root {
+  /* ───────────────────────────────────────────────────────────────
+     ICON SIZE VARIABLES - Desktop (default)
+     ─────────────────────────────────────────────────────────────── */
+  
+  --icon-xs: 0.75rem;     /* 12px - Very small icons, inline badges */
+  --icon-sm: 1rem;        /* 16px - Small icons, inline text */
+  --icon-md: 1.25rem;     /* 20px - Default icons, buttons */
+  --icon-lg: 1.5rem;      /* 24px - Large icons, headers */
+  --icon-xl: 2rem;        /* 32px - Extra large, feature icons */
+  --icon-2xl: 2.5rem;     /* 40px - Hero icons */
+  --icon-3xl: 3rem;       /* 48px - Decorative icons */
+  
+  /* ───────────────────────────────────────────────────────────────
+     CONTEXT-SPECIFIC ICON SIZES
+     Semantic sizes for different UI contexts
+     ─────────────────────────────────────────────────────────────── */
+  
+  /* Button icons */
+  --icon-button-sm: var(--icon-xs);      /* 12px - Small buttons */
+  --icon-button-base: var(--icon-sm);    /* 16px - Standard buttons */
+  --icon-button-lg: var(--icon-md);      /* 20px - Large buttons */
+  
+  /* Modal icons */
+  --icon-modal-header: var(--icon-lg);   /* 24px - Modal header icons */
+  --icon-modal-accent: var(--icon-2xl);  /* 40px - Modal accent icons */
+  --icon-modal-close: var(--icon-md);    /* 20px - Close button */
+  
+  /* Card icons */
+  --icon-card-accent: var(--icon-xl);    /* 32px - Card decorative icons */
+  --icon-card-inline: var(--icon-sm);    /* 16px - Inline card icons */
+  
+  /* Table icons */
+  --icon-table-cell: var(--icon-sm);     /* 16px - Table cell icons */
+  --icon-table-action: var(--icon-xs);   /* 12px - Table action icons */
+  
+  /* Form icons */
+  --icon-form-input: var(--icon-sm);     /* 16px - Input prefix/suffix */
+  --icon-form-label: var(--icon-xs);     /* 12px - Label decorations */
+  
+  /* Navigation icons */
+  --icon-nav-item: var(--icon-md);       /* 20px - Navigation items */
+  --icon-nav-badge: var(--icon-xs);      /* 12px - Notification badges */
+  
+  /* Status icons */
+  --icon-status-sm: var(--icon-xs);      /* 12px - Inline status */
+  --icon-status-md: var(--icon-sm);      /* 16px - Standard status */
+  --icon-status-lg: var(--icon-md);      /* 20px - Prominent status */
+  
+  /* Alert/notification icons */
+  --icon-alert: var(--icon-lg);          /* 24px - Alert dialogs */
+  --icon-toast: var(--icon-md);          /* 20px - Toast notifications */
+}
+
+/* ───────────────────────────────────────────────────────────────
+   MOBILE RESPONSIVE ICON SIZES (≤768px)
+   Icons are reduced by ~15-20% on mobile
+   ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  :root {
+    /* Base sizes - slightly smaller on mobile */
+    --icon-xs: 0.6875rem;   /* 11px (from 12px) */
+    --icon-sm: 0.875rem;    /* 14px (from 16px) */
+    --icon-md: 1.125rem;    /* 18px (from 20px) */
+    --icon-lg: 1.375rem;    /* 22px (from 24px) */
+    --icon-xl: 1.75rem;     /* 28px (from 32px) */
+    --icon-2xl: 2.25rem;    /* 36px (from 40px) */
+    --icon-3xl: 2.75rem;    /* 44px (from 48px) */
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ICON UTILITY CLASSES
+   Apply these classes to any icon component
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────
+   BASE SIZE CLASSES
+   ─────────────────────────────────────────────────────────────── */
+
+.icon-xs {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  min-width: var(--icon-xs);
+  min-height: var(--icon-xs);
+  flex-shrink: 0;
+}
+
+.icon-sm {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  min-width: var(--icon-sm);
+  min-height: var(--icon-sm);
+  flex-shrink: 0;
+}
+
+.icon-md {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  min-width: var(--icon-md);
+  min-height: var(--icon-md);
+  flex-shrink: 0;
+}
+
+.icon-lg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  min-width: var(--icon-lg);
+  min-height: var(--icon-lg);
+  flex-shrink: 0;
+}
+
+.icon-xl {
+  width: var(--icon-xl);
+  height: var(--icon-xl);
+  min-width: var(--icon-xl);
+  min-height: var(--icon-xl);
+  flex-shrink: 0;
+}
+
+.icon-2xl {
+  width: var(--icon-2xl);
+  height: var(--icon-2xl);
+  min-width: var(--icon-2xl);
+  min-height: var(--icon-2xl);
+  flex-shrink: 0;
+}
+
+.icon-3xl {
+  width: var(--icon-3xl);
+  height: var(--icon-3xl);
+  min-width: var(--icon-3xl);
+  min-height: var(--icon-3xl);
+  flex-shrink: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   CONTEXT-SPECIFIC CLASSES
+   Use these for semantic meaning
+   ─────────────────────────────────────────────────────────────── */
+
+/* Button icons */
+.icon-button-sm {
+  width: var(--icon-button-sm);
+  height: var(--icon-button-sm);
+  min-width: var(--icon-button-sm);
+  min-height: var(--icon-button-sm);
+  flex-shrink: 0;
+}
+
+.icon-button {
+  width: var(--icon-button-base);
+  height: var(--icon-button-base);
+  min-width: var(--icon-button-base);
+  min-height: var(--icon-button-base);
+  flex-shrink: 0;
+}
+
+.icon-button-lg {
+  width: var(--icon-button-lg);
+  height: var(--icon-button-lg);
+  min-width: var(--icon-button-lg);
+  min-height: var(--icon-button-lg);
+  flex-shrink: 0;
+}
+
+/* Modal icons */
+.icon-modal-header {
+  width: var(--icon-modal-header);
+  height: var(--icon-modal-header);
+  min-width: var(--icon-modal-header);
+  min-height: var(--icon-modal-header);
+  flex-shrink: 0;
+}
+
+.icon-modal-accent {
+  width: var(--icon-modal-accent);
+  height: var(--icon-modal-accent);
+  min-width: var(--icon-modal-accent);
+  min-height: var(--icon-modal-accent);
+  flex-shrink: 0;
+}
+
+.icon-modal-close {
+  width: var(--icon-modal-close);
+  height: var(--icon-modal-close);
+  min-width: var(--icon-modal-close);
+  min-height: var(--icon-modal-close);
+  flex-shrink: 0;
+}
+
+/* Card icons */
+.icon-card-accent {
+  width: var(--icon-card-accent);
+  height: var(--icon-card-accent);
+  min-width: var(--icon-card-accent);
+  min-height: var(--icon-card-accent);
+  flex-shrink: 0;
+}
+
+.icon-card {
+  width: var(--icon-card-inline);
+  height: var(--icon-card-inline);
+  min-width: var(--icon-card-inline);
+  min-height: var(--icon-card-inline);
+  flex-shrink: 0;
+}
+
+/* Table icons */
+.icon-table {
+  width: var(--icon-table-cell);
+  height: var(--icon-table-cell);
+  min-width: var(--icon-table-cell);
+  min-height: var(--icon-table-cell);
+  flex-shrink: 0;
+}
+
+.icon-table-action {
+  width: var(--icon-table-action);
+  height: var(--icon-table-action);
+  min-width: var(--icon-table-action);
+  min-height: var(--icon-table-action);
+  flex-shrink: 0;
+}
+
+/* Form icons */
+.icon-input {
+  width: var(--icon-form-input);
+  height: var(--icon-form-input);
+  min-width: var(--icon-form-input);
+  min-height: var(--icon-form-input);
+  flex-shrink: 0;
+}
+
+.icon-label {
+  width: var(--icon-form-label);
+  height: var(--icon-form-label);
+  min-width: var(--icon-form-label);
+  min-height: var(--icon-form-label);
+  flex-shrink: 0;
+}
+
+/* Navigation icons */
+.icon-nav {
+  width: var(--icon-nav-item);
+  height: var(--icon-nav-item);
+  min-width: var(--icon-nav-item);
+  min-height: var(--icon-nav-item);
+  flex-shrink: 0;
+}
+
+.icon-badge {
+  width: var(--icon-nav-badge);
+  height: var(--icon-nav-badge);
+  min-width: var(--icon-nav-badge);
+  min-height: var(--icon-nav-badge);
+  flex-shrink: 0;
+}
+
+/* Status icons */
+.icon-status-sm {
+  width: var(--icon-status-sm);
+  height: var(--icon-status-sm);
+  min-width: var(--icon-status-sm);
+  min-height: var(--icon-status-sm);
+  flex-shrink: 0;
+}
+
+.icon-status {
+  width: var(--icon-status-md);
+  height: var(--icon-status-md);
+  min-width: var(--icon-status-md);
+  min-height: var(--icon-status-md);
+  flex-shrink: 0;
+}
+
+.icon-status-lg {
+  width: var(--icon-status-lg);
+  height: var(--icon-status-lg);
+  min-width: var(--icon-status-lg);
+  min-height: var(--icon-status-lg);
+  flex-shrink: 0;
+}
+
+/* Alert/notification icons */
+.icon-alert {
+  width: var(--icon-alert);
+  height: var(--icon-alert);
+  min-width: var(--icon-alert);
+  min-height: var(--icon-alert);
+  flex-shrink: 0;
+}
+
+.icon-toast {
+  width: var(--icon-toast);
+  height: var(--icon-toast);
+  min-width: var(--icon-toast);
+  min-height: var(--icon-toast);
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE ICON CLASSES
+   Explicitly control icon sizes at different breakpoints
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Responsive: smaller on mobile, larger on desktop */
+.icon-responsive-sm {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  min-width: var(--icon-xs);
+  min-height: var(--icon-xs);
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .icon-responsive-sm {
+    width: var(--icon-sm);
+    height: var(--icon-sm);
+    min-width: var(--icon-sm);
+    min-height: var(--icon-sm);
+  }
+}
+
+.icon-responsive-md {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  min-width: var(--icon-sm);
+  min-height: var(--icon-sm);
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .icon-responsive-md {
+    width: var(--icon-md);
+    height: var(--icon-md);
+    min-width: var(--icon-md);
+    min-height: var(--icon-md);
+  }
+}
+
+.icon-responsive-lg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  min-width: var(--icon-md);
+  min-height: var(--icon-md);
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .icon-responsive-lg {
+    width: var(--icon-lg);
+    height: var(--icon-lg);
+    min-width: var(--icon-lg);
+    min-height: var(--icon-lg);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ICON CONTAINER CLASSES
+   For wrapping icons with backgrounds/borders
+   ═══════════════════════════════════════════════════════════════ */
+
+.icon-container-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;      /* 32px - icon + padding */
+  height: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  border-radius: var(--radius-lg);
+}
+
+.icon-container-md {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;    /* 40px - icon + padding */
+  height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border-radius: var(--radius-lg);
+}
+
+.icon-container-lg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;      /* 48px - icon + padding */
+  height: 3rem;
+  min-width: 3rem;
+  min-height: 3rem;
+  border-radius: var(--radius-xl);
+}
+
+.icon-container-xl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;      /* 64px - icon + padding */
+  height: 4rem;
+  min-width: 4rem;
+  min-height: 4rem;
+  border-radius: var(--radius-xl);
+}
+
+/* Rounded circle containers */
+.icon-container-circle-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  border-radius: var(--radius-full);
+}
+
+.icon-container-circle-md {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border-radius: var(--radius-full);
+}
+
+.icon-container-circle-lg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  min-width: 3rem;
+  min-height: 3rem;
+  border-radius: var(--radius-full);
+}
+
+.icon-container-circle-xl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  min-width: 4rem;
+  min-height: 4rem;
+  border-radius: var(--radius-full);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATION UTILITIES
+   Common icon animations
+   ═══════════════════════════════════════════════════════════════ */
+
+.icon-spin {
+  animation: icon-spin 1s linear infinite;
+}
+
+.icon-pulse {
+  animation: icon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.icon-bounce {
+  animation: icon-bounce 1s infinite;
+}
+
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes icon-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes icon-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-25%);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING SPINNER SIZES
+   Consistent spinner sizing
+   ═══════════════════════════════════════════════════════════════ */
+
+.spinner-xs {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  border-width: 2px;
+}
+
+.spinner-sm {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border-width: 2px;
+}
+
+.spinner-md {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border-width: 3px;
+}
+
+.spinner-lg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  border-width: 3px;
+}
+
+.spinner-xl {
+  width: var(--icon-xl);
+  height: var(--icon-xl);
+  border-width: 4px;
+}

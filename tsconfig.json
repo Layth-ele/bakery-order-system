@@ -1,0 +1,52 @@
+{
+  "//": "PASS 6 - Full TypeScript strict mode enabled.",
+  "//rationale": [
+    "Pass 5 enabled noImplicitAny + useUnknownInCatchVariables and deferred strict: true because an intermediate test reported 71 errors. Re-running the test on the final v12 state showed zero errors — those 71 had already been silently resolved by Pass 5's surgical fixes plus the existing null-handling discipline in the codebase.",
+    "Pass 6 flips strict: true to lock in the win. The codebase now compiles cleanly under all 8 strict-family flags: strictNullChecks, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, useUnknownInCatchVariables, noImplicitAny, noImplicitThis, alwaysStrict.",
+    "Going forward: any new code that introduces possibly-undefined access without a guard, function-type incompatibility, or implicit any will fail typecheck. This is the architectural shift Pass 5 set up but didn't quite ship."
+  ],
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    "types": ["vite/client"],
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "useUnknownInCatchVariables": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": [
+    "node_modules",
+    "src/functions",
+    "src/seed",
+    "dist",
+    "build",
+    "src/__tests__/rules"
+  ]
+}

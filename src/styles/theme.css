@@ -1,0 +1,48 @@
+/* src/styles/theme.css */
+
+/* =========================
+   LIGHT THEME (Cream Paper)
+   ========================= */
+:root {
+  /* Cream paper ladder */
+  --bg: #FBF6EE;         /* page */
+  --surface-1: #FFFDF7;  /* cards (paper) */
+  --surface-2: #F6EFE6;  /* elevated */
+  --surface-3: #EEE3D6;  /* table header / nested */
+
+  /* Espresso ink */
+  --fg: #1F1A14;
+  --muted: #5C5046;
+  --subtle: #887A6E;
+
+  /* Brand stays gold - Reference tokens for consistency */
+  --gold: var(--color-brand-gold);
+  --gold-hover: var(--color-brand-gold-dark);
+  --gold-pressed: var(--color-brand-gold-darker);
+  --tan: var(--color-brand-gold-darkest); /* wooden accent (sparingly) */
+
+  /* Walnut header */
+  --header-1: #3B2A1F;
+  --header-2: #2B1E16;
+  --header-hover: #4A3527;
+
+  /* Borders: warm + super subtle */
+  --border: rgba(59, 42, 31, 0.12);
+  --border-gold: rgba(212, 165, 116, 0.45);
+
+  /* Effects: softer in light mode */
+  --ring: rgba(212, 165, 116, 0.35);
+  --shadow-gold: 0 14px 30px rgba(212, 165, 116, 0.14);
+
+  /* Modal */
+  --modal-bg: #FFFDF7;
+  --modal-overlay: rgba(0, 0, 0, 0.35);
+
+  /* Status colors - Reference tokens for consistency */
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --error: var(--color-error);
+  --info: var(--color-info);
+
+  color-scheme: light;
+}

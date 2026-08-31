@@ -1,0 +1,898 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================================
+    // HELPER FUNCTIONS
+    // ============================================================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is admin via customerType field in customers/{uid} collection
+    // Schema: customers/{uid}.customerType = 'admin' | 'commercial' | 'individual'
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/customers/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/customers/$(request.auth.uid)).data.customerType == 'admin';
+    }
+    
+    // Check if user is any type of admin
+    // Single source: customers/{uid}.customerType == 'admin'
+    // No hardcoded email fallback — all admins must have customerType set
+    function isAnyAdmin() {
+      return isAdmin();
+    }
+    
+    // Check if user owns a document (document ID = user's auth UID)
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user's account is approved
+    // Schema: customers/{uid}.status = 'pending' | 'approved' | 'rejected' | 'suspended'
+    function isApproved() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/customers/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/customers/$(request.auth.uid)).data.status == 'approved';
+    }
+    
+    // ============================================================================
+    // CUSTOMERS COLLECTION - User profiles linked to Firebase Auth
+    // ============================================================================
+    // Schema: customers/{uid}
+    //   - email: string
+    //   - storeName: string (optional)
+    //   - contactPerson: string (optional)
+    //   - phone: string (optional)
+    //   - storeAddress: string (optional)
+    //   - customerType: 'commercial' | 'individual' | 'admin'
+    //   - status: 'pending' | 'approved' | 'rejected' | 'suspended'
+    //   - registeredAt: timestamp
+    //   - createdAt: timestamp
+    //   - updatedAt: timestamp
+    //   - fcmTokens: string[] (push notification tokens)
+    // ============================================================================
+    
+    match /customers/{customerId} {
+      // Users can read their own profile, admins can read all profiles
+      // isOwner check is enough for login — isAnyAdmin() would cause circular read
+      // ✅ FIX: Customers can only read their own profile; admins can read all
+      allow read: if isOwner(customerId) || isAnyAdmin();
+      
+      // Users can create their own profile during registration (ID must equal their Auth UID)
+      // Admins can also create profiles on behalf of new customers
+      //
+      // FIX T2R7-C1 (CRITICAL — admin takeover): Previous rule only required
+      // `customerId == auth.uid && data.keys().hasAll(['email'])`.  No check on
+      // privilege fields meant a registering user could direct-write
+      //   { email: 'x', customerType: 'admin', status: 'approved' }
+      // bypassing the createCustomerWithCode CF (which hardcodes
+      // customerType:'individual', status:'pending').  Result: anyone who
+      // registered an account could elevate themselves to admin via a single
+      // Firestore write before the legitimate CF flow ran.
+      //
+      // The fix: enforce that customer self-creation:
+      //  - cannot set customerType to 'admin' (must be 'individual' or 'commercial' or absent)
+      //  - cannot set status to 'approved' or anything other than 'pending' (must be absent or 'pending')
+      //  - cannot include any role-elevation fields (role, isAdmin, etc.)
+      // Admin-on-behalf creation (isAnyAdmin path) is not restricted because
+      // the admin is intentionally setting these fields.
+      allow create: if isAnyAdmin() ||
+                      (isAuthenticated() && 
+                       request.auth.uid == customerId &&
+                       request.resource.data.keys().hasAll(['email']) &&
+                       // customerType must be absent or non-admin
+                       (!request.resource.data.keys().hasAny(['customerType']) ||
+                        request.resource.data.customerType in ['individual', 'commercial']) &&
+                       // status must be absent or 'pending' — admins promote
+                       (!request.resource.data.keys().hasAny(['status']) ||
+                        request.resource.data.status == 'pending') &&
+                       // legacy role field — block if attempting admin
+                       (!request.resource.data.keys().hasAny(['role']) ||
+                        request.resource.data.role != 'admin') &&
+                       // block any boolean isAdmin shortcut
+                       (!request.resource.data.keys().hasAny(['isAdmin']) ||
+                        request.resource.data.isAdmin == false));
+      
+      // Users can update their own profile (limited fields only)
+      allow update: if (isOwner(customerId) && 
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['storeName', 'contactPerson', 'storeAddress', 'phone', 'fcmTokens', 'updatedAt'])) ||
+                       isAnyAdmin();  // Admins can update any field
+      
+      // Only admins can delete customer profiles
+      allow delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // ORDERS COLLECTION
+    // ============================================================================
+    // Schema: orders/{orderId}
+    //   - customerId: string (Firebase Auth UID)
+    //   - customerName: string
+    //   - customerAddress: string
+    //   - customerContactPerson: string
+    //   - customerPhone: string
+    //   - items: OrderItem[]
+    //   - subtotal: number
+    //   - gst: number
+    //   - total: number
+    //   - status: 'pending' | 'approved' | 'in_process' | 'completed' | 'rejected' | 'cancelled'
+    //   - paymentReceived: boolean
+    //   - paymentSubmitted: boolean
+    //   - week: number
+    //   - year: number
+    //   - orderDate: timestamp
+    //   - adjustments: OrderAdjustment[]
+    // ============================================================================
+    
+    match /orders/{orderId} {
+      // FIX BUG 2: Split read into get (single doc) and list (collection query).
+      // Only admins may list all orders. Customers may only fetch their own single docs.
+      // Previously: allow read: if isAuthenticated() && (isApproved() || isAnyAdmin())
+      // — this allowed any approved customer to run collection().get() and read every order.
+      allow get:  if isAnyAdmin() ||
+                     (isApproved() && resource.data.customerId == request.auth.uid);
+      allow list: if isAnyAdmin();
+      
+      // FIX BUG 11: Validate status value and numeric price fields server-side.
+      // Previously only checked field presence — a customer could submit
+      // status:'approved' or subtotal:0.01 for a $500 order.
+      allow create: if isAuthenticated() && 
+                       isApproved() &&
+                       request.resource.data.customerId == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['customerId', 'items', 'subtotal', 'total', 'status']) &&
+                       // status must start as 'pending' — only admins can transition to other states
+                       request.resource.data.status == 'pending' &&
+                       // price fields must be positive numbers
+                       request.resource.data.subtotal is number &&
+                       request.resource.data.subtotal > 0 &&
+                       request.resource.data.total is number &&
+                       request.resource.data.total > 0 &&
+                       // total must be at least subtotal (allows for GST/fees on top)
+                       request.resource.data.total >= request.resource.data.subtotal;
+      
+      // Users can update their own orders (limited to payment fields)
+      // Admins can update any field
+      // ✅ IMMUTABILITY: invoiceNumber is write-once — cannot be changed once set
+      // FIX H4 (HIGH): Previous customer rule included `invoiceNumber` in the
+      // hasOnly list. The "write-once" check passed for the FIRST write because
+      // resource.data didn't have the field yet. A malicious customer could race
+      // the admin and set their own invoiceNumber: 'DBH-FAKE-01'. Once set, the
+      // immutability check would lock the bogus value in.
+      // Fix: customers cannot set invoiceNumber at all. Only admins can.
+      //
+      // PASS 9 FIX (MEDIUM): The customer payment-fields whitelist had no
+      // "write-once" enforcement. Once a customer set paymentSubmitted=true
+      // (committing to a payment proof), they could later flip it back to
+      // false, rewrite paymentMethod, paymentReference, or transferPassword,
+      // and resubmit. This created confusion in the admin review queue and
+      // bypassed the duplicate-submission check enforced by the
+      // submitPaymentProof Cloud Function. Customers must still be allowed
+      // to set the fields the FIRST time (before paymentSubmitted exists or
+      // is false), but the rule now denies subsequent edits — those must go
+      // through the Cloud Function or be performed by an admin.
+      //
+      // FIX T2R7-C3 (CRITICAL — workflow integrity / submitPaymentProof CF
+      // bypass): Previous rule allowed customers to set paymentSubmitted=true
+      // on orders in ANY status — including 'pending' (not yet approved).
+      // The submitPaymentProof Cloud Function correctly requires status
+      // 'approved' (payments.ts:60) but the Firestore rule did not.  A
+      // customer could direct-write paymentSubmitted=true with a fake
+      // paymentReference on a pending order, bypassing the CF's status
+      // check.  Admin's "payment pending review" queue would show the order
+      // as awaiting payment confirmation despite the order being not yet
+      // approved.
+      //
+      // Fix: require resource.data.status == 'approved' for the customer's
+      // payment-field write path.  Other statuses (pending/in_process/
+      // completed/cancelled/rejected) all reject the write — payments are
+      // only legitimate while the order is approved-but-unpaid.
+      allow update: if isAuthenticated() && 
+                       (
+                         // Customer can only update payment-related fields on their own approved orders
+                         (resource.data.customerId == request.auth.uid && 
+                          isApproved() &&
+                          // FIX T2R7-C3: order must currently be in 'approved' status
+                          resource.data.status == 'approved' &&
+                          request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['paymentSubmitted', 'paymentSubmittedAt', 'paymentMethod', 'paymentReference', 'transferPassword', 'updatedAt']) &&
+                          // Block edits once paymentSubmitted has been latched true.
+                          // Allow the field to transition false → true exactly once.
+                          (!resource.data.keys().hasAny(['paymentSubmitted']) ||
+                           resource.data.paymentSubmitted != true))
+                         ||
+                         // Admins can update any field EXCEPT invoiceNumber once set
+                         (isAnyAdmin() &&
+                          (!resource.data.keys().hasAll(['invoiceNumber']) || 
+                           !request.resource.data.keys().hasAll(['invoiceNumber']) ||
+                           resource.data.invoiceNumber == request.resource.data.invoiceNumber))
+                       );
+      
+      // Only admins can delete orders
+      allow delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // ORDER SNAPSHOTS (Nested subcollection under orders)
+    // ============================================================================
+    // Schema: orders/{orderId}/snapshots/{snapId}
+    //   - orderId: string
+    //   - createdAt: timestamp
+    //   - createdBy: string
+    //   - trigger: string
+    //   - status: string
+    //   - items: OrderItem[]
+    //   - subtotal: number
+    //   - gst: number
+    //   - total: number
+    // ============================================================================
+    
+    match /orders/{orderId}/snapshots/{snapId} {
+      // ✅ PASS 4 (M2): Use denormalized customerId field on the snapshot doc
+      // when present. This eliminates the parent-doc get() that previously
+      // billed an extra read per snapshot read.
+      //
+      // Legacy snapshots written before Pass 4 don't have customerId — for
+      // those docs, fall back to the parent-get path. After the backfill
+      // (see backfillSnapshotCustomerId Cloud Function) completes, the
+      // fallback can be removed.
+      //
+      // Read-cost analysis (per snapshot read):
+      //   Before:  1 (snapshot doc) + 1 (parent get) + 1 (isAnyAdmin get) = 3 billed reads
+      //   After:   1 (snapshot doc) + (1 if admin else 0)                  = 1-2 billed reads
+      // For collection reads of N snapshots, this scales linearly — saves
+      // 1-2 billed reads PER snapshot, every read.
+      allow read: if isAuthenticated() &&
+                     (
+                       // Fast path: denormalized customerId present
+                       (resource.data.keys().hasAny(['customerId']) &&
+                        resource.data.customerId == request.auth.uid)
+                       ||
+                       // Admin always sees all
+                       isAnyAdmin()
+                       ||
+                       // Legacy fallback: parent-doc get() for snapshots
+                       // written before Pass 4 (no customerId field)
+                       (!resource.data.keys().hasAny(['customerId']) &&
+                        get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid)
+                     );
+
+      // FIX BUG 4: Was isAuthenticated() — pending/rejected users could write snapshots.
+      // FIX R7-S1-F18: Added parent-order ownership check.  Was allowing ANY
+      // approved customer to write snapshots into ANY order's audit subcollection,
+      // polluting other customers' audit trails (snapshots are immutable so the
+      // pollution can't be deleted by anyone except an admin via console).
+      // The denormalized customerId field is also required so the read fast-path
+      // works without a parent-doc get().
+      allow create: if isAnyAdmin() ||
+                       (isAuthenticated() && isApproved() &&
+                        request.resource.data.customerId == request.auth.uid &&
+                        get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid);
+
+      // Snapshots are immutable - no updates or deletes
+      allow update, delete: if false;
+    }
+    
+    // ============================================================================
+    // PRODUCTS COLLECTION
+    // ============================================================================
+    // Schema: products/{productId}
+    //   - categoryId: string
+    //   - name: string
+    //   - cost: number
+    //   - retail: number
+    //   - wholesale: number
+    //   - minQty: number
+    //   - dailyMinOrder: number
+    //   - discount: number (optional)
+    //   - image: string (optional)
+    //   - description: string (optional)
+    // ============================================================================
+    
+    match /products/{productId} {
+      // Any authenticated user can read products
+      allow read: if isAuthenticated();
+      
+      // Only admins can create/update/delete products
+      allow create, update, delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // CATEGORIES COLLECTION
+    // ============================================================================
+    // Schema: categories/{categoryId}
+    //   - name: string
+    //   - order: number
+    // ============================================================================
+    
+    match /categories/{categoryId} {
+      // Any authenticated user can read categories
+      allow read: if isAuthenticated();
+      
+      // Only admins can create/update/delete categories
+      allow create, update, delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // NOTIFICATIONS - ADMIN
+    // ============================================================================
+    // Schema: notifications/admin/items/{notificationId}
+    //   - type: string
+    //   - title: string
+    //   - message: string
+    //   - orderId: string (optional)
+    //   - customerId: string (optional)
+    //   - read: boolean
+    //   - createdAt: timestamp
+    // ============================================================================
+    
+    match /notifications/admin/items/{notificationId} {
+      // FIX BUG 4: Was isAuthenticated() — pending/rejected users could spam admin.
+      // Customers need approved status to trigger order notifications.
+      //
+      // FIX T2R8-C1 (CRITICAL — admin phishing / spam via fake notifications):
+      // Previous rule had NO content validation.  Any approved customer could
+      // direct-write arbitrary notifications to the admin feed:
+      //   - Spam (no rate limit at the rule layer)
+      //   - Phishing — write `type: 'PAYMENT_RECEIVED'` notifications with
+      //     malicious action payloads that admin clicks would execute
+      //   - Fabricate notifications attributed to OTHER customers (the rule
+      //     never bound the notification's customerId field to the caller)
+      //
+      // Legitimate customer-triggered admin notifications are limited to a
+      // small set of types that fire from approved-order workflows
+      // (notifyPaymentSubmitted, notifyOrderPlacedTracking, etc).  The fix
+      // enforces:
+      //   1. type must be one of the customer-triggerable enum values
+      //   2. orderId must be present (every customer-side notif references
+      //      an order; this prevents spam without a real order target)
+      //   3. metadata.customerId (if present) must match caller's auth UID
+      //   4. notificationId field (if present) must equal the document ID,
+      //      blocking ID-spoofing attacks
+      //
+      // Admins can still write any notification (the isAnyAdmin branch).
+      // CFs writing via Admin SDK bypass these rules entirely (e.g.,
+      // createCustomerWithCode's "new registration" notification).
+      allow create: if isAnyAdmin() ||
+                       (isAuthenticated() && isApproved() &&
+                        // Must reference a real order
+                        request.resource.data.keys().hasAll(['type', 'orderId']) &&
+                        request.resource.data.orderId is string &&
+                        request.resource.data.orderId.size() > 0 &&
+                        // Type must be one of the customer-triggerable values
+                        request.resource.data.type in [
+                          'PAYMENT_SUBMITTED',
+                          'PAYMENT_SUBMITTED_TRACKING',
+                          'ORDER_PLACED_TRACKING',
+                          'ORDER_PLACED',
+                          'NEW_ORDER',
+                          'new_order',
+                          'new_registration'
+                        ] &&
+                        // If metadata.customerId is set, it MUST match caller's UID
+                        (!request.resource.data.keys().hasAny(['metadata']) ||
+                         request.resource.data.metadata == null ||
+                         !request.resource.data.metadata.keys().hasAny(['customerId']) ||
+                         request.resource.data.metadata.customerId == request.auth.uid));
+      allow read, update, delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // NOTIFICATIONS - USERS
+    // ============================================================================
+    // Schema: notifications/user_{userId}/items/{notificationId}
+    //   - type: string
+    //   - title: string
+    //   - message: string
+    //   - orderId: string (optional)
+    //   - read: boolean
+    //   - createdAt: timestamp
+    // ============================================================================
+    
+    match /notifications/{userId}/items/{notificationId} {
+      // userId in path is "user_{uid}" or "admin" — extract real UID
+      // For customer paths: userId = "user_{uid}" → check auth.uid == userId without prefix
+      function isNotifOwner() {
+        // Admin path: userId == 'admin'
+        // Customer path: userId == 'user_' + auth.uid
+        return userId == 'user_' + request.auth.uid || isAnyAdmin();
+      }
+      
+      // Users can read their own notifications (or admins can read all)
+      allow read: if isNotifOwner();
+      
+      // Users can mark their own notifications as read
+      allow update: if isNotifOwner() && 
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['read', 'readAt', 'isRead']);
+      
+      // FIX H1: Previous rule allowed any approved customer to create arbitrary
+      // notifications on their own path:
+      //   allow create: if isAnyAdmin() || userId == 'user_' + request.auth.uid;
+      // A customer could craft fake ORDER_APPROVED, CREDIT_RECEIVED, or
+      // PAYMENT_CONFIRMED notifications, corrupting their notification feed and
+      // potentially triggering incorrect UI flows (e.g. unlocking payment screens).
+      // All legitimate customer notifications are created by admin-side code or
+      // system workflows — customers never need to write to this path themselves.
+      allow create: if isAnyAdmin();
+      
+      // Users can delete their own notifications; admins can delete any
+      allow delete: if isNotifOwner();
+    }
+    
+    // ============================================================================
+    // SETTINGS COLLECTION
+    // ============================================================================
+    // Schema: settings/{settingId}
+    //   - deliveryFee: number
+    //   - serviceFee: number
+    //   - taxRate: number
+    //   - minimumOrder: number
+    // ============================================================================
+    
+    match /settings/{settingId} {
+      // Settings contain non-sensitive config (delivery fee, tax rate, etc.)
+      // Allow any authenticated user — isApproved() causes failures at app startup
+      // before the customers/{uid} document has been fetched.
+      allow read: if isAuthenticated();
+      
+      // Only admins can modify settings
+      allow write: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // BUSINESS INFO COLLECTION
+    // ============================================================================
+    // Schema: businessInfo/{infoId}
+    //   - companyName: string
+    //   - address: string
+    //   - phone: string
+    //   - email: string
+    //   - gstNumber: string
+    // ============================================================================
+    
+    match /businessInfo/{infoId} {
+      // Any authenticated user can read business info
+      allow read: if isAuthenticated();
+      
+      // Only admins can modify business info
+      allow write: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // INVOICES COLLECTION
+    // ============================================================================
+    // Schema: invoices/{invoiceId}
+    //   - orderId: string
+    //   - customerId: string
+    //   - invoiceNumber: string
+    //   - items: OrderItem[]
+    //   - subtotal: number
+    //   - gst: number
+    //   - total: number
+    //   - createdAt: timestamp
+    // ============================================================================
+    
+    match /invoices/{invoiceId} {
+      // Users can read their own invoices, admins can read all
+      allow read: if isAuthenticated() && 
+                     ((resource.data.customerId == request.auth.uid && isApproved()) || 
+                      isAnyAdmin());
+      
+      // Admins can create invoices
+      allow create: if isAnyAdmin();
+      // ✅ IMMUTABILITY: invoiceNumber cannot be changed once written
+      allow update: if isAnyAdmin() &&
+                       (!resource.data.keys().hasAll(['invoiceNumber']) ||
+                        !request.resource.data.keys().hasAll(['invoiceNumber']) ||
+                        resource.data.invoiceNumber == request.resource.data.invoiceNumber);
+      allow delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // ADJUSTMENTS COLLECTION (Order adjustments/revisions)
+    // ============================================================================
+    // Schema: adjustments/{adjustmentId}
+    //   - orderId: string
+    //   - customerId: string
+    //   - type: 'increase' | 'decrease'
+    //   - deltaSubtotal: number
+    //   - deltaGst: number
+    //   - deltaTotal: number
+    //   - reason: string
+    //   - createdAt: timestamp
+    // ============================================================================
+    
+    match /adjustments/{adjustmentId} {
+      // Users can read their own adjustments, admins can read all
+      allow read: if isAuthenticated() && 
+                     ((resource.data.customerId == request.auth.uid && isApproved()) || 
+                      isAnyAdmin());
+      
+      // FIX H4: Previous rule only checked `customerId == request.auth.uid`.
+      // It performed no validation on `type`, `deltaTotal`, or other fields —
+      // an approved customer could write an adjustment with type: 'increase' and
+      // deltaTotal: 99999, polluting the unpaid-orders view and potentially
+      // triggering erroneous credit calculations on the admin side.
+      // Fix: restrict `type` to the two allowed values and require delta fields
+      // to be non-negative numbers so increases cannot be fabricated.
+      //
+      // FIX T2R7-H1 (HIGH — fake balance increase): The H4 fix above narrowed
+      // the field set but the comment "increases cannot be fabricated" was
+      // wrong — customers could still write `type: 'increase'` with
+      // `deltaTotal: 99999`, fabricating an unpaid balance against themselves
+      // (unusual but possible) OR, more concerning, against the admin's view
+      // (the unpaid-orders dashboard would inflate).  Currently no client
+      // code actually writes to this collection (verified via grep), so this
+      // is a latent privilege-escalation primitive that becomes exploitable
+      // the moment any code starts using the collection.
+      //
+      // Fix: customers can only create `type: 'decrease'` adjustments —
+      // representing customer-facing credits/cancellations.  `type: 'increase'`
+      // (additional charges) must come from admins only.  Server-side CFs
+      // (which use Admin SDK) bypass these rules and continue to work.
+      allow create: if isAnyAdmin() ||
+                       (isAuthenticated() && 
+                        isApproved() &&
+                        request.resource.data.customerId == request.auth.uid &&
+                        request.resource.data.type == 'decrease' &&
+                        request.resource.data.deltaTotal is number &&
+                        request.resource.data.deltaTotal >= 0 &&
+                        request.resource.data.deltaSubtotal is number &&
+                        request.resource.data.deltaSubtotal >= 0);
+      
+      // Customers can update their own adjustment payment info
+      // Admins can update any adjustment
+      allow update: if isAuthenticated() &&
+                       (
+                         (resource.data.customerId == request.auth.uid && 
+                          isApproved() &&
+                          request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['paid', 'invoiceNumber', 'transferPassword']))
+                         ||
+                         isAnyAdmin()
+                       );
+      
+      // Only admins can delete adjustments
+      allow delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // AUDIT LOGS COLLECTION (Immutable event log)
+    // ============================================================================
+    // Schema: auditLogs/{logId}
+    //   - orderId: string
+    //   - customerId: string
+    //   - action: string
+    //   - userId: string
+    //   - timestamp: timestamp
+    //   - details: object
+    // ============================================================================
+    
+    match /auditLogs/{logId} {
+      // Only admins can read audit logs
+      allow read: if isAnyAdmin();
+      
+      // FIX BUG 4: Was isAuthenticated() — any Firebase Auth user could pollute audit trail.
+      // FIX R10-S2-F25: Audit logs are admin-managed records with regulatory weight.
+      // Tightened to require either admin OR a matching userId field bound to the caller,
+      // preventing customer-side pollution of admin-readable audit trails.
+      allow create: if isAnyAdmin() ||
+                       (isAuthenticated() && isApproved() &&
+                        request.resource.data.keys().hasAll(['userId']) &&
+                        request.resource.data.userId == request.auth.uid);
+      
+      // Audit logs are immutable - no updates or deletes
+      allow update, delete: if false;
+    }
+    
+    // ============================================================================
+    // ORDER EVENTS (Nested audit trail under orders)
+    // ============================================================================
+    // Schema: orders/{orderId}/events/{eventId}
+    //   - action: string
+    //   - userId: string
+    //   - timestamp: timestamp
+    //   - details: object
+    // ============================================================================
+    
+    match /orders/{orderId}/events/{eventId} {
+      // ✅ PASS 4 (M2): Same denormalization strategy as snapshots above.
+      // Event docs should include `customerId` so the read rule can verify
+      // ownership without a parent-doc get(). Legacy fallback retained.
+      allow read: if isAuthenticated() &&
+                     (
+                       (resource.data.keys().hasAny(['customerId']) &&
+                        resource.data.customerId == request.auth.uid)
+                       ||
+                       isAnyAdmin()
+                       ||
+                       (!resource.data.keys().hasAny(['customerId']) &&
+                        get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid)
+                     );
+
+      // FIX BUG 4: Was isAuthenticated() — any Firebase Auth user could write order events.
+      // FIX R10-S2-F23: Added denormalized customerId + parent-order ownership check.
+      // Without ownership validation, any approved customer could pollute any order's
+      // event trail.  Events are immutable, so cleanup requires admin console access.
+      allow create: if isAnyAdmin() ||
+                       (isAuthenticated() && isApproved() &&
+                        request.resource.data.customerId == request.auth.uid &&
+                        get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid);
+
+      // Events are immutable - no updates or deletes
+      allow update, delete: if false;
+    }
+    
+    // ============================================================================
+    // ANALYTICS COLLECTION
+    // ============================================================================
+    // Schema: analytics/{document}
+    //   - Various analytics data
+    // ============================================================================
+    
+    match /analytics/{document=**} {
+      // Only admins can read/write analytics
+      allow read, write: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // REGISTRATION REQUESTS (Optional - for pre-approval workflow)
+    // ============================================================================
+    // Schema: registrationRequests/{requestId}
+    //   - email: string
+    //   - storeName: string
+    //   - status: 'pending' | 'approved' | 'rejected'
+    // ============================================================================
+    
+    match /registrationRequests/{requestId} {
+      // FIX L1: Previous rule matched on `request.auth.token.email` which is
+      // not always reliably set or stable across auth providers. Bind to UID
+      // by storing customerUid on the request document; admins still see all.
+      allow read: if isAuthenticated() && 
+                     ((resource.data.customerUid == request.auth.uid) || isAnyAdmin());
+      
+      // FIX BUG 6: Was `if true` — unauthenticated bots could flood registration queue.
+      // New accounts are created via Firebase Auth first, then submit the request.
+      // Additional: enforce customerUid matches caller's auth uid on create.
+      allow create: if isAuthenticated() &&
+                       request.resource.data.customerUid == request.auth.uid;
+      
+      // Only admins can update/delete registration requests
+      allow update, delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // CREDIT NOTES COLLECTION
+    // ============================================================================
+    match /creditNotes/{noteId} {
+      allow read: if isAuthenticated() && 
+                     ((resource.data.customerId == request.auth.uid && isApproved()) || 
+                      isAnyAdmin());
+      // ✅ PASS 2: Customer writes DENIED. The applyOrderCredit Cloud Function
+      // (Admin SDK) is now the sole legitimate writer for the
+      // remainingBalance / status / appliedToOrders fields. Pass 1's
+      // direction-of-change rule is no longer needed because customers cannot
+      // write at all.
+      //
+      // Admins can still create / update / delete via the rule below — this
+      // is needed for issuing credit notes from the admin UI, manual
+      // adjustments, and refund payout marking. All admin writes are subject
+      // to the existing audit logging.
+      //
+      // Anyone trying to apply credit via direct client writes will now hit
+      // permission-denied. Use the applyOrderCredit Cloud Function instead.
+      allow create, update, delete: if isAnyAdmin();
+    }
+    
+    match /creditApplicationHistory/{historyId} {
+      allow read: if isAuthenticated() && 
+                     ((resource.data.customerId == request.auth.uid && isApproved()) || 
+                      isAnyAdmin());
+      // FIX T2R7-C2 (CRITICAL — audit-trail integrity / fake credit application):
+      // Previous rule allowed any approved customer to write history entries
+      // with only customerId + amount validation.  A malicious customer could
+      // direct-write fake "I applied $99,999.99 of credit on order X" entries
+      // — without actually deducting from creditNotes (they can't write
+      // creditNotes per the Pass 2 rule above).  Admin reviewing the credit
+      // ledger sees inflated history that doesn't reconcile against actual
+      // deductions, triggering false refunds, CRA report errors, or wasted
+      // investigation time.
+      //
+      // Post-Pass-2 design: applyOrderCredit Cloud Function (Admin SDK) is
+      // the SOLE legitimate writer.  Server writes include `appliedNotes`
+      // (array of { id, amountUsed, newBalance } from the actual deductions)
+      // and `appliedAt` server-timestamp.  Customers have no need to write
+      // here directly.
+      //
+      // Fix: deny customer writes entirely. Admin SDK writes (CF) bypass
+      // these rules. The legacy client-side fallback in
+      // services/creditService.ts:237 will see permission-denied and the
+      // try/catch already labels that path as "non-fatal audit trail" —
+      // failing silently is acceptable because the actual credit deduction
+      // (the creditNotes write) is what matters for correctness.
+      allow create: if isAnyAdmin();
+      allow update, delete: if isAnyAdmin();
+    }
+    
+    match /orderEditHistory/{historyId} {
+      allow read: if isAuthenticated() && 
+                     ((resource.data.customerId == request.auth.uid && isApproved()) || 
+                      isAnyAdmin());
+      // FIX BUG 4: Was isAuthenticated() — now requires approved status
+      // FIX R7-S1-F18 cluster: Added customerId binding so customers cannot pollute
+      // other customers' edit history.
+      allow create: if isAnyAdmin() ||
+                       (isAuthenticated() && isApproved() &&
+                        request.resource.data.customerId == request.auth.uid);
+      allow update, delete: if isAnyAdmin();
+    }
+    
+    // ============================================================================
+    // LEGACY - USERS COLLECTION (DEPRECATED)
+    // ============================================================================
+    // This collection is deprecated. Use customers/{uid} instead.
+    // All access denied to force migration to new schema.
+    // ============================================================================
+    
+    match /users/{userId} {
+      // Deprecated collection - all access denied
+      allow read, write: if false;
+    }
+    
+    // ============================================================================
+    // ID COUNTERS COLLECTION (Server-side only)
+    // ============================================================================
+    // Schema: idCounters/{PREFIX}-{YYYY}-{MM}-{DD}
+    // e.g. idCounters/DBH-2026-03-26 (daily invoice counter)
+    //      idCounters/ORD-2026-03-26 (daily order counter)
+    //      idCounters/CUST-2026-03-26 (daily customer counter)
+    // Counter resets automatically each day (new document per day)
+    //   - lastSequence, yearlyCounters: {year: count}
+    // Used by client-side atomic transactions for sequential IDs (orders, customers, invoices)
+    // Transactions are atomic — safe for concurrent client writes
+    // ============================================================================
+    
+    match /idCounters/{counterId} {
+      // FIX H2 (HIGH): Previous rule allowed any approved customer to read AND
+      // write counter documents. A malicious customer could:
+      //   - Set lastNumber to 999999, causing massive gaps in invoice/order
+      //     numbering (GST regulators expect contiguous sequences)
+      //   - Decrement lastNumber, causing duplicate IDs to be generated
+      // New rule denies all client writes. The Cloud Function `generateId`
+      // uses Admin SDK and bypasses these rules, which is the only legitimate
+      // writer. Reads are restricted to admin (audit/monitoring use only).
+      //
+      // ⚠️ MIGRATION NOTE: idCounterService.ts has a "direct Firestore transaction
+      // fallback" that writes to this collection from the client when the Cloud
+      // Function is unreachable. After deploying this rule, that fallback will
+      // throw permission-denied. The fallback must be removed (use Cloud Function
+      // exclusively) or replaced with a different fallback strategy.
+      allow read: if isAnyAdmin();
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // STATUS CHANGE AUDITS (FIX H5)
+    // ============================================================================
+    // Schema: statusChangeAudits/{auditId}
+    //   - orderId, customerId, fromStatus, toStatus, transitionType
+    //   - adminEmail, reason, timestamp, flagged, sideEffects
+    // ============================================================================
+    // FIX H5: Force-status-change audit records were previously saved only to
+    // localStorage — wiped on cache clear or device change. Now written to
+    // Firestore so the audit trail for emergency status overrides is durable.
+    match /statusChangeAudits/{auditId} {
+      allow read: if isAnyAdmin();
+      allow create: if isAnyAdmin();
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // PAYMENT AUDIT LOGS (FIX C4)
+    // ============================================================================
+    // Schema: payment_audit_logs/{logId}
+    //   - action: 'PAYMENT_CONFIRMED' | 'PAYMENT_REJECTED' | 'BULK_CONFIRMATION' | 'SUSPICIOUS_ACTIVITY'
+    //   - orderId: string | string[]
+    //   - adminEmail: string
+    //   - adminName: string
+    //   - timestamp: string
+    //   - amount: number (optional)
+    //   - ip: string (optional)
+    //   - userAgent: string (optional)
+    // ============================================================================
+    // FIX C4: This collection was written to by paymentSecurity.ts but had NO
+    // Firestore rule — Firestore denies writes to unlisted collections by default.
+    // Every audit log write silently failed (caught and swallowed), meaning there
+    // was NO payment audit trail in production whatsoever.
+    // Fix: admins write audit records; only admins can read them (compliance).
+    match /payment_audit_logs/{logId} {
+      allow read: if isAnyAdmin();
+      allow create: if isAnyAdmin();
+      // Audit records are immutable — no updates or deletes
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // SECURITY ALERTS (FIX C4)
+    // ============================================================================
+    // Schema: security_alerts/{alertId}
+    //   - type: 'RAPID_CONFIRMATIONS' | 'LARGE_BULK_CONFIRMATION'
+    //   - adminEmail: string
+    //   - count: number (optional)
+    //   - orderCount: number (optional)
+    //   - timestamp: timestamp
+    //   - severity: 'HIGH' | 'MEDIUM' | 'LOW'
+    // ============================================================================
+    // FIX C4: Same as payment_audit_logs — no rule existed so all writes failed.
+    match /security_alerts/{alertId} {
+      allow read: if isAnyAdmin();
+      allow create: if isAnyAdmin();
+      // Security alert records are immutable
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // VOIDED INVOICES — Gap detection audit log (Fix 4)
+    // ============================================================================
+    // Schema: voidedInvoices/{invoiceNumber}
+    //   Document ID = invoiceNumber (e.g. "DBH-2026-03-26-001-47")
+    //   Immutable after creation — audit records cannot be altered.
+    // ============================================================================
+
+    match /voidedInvoices/{invoiceNumber} {
+      // Admins can read the full void log for audit/CRA reports
+      allow read: if isAnyAdmin();
+      // FIX BUG 4: Was isAuthenticated() — void records written on order cancel by approved users
+      // FIX R7-S2-F24: Voided invoices are CRA-relevant audit records.  Customer creation
+      // is too permissive — anyone can pollute the void register with fake invoice numbers.
+      // Restricted to admin OR customers whose customerId matches the document field.
+      allow create: if isAnyAdmin() ||
+                       (isAuthenticated() && isApproved() &&
+                        request.resource.data.keys().hasAll(['customerId']) &&
+                        request.resource.data.customerId == request.auth.uid);
+      // Void records are immutable — no updates or deletes
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // RATE LIMITS COLLECTION (FIX BUG 3 — Firestore-backed rate limiting)
+    // ============================================================================
+    // Schema: rateLimits/{orderId}
+    //   - attempts: number
+    //   - lastAttempt: number (Unix ms)
+    //   - lockedUntil: number | null (Unix ms)
+    // Written by paymentSecurity.ts to replace the in-memory Map that reset on refresh.
+    // ============================================================================
+
+    match /rateLimits/{orderId} {
+      // FIX H1 (HIGH): Previous rule allowed any approved customer to read or write
+      // ANY order's rate-limit doc, since the path was keyed by orderId only.
+      // A malicious customer could lock another customer's order out of payment
+      // confirmation, OR reset their own lockout by deleting the doc.
+      // New rule binds writes to the customer who owns the rate-limit doc.
+      // paymentSecurity.ts must include `customerId: auth.currentUser.uid` when
+      // creating the doc, and never modify another user's customerId field.
+      allow read: if isAnyAdmin() ||
+                     (isAuthenticated() && isApproved() &&
+                      resource != null &&
+                      resource.data.customerId == request.auth.uid);
+      // Create: must include customerId matching caller
+      allow create: if isAnyAdmin() ||
+                       (isAuthenticated() && isApproved() &&
+                        request.resource.data.customerId == request.auth.uid);
+      // Update: caller must own the existing doc; customerId immutable
+      allow update: if isAnyAdmin() ||
+                       (isAuthenticated() && isApproved() &&
+                        resource.data.customerId == request.auth.uid &&
+                        request.resource.data.customerId == resource.data.customerId);
+      // Delete: only admin (customers cannot self-clear their lockout)
+      allow delete: if isAnyAdmin();
+    }
+  }
+}

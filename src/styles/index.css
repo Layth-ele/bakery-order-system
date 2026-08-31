@@ -1,0 +1,131 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * BAKERY ORDER MANAGEMENT SYSTEM - GLOBAL STYLES
+ * ═══════════════════════════════════════════════════════════════
+ * 
+ * Main entry point for all application styles.
+ * 
+ * Import order matters:
+ * 1. Globals (Tailwind + Theme + Tokens + Brand Colors + Modals)
+ * 
+ * Usage in your app entry point:
+ * import '@/styles/index.css';
+ * 
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+/* ───────────────────────────────────────────────────────────────
+   GLOBALS - Everything is imported via globals.css
+   ─────────────────────────────────────────────────────────────── */
+
+@import './globals.css';
+
+/* ───────────────────────────────────────────────────────────────
+   UNIQUE ANIMATIONS (not in animations.css)
+   ─────────────────────────────────────────────────────────────── */
+
+/* Bounce animation - USED in CreditReceivedModal, HomePage */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(-5%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 1.5s infinite;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   HARDWARE ACCELERATION
+   ─────────────────────────────────────────────────────────────── */
+
+.hw-accelerate {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   CUSTOM SCROLLBAR (for dropdowns, notifications, etc.)
+   ─────────────────────────────────────────────────────────────── */
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(212, 165, 116, 0.1);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(212, 165, 116, 0.5);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 165, 116, 0.8);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   DATE INPUT STYLING (white calendar icon)
+   ─────────────────────────────────────────────────────────────── */
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.5);
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-datetime-edit {
+  cursor: pointer;
+}
+
+input[type="date"] {
+  cursor: pointer;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   ORDER PAGE CSS GRID LAYOUT
+   ─────────────────────────────────────────────────────────────── */
+
+/* Smooth scrolling for the products table section */
+.order-page-products-section {
+  overflow: hidden; /* Prevents content from breaking out of grid cell */
+  contain: layout style; /* Performance optimization */
+}
+
+/* Week section - collapsible height */
+.order-page-week-section {
+  contain: layout style;
+}
+
+/* Categories section - fixed height */
+.order-page-categories-section {
+  contain: layout style;
+}
+
+/* Ensure products table scrolls smoothly */
+.products-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.products-table tbody {
+  display: table-row-group;
+}
+
+.products-table tr {
+  display: table-row;
+}
+
+.products-table td {
+  display: table-cell;
+  vertical-align: middle;
+}

@@ -1,0 +1,157 @@
+/* ═══════════════════════════════════════════════════════════════
+   CENTRALIZED Z-INDEX SYSTEM
+   ═══════════════════════════════════════════════════════════════
+   
+   ✅ Single source of truth for all z-index values
+   ✅ Prevents stacking context conflicts
+   ✅ Clear hierarchy from base to critical UI
+   
+   🚨 RULE: ALWAYS use these CSS variables, NEVER hardcode z-index
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LAYER 1: BASE CONTENT (0-9)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --z-base: 0;                    /* Default page content */
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LAYER 2: STICKY UI (10-49)
+     Sticky headers, footers, table elements
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --z-sticky-footer: 10;          /* Sticky table footers */
+  --z-sticky-header: 20;          /* Sticky table headers, modal headers */
+  --z-sticky-table-header: 25;    /* Sticky table <thead> within scrollable content */
+  --z-sticky-filters: 30;         /* Sticky category filters + table header */
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LAYER 3: NAVIGATION (50-99)
+     Top navigation, sidebars, main header
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --z-sidebar: 50;                /* Sidebar navigation panels */
+  --z-header: 60;                 /* Main app header (DashboardHeaderWithNav) */
+  --z-summary-panel: 70;          /* Order summary panel (desktop/mobile) */
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LAYER 4: DROPDOWNS & POPOVERS (1000-1999)
+     Dropdown menus, tooltips, popovers
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --z-dropdown: 1000;             /* Dropdown menus */
+  --z-tooltip: 1100;              /* Tooltips */
+  --z-popover: 1200;              /* Popovers, navigation menus */
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LAYER 5: NOTIFICATIONS & ERRORS (2000-2999)
+     Toast notifications, validation errors, offline banners
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --z-validation-error: 2000;     /* Validation error banners */
+  --z-offline-banner: 2100;       /* Offline/online notifications */
+  --z-toast: 2200;                /* Toast notifications */
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LAYER 6: MODALS & OVERLAYS (10000-19999)
+     Modal dialogs, backdrops, loading overlays
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --z-modal-backdrop: 10000;      /* Modal background overlays */
+  --z-modal-content: 10001;       /* Modal content (above backdrop) */
+  --z-loading-overlay: 10100;     /* Loading spinners, "Submitting Order..." */
+  --z-alert-backdrop: 10200;      /* AlertContext backdrop */
+  --z-alert-content: 10201;       /* AlertContext modal content */
+  
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LAYER 7: STACKED MODALS (20000+)
+     For modals that need to stack on top of other modals
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --z-modal-base: 20000;          /* Base for ModalRoot stacking (increments by 10) */
+  --z-notification-bell: 25000;   /* Notification bell dropdown */
+  
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LAYER 8: SYSTEM CRITICAL (100000+)
+     Highest priority UI that must ALWAYS be on top
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --z-toast-max: 100000;          /* System toasts (above all modals) */
+  --z-notification-portal: 100100; /* Notification portal */
+  --z-skip-link: 100200;          /* Accessibility skip links */
+  --z-dev-tools: 100300;          /* Development/debug overlays */
+  --z-emergency: 2147483647;      /* MAXIMUM z-index (int32 max) - emergency only */
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITY CLASSES
+   ═══════════════════════════════════════════════════════════════ */
+
+.z-sticky-footer { z-index: var(--z-sticky-footer); }
+.z-sticky-header { z-index: var(--z-sticky-header); }
+.z-sticky-table-header { z-index: var(--z-sticky-table-header); }
+.z-sticky-filters { z-index: var(--z-sticky-filters); }
+.z-sidebar { z-index: var(--z-sidebar); }
+.z-header { z-index: var(--z-header); }
+.z-summary-panel { z-index: var(--z-summary-panel); }
+.z-dropdown { z-index: var(--z-dropdown); }
+.z-tooltip { z-index: var(--z-tooltip); }
+.z-popover { z-index: var(--z-popover); }
+.z-validation-error { z-index: var(--z-validation-error); }
+.z-offline-banner { z-index: var(--z-offline-banner); }
+.z-toast { z-index: var(--z-toast); }
+.z-modal-backdrop { z-index: var(--z-modal-backdrop); }
+.z-modal-content { z-index: var(--z-modal-content); }
+.z-loading-overlay { z-index: var(--z-loading-overlay); }
+.z-alert-backdrop { z-index: var(--z-alert-backdrop); }
+.z-alert-content { z-index: var(--z-alert-content); }
+.z-modal-base { z-index: var(--z-modal-base); }
+.z-notification-bell { z-index: var(--z-notification-bell); }
+.z-toast-max { z-index: var(--z-toast-max); }
+.z-notification-portal { z-index: var(--z-notification-portal); }
+.z-skip-link { z-index: var(--z-skip-link); }
+.z-dev-tools { z-index: var(--z-dev-tools); }
+.z-emergency { z-index: var(--z-emergency); }
+
+/* ═══════════════════════════════════════════════════════════════
+   Z-INDEX HIERARCHY VISUALIZATION
+   ═══════════════════════════════════════════════════════════════
+   
+   📊 STACKING ORDER (bottom to top):
+   
+   🔸 Layer 1: Base Content (0)
+   └─ Regular page content
+   
+   🔸 Layer 2: Sticky UI (10-49)
+   ├─ Sticky table footers: 10
+   ├─ Sticky modal headers: 20
+   ├─ Sticky table <thead> within scrollable content: 25
+   └─ Sticky category filters + table headers: 30
+   
+   🔸 Layer 3: Navigation (50-99)
+   ├─ Sidebar: 50
+   ├─ Main header: 60
+   └─ Order summary panel: 70
+   
+   🔸 Layer 4: Dropdowns & Popovers (1000-1999)
+   ├─ Dropdown menus: 1000
+   ├─ Tooltips: 1100
+   └─ Popovers: 1200
+   
+   🔸 Layer 5: Notifications & Errors (2000-2999)
+   ├─ Validation errors: 2000
+   ├─ Offline banners: 2100
+   └─ Toast notifications: 2200
+   
+   🔸 Layer 6: Modals & Overlays (10000-19999)
+   ├─ Modal backdrop: 10000
+   ├─ Modal content: 10001
+   ├─ Loading overlay: 10100
+   ├─ Alert backdrop: 10200
+   └─ Alert content: 10201
+   
+   🔸 Layer 7: Stacked Modals (20000+)
+   ├─ Modal base (ModalRoot): 20000 (+10 per modal)
+   └─ Notification bell: 25000
+   
+   🔸 Layer 8: System Critical (100000+)
+   ├─ System toasts: 100000
+   ├─ Notification portal: 100100
+   ├─ Skip links: 100200
+   ├─ Dev tools: 100300
+   └─ Emergency UI: 2147483647 (MAX)
+   
+   ═══════════════════════════════════════════════════════════════ */

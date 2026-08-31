@@ -1,0 +1,162 @@
+{
+  "//": "PASS 11 — Audit results: every where()+orderBy() pair in src/ now has a matching composite index here. Dead/mismatched-field indexes have been replaced with ones that match the actual queries.",
+  "indexes": [
+    {
+      "//": "Customer's order history — used by customer dashboard and admin order detail",
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Status-filtered orders — admin tabs (pending, approved, in_process, etc.). Also used by getActiveOrders('status' in [...]) and paidOrderLifecycleService.",
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Customer + status filter — used for 'my pending orders' style queries",
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "PASS 11 REPLACED dead [paymentReceived ASC, status ASC] index. No client query used it. The intended behaviour (find paid orders ready to auto-complete) is currently done client-side: getOrders({status: ['pending','approved','in_process']}).filter(o => o.paymentReceived). Adding this composite makes a future server-side filter free.",
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "paymentReceived", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "PASS 11 FIXED — products query uses categoryId, not category. Old index referenced a field that doesn't exist on the schema (see src/schemas/product/product.schema.ts:53 — field is `categoryId`). Sort order kept on `name` so admin product list can sort alphabetically within a category if/when a server-side sort is added (today the call site sorts client-side).",
+      "collectionGroup": "products",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "categoryId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "PASS 11 ADDED — products `available` flag, used by getAvailableProducts. Single-field where so Firestore would auto-create this, but pinning it here prevents the 'building index...' delay first time the customer dashboard loads in a fresh project.",
+      "collectionGroup": "products",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "available", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Available credit notes for a customer — used by applyOrderCredit FIFO",
+      "collectionGroup": "creditNotes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Customer's full credit history",
+      "collectionGroup": "creditNotes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Customer list filtered by status — admin pending/approved tabs",
+      "collectionGroup": "customers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "PASS 4: Customer's invoice history — getInvoicesByCustomerId",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "PASS 11 FIXED — invoices store the field as `invoiceStatus`, not `status`. Old index used `status`, which doesn't exist on the invoice schema, so getInvoicesByStatus would have hit failed-precondition the first time it was called against a real Firestore. Field name now matches src/services/data/invoicesDataService.ts:292.",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "invoiceStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "PASS 11 ADDED — getInvoicesByYearMonth(yearMonth). Used by admin monthly financial reports.",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "yearMonth", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "PASS 11 ADDED — getInvoicesByWeekKey(weekKey). Used by WeeklyInvoices admin view.",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "weekKey", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Customer's credit application history",
+      "collectionGroup": "creditApplicationHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerId", "order": "ASCENDING" },
+        { "fieldPath": "appliedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "PASS 11 ADDED — getOrderEditHistory(orderId) and subscribeToOrderEditHistory. Both query orderEditHistory by orderId and orderBy editedAt DESC. Used by admin paid-order-edit modal and invoice display.",
+      "collectionGroup": "orderEditHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orderId", "order": "ASCENDING" },
+        { "fieldPath": "editedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Payment audit logs — admin compliance review and getRecentAuditLogs in paymentSecurity. Range query on createdAt is supported because the orderBy is on the same field.",
+      "collectionGroup": "payment_audit_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "adminEmail", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Status change audit trail per order",
+      "collectionGroup": "statusChangeAudits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orderId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

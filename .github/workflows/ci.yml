@@ -1,0 +1,133 @@
+# Pass 8: Continuous Integration
+#
+# Runs on every push to main and every PR. Pulls together the strictness
+# work from Passes 5–6 and the rules tightening from Passes 1–4 into
+# automated guardrails — code that doesn't typecheck, build, or pass
+# rules tests can't merge.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Main app: typecheck under full strict mode (Pass 6) + Vite production build
+  # ─────────────────────────────────────────────────────────────────────────
+  app:
+    name: App typecheck + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: TypeScript strict typecheck
+        run: npx tsc --noEmit
+
+      - name: Production build (verifies Pass 3 chunk graph)
+        run: npm run build
+
+      - name: Verify customer first-load size budget
+        # Pass 3 measured customer first-load at ~469 KB gzipped.
+        # Fail if a regression pushes it over 600 KB.
+        run: |
+          set -euo pipefail
+          CUSTOMER_CHUNKS="index react-vendor firebase-auth firebase-core firebase-firestore radix icons tanstack utils forms vendor"
+          TOTAL=0
+          for prefix in $CUSTOMER_CHUNKS; do
+            for f in dist/assets/${prefix}-*.js; do
+              [ -f "$f" ] || continue
+              SZ=$(gzip -c "$f" | wc -c)
+              TOTAL=$((TOTAL + SZ))
+            done
+          done
+          KB=$((TOTAL / 1024))
+          echo "Customer first-load: ${KB} KB gzipped"
+          if [ "$KB" -gt 600 ]; then
+            echo "::error::Customer first-load (${KB} KB) exceeds 600 KB budget"
+            exit 1
+          fi
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Cloud Functions: separate package, separate typecheck
+  # ─────────────────────────────────────────────────────────────────────────
+  functions:
+    name: Cloud Functions typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'src/functions/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: src/functions
+        run: npm ci
+
+      - name: TypeScript build
+        working-directory: src/functions
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Firestore rules tests — verify Pass 1's hardening hasn't regressed
+  # ─────────────────────────────────────────────────────────────────────────
+  rules-tests:
+    name: Firestore rules tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Setup Java (required by Firestore emulator)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Run rules tests
+        run: npm run test:rules
+        env:
+          FIRESTORE_EMULATOR_HOST: localhost:8080
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Dependency audit — surface known CVEs in production deps
+  # ─────────────────────────────────────────────────────────────────────────
+  audit:
+    name: Dependency security audit
+    runs-on: ubuntu-latest
+    continue-on-error: true # advisory only; don't block PRs on transitives
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

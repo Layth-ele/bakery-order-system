@@ -1,0 +1,95 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Admin check via Firestore customerType field
+    // FIX BUG 1: Was isAuthenticated() — any logged-in user was treated as admin.
+    // Now performs an actual Firestore lookup to confirm customerType == 'admin'.
+    function isAdmin() {
+      return isAuthenticated() &&
+        firestore.get(/databases/(default)/documents/customers/$(request.auth.uid))
+          .data.customerType == 'admin';
+    }
+
+    function isOwner(customerId) {
+      return isAuthenticated() && request.auth.uid == customerId;
+    }
+
+    function isValidImage() {
+      return request.resource.size < 10 * 1024 * 1024 &&
+             request.resource.contentType.matches('image/.*');
+    }
+
+    // Payment proofs uploaded by customers
+    match /payment-proofs/{customerId}/{fileName} {
+      allow create: if isOwner(customerId) && isValidImage();
+      // FIX R1-S1-F11 (CRITICAL): Was `if isAuthenticated()` — any logged-in customer
+      // could read every other customer's payment proofs (which contain bank account
+      // info, e-transfer screenshots, cheque images = PIPEDA-protected PII).
+      // Restricted to owner OR admin.
+      allow read:   if isOwner(customerId) || isAdmin();
+      allow update: if isOwner(customerId) && isValidImage();
+      // FIX BUG 4 (HIGH): Was `if isAuthenticated()` — any logged-in user could
+      // delete another customer's payment proof, destroying audit evidence.
+      // Restricted to admin-only: payment proofs are submitted receipts and must
+      // be treated as immutable from the customer side once uploaded.
+      allow delete: if isAdmin();
+    }
+
+    // Product images — only admins can write (admin check is via Firestore lookup above)
+    match /products/{fileName} {
+      allow read:                   if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Product images in subdirectories
+    match /products/{allPaths=**} {
+      allow read:                   if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // FIX R8-S6-F35: Category images (storageService.uploadCategoryImage writes to
+    // /categories/* but no rule existed, so all category uploads silently failed).
+    match /categories/{fileName} {
+      allow read:                   if true;
+      allow create, update, delete: if isAdmin() && isValidImage();
+    }
+
+    match /categories/{allPaths=**} {
+      allow read:                   if true;
+      allow create, update, delete: if isAdmin() && isValidImage();
+    }
+
+    // Customer profile photos
+    match /profiles/{customerId}/{fileName} {
+      allow create, update: if isOwner(customerId) && isValidImage();
+      // FIX R10: Same cross-tenant read leak as payment-proofs.  Restricted to
+      // owner OR admin.  (Profile photos may contain identifying images of staff,
+      // children, etc. — not appropriate for cross-customer visibility.)
+      allow read:           if isOwner(customerId) || isAdmin();
+      allow delete:         if isAdmin();
+    }
+
+    // Customer invoice PDFs
+    match /invoices/{customerId}/{fileName} {
+      allow read:          if isOwner(customerId) || isAdmin();
+      allow create, update: if isAdmin();
+      allow delete:         if isAdmin();
+    }
+
+    // Admin-only exports
+    match /exports/{type}/{fileName} {
+      allow read, write: if isAdmin();
+    }
+
+    // Deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

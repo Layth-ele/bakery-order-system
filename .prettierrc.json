@@ -1,0 +1,11 @@
+{
+  "//": "Pass 8: Prettier config matching the existing code style. The codebase mixes single-quote and double-quote strings; this picks single + JSX double to match the dominant pattern. Run `npm run format` to apply.",
+  "semi": true,
+  "singleQuote": true,
+  "jsxSingleQuote": false,
+  "trailingComma": "es5",
+  "tabWidth": 2,
+  "printWidth": 100,
+  "arrowParens": "always",
+  "endOfLine": "lf"
+}

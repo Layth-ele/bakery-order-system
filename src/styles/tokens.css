@@ -1,0 +1,244 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * DESIGN TOKENS - Brand Colors, Spacing, Typography
+ * ═══════════════════════════════════════════════════════════════
+ * 
+ * This file contains all design tokens (CSS custom properties).
+ * These are the source of truth for colors, spacing, shadows, etc.
+ * 
+ * DO NOT use hardcoded values in components!
+ * Always reference these tokens via var(--token-name).
+ * 
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+:root {
+  /* ───────────────────────────────────────────────────────────────
+     BRAND COLORS - Black & Gold Theme
+     ─────────────────────────────────────────────────────────────── */
+  
+  /* PRIMARY BRAND COLORS - Gold/Tan Family */
+  --color-brand-gold: #D4A574;           /* Primary gold - buttons, accents, highlights */
+  --color-brand-gold-dark: #C4956A;      /* Darker gold - hover states, shadows */
+  --color-brand-gold-darker: #B89968;    /* Even darker - pressed states */
+  --color-brand-gold-darkest: #8B6F47;   /* Darkest brown-gold - borders, subtle accents */
+  --color-brand-gold-light: #E8C4A2;     /* Light gold - backgrounds, borders */
+  --color-brand-gold-lighter: #F5E9D9;   /* Lighter cream - card backgrounds */
+  --color-brand-gold-lightest: #FFF8E7;  /* Lightest cream - highlights, hover backgrounds */
+  --color-brand-tan: #e8dcc8;            /* Tan - text, headers */
+  --color-brand-cream: #FFFDF7;          /* Nearly white cream - subtle backgrounds */
+  --color-brand-beige: #FFFBF5;          /* Off-white beige - hover states */
+  
+  /* SECONDARY BRAND COLORS - Traditional Gold */
+  --color-gold-traditional: #8B6F47;     /* Traditional gold - accents, special elements */
+  --color-gold-metallic: #D4A574;        /* Metallic gold - gradients */
+  
+  /* BLACK & NEUTRAL COLORS */
+  --color-black: #000000;                /* Pure black - backgrounds */
+  --color-black-soft: #1a1a1a;           /* Soft black - gradients, cards */
+  --color-black-medium: #2c2c2c;         /* Medium black - sections */
+  --color-neutral-900: #1f1f1f;          /* Very dark gray */
+  --color-neutral-800: #2d2d2d;          /* Dark gray */
+  --color-neutral-700: #404040;          /* Medium-dark gray */
+  
+  /* TEXT COLORS */
+  --color-text-primary: #e8dcc8;         /* Primary text - headings, body */
+  --color-text-secondary: #cccccc;       /* Secondary text - descriptions */
+  --color-text-muted: #888888;           /* Muted text - placeholders, disabled */
+  --color-text-light: #eeeeee;           /* Light text on dark backgrounds */
+  --color-text-white: #ffffff;           /* White text */
+  --color-text-black: #000000;           /* Black text */
+  
+  /* ───────────────────────────────────────────────────────────────
+     STATUS COLORS - Semantic UI States
+     ─────────────────────────────────────────────────────────────── */
+  
+  /* Success (Green) */
+  --color-success: #4CAF50;              /* Success - approved, complete */
+  --color-success-dark: #45A049;         /* Success dark - hover */
+  --color-success-darker: #3d8b40;       /* Success darker - pressed */
+  --color-success-light: #81C784;        /* Success light - backgrounds */
+  
+  /* Error (Red) */
+  --color-error: #F44336;                /* Error - rejected, cancelled */
+  --color-error-dark: #D32F2F;           /* Error dark - hover */
+  --color-error-darker: #c62828;         /* Error darker - pressed */
+  --color-error-light: #EF5350;          /* Error light - backgrounds */
+  
+  /* Warning (Orange) */
+  --color-warning: #FF9800;              /* Warning - pending, alerts */
+  --color-warning-dark: #F57C00;         /* Warning dark - hover */
+  --color-warning-darker: #E65100;       /* Warning darker - pressed */
+  --color-warning-light: #FFB74D;        /* Warning light - backgrounds */
+  
+  /* Info (Blue) */
+  --color-info: #2196F3;                 /* Info - notifications, links */
+  --color-info-dark: #1976D2;            /* Info dark - hover */
+  --color-info-darker: #1565C0;          /* Info darker - pressed */
+  --color-info-light: #64B5F6;           /* Info light - backgrounds */
+  
+  /* Additional Status Colors */
+  --color-purple: #9C27B0;               /* Purple - special states */
+  --color-purple-dark: #7B1FA2;          /* Purple dark */
+  --color-cyan: #00BCD4;                 /* Cyan - accents */
+  --color-cyan-dark: #0097A7;            /* Cyan dark */
+  
+  /* ───────────────────────────────────────────────────────────────
+     BACKGROUND COLORS
+     ─────────────────────────────────────────────────────────────── */
+  
+  --color-bg-page: #000000;              /* Main page background */
+  --color-bg-page-dark: #0a0a0a;         /* Alternate page background */
+  --color-bg-card: #141414;              /* Card background */
+  --color-bg-card-hover: #1a1a1a;        /* Card hover background */
+  --color-bg-highlight: #FFF8E7;         /* Highlight background */
+  --color-bg-highlight-strong: #FFE9B3;  /* Strong highlight */
+  --color-bg-muted: #f5f5f5;             /* Muted background */
+  --color-bg-skeleton: #f0f0f0;          /* Skeleton loader */
+  
+  /* ───────────────────────────────────────────────────────────────
+     BORDER COLORS
+     ─────────────────────────────────────────────────────────────── */
+  
+  --color-border-light: #E8C4A2;         /* Light border - default */
+  --color-border-medium: #D4A574;        /* Medium border - emphasis */
+  --color-border-dark: #C4956A;          /* Dark border - strong emphasis */
+  --color-border-muted: #e0e0e0;         /* Muted border - subtle */
+  --color-border-neutral: #d0d0d0;       /* Neutral border */
+  
+  /* ───────────────────────────────────────────────────────────────
+     GRADIENT DEFINITIONS
+     ─────────────────────────────────────────────────────────────── */
+  
+  --gradient-gold: linear-gradient(135deg, var(--color-brand-gold) 0%, var(--color-brand-gold-dark) 100%);
+  --gradient-gold-reverse: linear-gradient(135deg, var(--color-brand-gold-dark) 0%, var(--color-brand-gold) 100%);
+  --gradient-black: linear-gradient(135deg, var(--color-black) 0%, var(--color-black-medium) 100%);
+  --gradient-cream: linear-gradient(135deg, var(--color-brand-gold-lightest) 0%, var(--color-brand-gold-lighter) 100%);
+  --gradient-card: linear-gradient(135deg, #ffffff 0%, var(--color-brand-cream) 100%);
+  
+  /* ───────────────────────────────────────────────────────────────
+     SHADOW DEFINITIONS
+     ─────────────────────────────────────────────────────────────── */
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-gold: 0 4px 20px rgba(212, 165, 116, 0.3);
+  --shadow-gold-strong: 0 8px 30px rgba(212, 165, 116, 0.5);
+  
+  /* ───────────────────────────────────────────────────────────────
+     SPACING SCALE
+     ─────────────────────────────────────────────────────────────── */
+  
+  --spacing-1: 0.25rem;    /* 4px */
+  --spacing-2: 0.5rem;     /* 8px */
+  --spacing-3: 0.75rem;    /* 12px */
+  --spacing-4: 1rem;       /* 16px */
+  --spacing-5: 1.25rem;    /* 20px */
+  --spacing-6: 1.5rem;     /* 24px */
+  --spacing-8: 2rem;       /* 32px */
+  --spacing-10: 2.5rem;    /* 40px */
+  --spacing-12: 3rem;      /* 48px */
+  --spacing-16: 4rem;      /* 64px */
+  
+  /* ───────────────────────────────────────────────────────────────
+     TYPOGRAPHY SCALE
+     ─────────────────────────────────────────────────────────────── */
+  
+  /* Base font sizes - Desktop (default) */
+  --font-size-xs: 0.75rem;     /* 12px */
+  --font-size-sm: 0.875rem;    /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-lg: 1.125rem;    /* 18px */
+  --font-size-xl: 1.25rem;     /* 20px */
+  --font-size-2xl: 1.5rem;     /* 24px */
+  --font-size-3xl: 1.875rem;   /* 30px */
+  --font-size-4xl: 2.25rem;    /* 36px */
+  
+  /* Font weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Line heights */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* ───────────────────────────────────────────────────────────────
+     RESPONSIVE TYPOGRAPHY VARIABLES
+     Use these for consistent sizing across devices
+     ─────────────────────────────────────────────────────────────── */
+  
+  /* Headings */
+  --text-heading-1: 2.25rem;      /* 36px desktop, 28px mobile */
+  --text-heading-2: 1.875rem;     /* 30px desktop, 24px mobile */
+  --text-heading-3: 1.5rem;       /* 24px desktop, 20px mobile */
+  --text-heading-4: 1.25rem;      /* 20px desktop, 18px mobile */
+  --text-heading-5: 1.125rem;     /* 18px desktop, 16px mobile */
+  
+  /* Body text */
+  --text-body-lg: 1.125rem;       /* 18px desktop, 16px mobile */
+  --text-body-base: 1rem;         /* 16px all devices */
+  --text-body-sm: 0.875rem;       /* 14px desktop, 13px mobile */
+  --text-body-xs: 0.75rem;        /* 12px desktop, 11px mobile */
+  
+  /* UI elements */
+  --text-button-lg: 1rem;         /* 16px desktop, 15px mobile */
+  --text-button-base: 0.875rem;   /* 14px desktop, 13px mobile */
+  --text-button-sm: 0.75rem;      /* 12px desktop, 11px mobile */
+  
+  --text-label: 0.875rem;         /* 14px desktop, 13px mobile */
+  --text-caption: 0.75rem;        /* 12px desktop, 11px mobile */
+  --text-overline: 0.625rem;      /* 10px all devices */
+  
+  /* ───────────────────────────────────────────────────────────────
+     BORDER RADIUS
+     ─────────────────────────────────────────────────────────────── */
+  
+  --radius-sm: 0.25rem;    /* 4px */
+  --radius-md: 0.375rem;   /* 6px */
+  --radius-lg: 0.5rem;     /* 8px */
+  --radius-xl: 0.75rem;    /* 12px */
+  --radius-2xl: 1rem;      /* 16px */
+  --radius-full: 9999px;   /* Fully rounded */
+  
+  /* ───────────────────────────────────────────────────────────────
+     OPACITY LEVELS
+     ─────────────────────────────────────────────────────────────── */
+  
+  --opacity-disabled: 0.5;
+  --opacity-muted: 0.6;
+  --opacity-subtle: 0.1;
+  --opacity-light: 0.2;
+  --opacity-medium: 0.3;
+  
+  /* ───────────────────────────────────────────────────────────────
+     Z-INDEX SCALE
+     ─────────────────────────────────────────────────────────────── */
+  
+  --z-base: 0;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-notification-bell: 10000;          /* Notification bells and dropdowns */
+  --z-notification-dropdown: 10010;      /* Notification dropdown menus */
+}
+
+/* ───────────────────────────────────────────────────────────────
+   DARK MODE OVERRIDES
+   ─────────────────────────────────────────────────────────────── */
+
+.dark {
+  --color-bg-page: #1a1a1a;
+  --color-bg-card: #2c2c2c;
+  --color-bg-card-hover: #333333;
+  --color-text-primary: #e8dcc8;
+  --color-text-secondary: #cccccc;
+}

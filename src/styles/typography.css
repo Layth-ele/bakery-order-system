@@ -1,0 +1,291 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * TYPOGRAPHY UTILITY CLASSES
+ * ═══════════════════════════════════════════════════════════════
+ * 
+ * Consistent typography classes using CSS variables.
+ * These classes automatically adapt to mobile screen sizes.
+ * 
+ * USAGE:
+ * Instead of: className="text-2xl"
+ * Use: className="heading-1" or style={{fontSize: 'var(--text-heading-1)'}}
+ * 
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+/* ───────────────────────────────────────────────────────────────
+   HEADING CLASSES
+   Auto-resize on mobile (defined in globals.css @media query)
+   ─────────────────────────────────────────────────────────────── */
+
+.heading-1 {
+  font-size: var(--text-heading-1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.heading-2 {
+  font-size: var(--text-heading-2);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.heading-3 {
+  font-size: var(--text-heading-3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.heading-4 {
+  font-size: var(--text-heading-4);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.heading-5 {
+  font-size: var(--text-heading-5);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   BODY TEXT CLASSES
+   ─────────────────────────────────────────────────────────────── */
+
+.body-lg {
+  font-size: var(--text-body-lg);
+  line-height: var(--line-height-relaxed);
+}
+
+.body-base {
+  font-size: var(--text-body-base);
+  line-height: var(--line-height-normal);
+}
+
+.body-sm {
+  font-size: var(--text-body-sm);
+  line-height: var(--line-height-normal);
+}
+
+.body-xs {
+  font-size: var(--text-body-xs);
+  line-height: var(--line-height-normal);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   BUTTON TEXT CLASSES
+   ─────────────────────────────────────────────────────────────── */
+
+.button-text-lg {
+  font-size: var(--text-button-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.button-text-base {
+  font-size: var(--text-button-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.button-text-sm {
+  font-size: var(--text-button-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   UI ELEMENT CLASSES
+   ─────────────────────────────────────────────────────────────── */
+
+.label-text {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+.caption-text {
+  font-size: var(--text-caption);
+  line-height: var(--line-height-normal);
+}
+
+.overline-text {
+  font-size: var(--text-overline);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  line-height: var(--line-height-normal);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   MODAL-SPECIFIC TYPOGRAPHY
+   Consistent sizing for all modals
+   ─────────────────────────────────────────────────────────────── */
+
+.modal-title {
+  font-size: var(--text-heading-2);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.modal-subtitle {
+  font-size: var(--text-body-sm);
+  line-height: var(--line-height-normal);
+  opacity: 0.8;
+}
+
+.modal-section-title {
+  font-size: var(--text-heading-4);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.modal-body-text {
+  font-size: var(--text-body-base);
+  line-height: var(--line-height-relaxed);
+}
+
+.modal-label {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   TABLE TYPOGRAPHY
+   Consistent sizing for tables across the app
+   ─────────────────────────────────────────────────────────────── */
+
+.table-header {
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: var(--line-height-normal);
+}
+
+.table-cell {
+  font-size: var(--text-body-sm);
+  line-height: var(--line-height-normal);
+}
+
+.table-cell-emphasis {
+  font-size: var(--text-body-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   CARD TYPOGRAPHY
+   Consistent sizing for card components
+   ─────────────────────────────────────────────────────────────── */
+
+.card-title {
+  font-size: var(--text-heading-3);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.card-subtitle {
+  font-size: var(--text-body-sm);
+  line-height: var(--line-height-normal);
+}
+
+.card-body {
+  font-size: var(--text-body-base);
+  line-height: var(--line-height-relaxed);
+}
+
+.card-caption {
+  font-size: var(--text-caption);
+  line-height: var(--line-height-normal);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   BADGE/TAG TYPOGRAPHY
+   ─────────────────────────────────────────────────────────────── */
+
+.badge-text {
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+.badge-text-sm {
+  font-size: var(--text-overline);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   FORM TYPOGRAPHY
+   ─────────────────────────────────────────────────────────────── */
+
+.form-label {
+  display: block;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.form-input {
+  font-size: var(--text-body-base);
+  line-height: var(--line-height-normal);
+}
+
+.form-helper {
+  font-size: var(--text-caption);
+  line-height: var(--line-height-normal);
+}
+
+.form-error {
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  color: var(--color-error);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   STAT/NUMBER DISPLAY
+   Large numbers for dashboards and analytics
+   ─────────────────────────────────────────────────────────────── */
+
+.stat-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+.stat-value-sm {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   RESPONSIVE UTILITIES
+   ─────────────────────────────────────────────────────────────── */
+
+/* Desktop-only larger text */
+@media (min-width: 769px) {
+  .desktop-heading-lg {
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+  }
+}
+
+/* Mobile-specific smaller text */
+@media (max-width: 768px) {
+  .mobile-text-compact {
+    font-size: var(--text-body-sm);
+  }
+}
