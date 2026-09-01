@@ -43,7 +43,7 @@ export interface CompleteOrderResult {
   success: boolean;
   invoiceId?: string;
   error?: string;
-  errorType?: 'already_completed' | 'validation_failed' | 'invoice_generation_failed' | 'unknown';
+  errorType?: 'already_completed' | 'validation_failed' | 'invoice_generation_failed' | 'invoice_attach_failed' | 'unknown';
 }
 
 export interface CompleteOrderOptions {

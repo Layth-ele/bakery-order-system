@@ -47,6 +47,7 @@ import {
 import type { Order } from '../types';
 import { toDate } from '../utils/timestampFormatting';
 import { displayOrderNumber } from '../utils/displayId';
+import { logger } from '../utils/logger';
 import {
   isDeliveryFeeRequired,
   qualifiesForFreeDelivery,
@@ -72,6 +73,7 @@ export interface WorkflowResult extends OrderActionResult {
  */
 export interface WorkflowAdminUser {
   email: string;
+  name?: string;
   storeName?: string;
   role: 'admin' | 'customer'; // Widened to match User type
 }

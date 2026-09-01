@@ -35,11 +35,13 @@ node index.js --skip=notifications
    
    In Firestore Console → customers → find the admin doc → update `id` to your real Firebase Auth UID.
 
-2. Set the admin custom claim for Storage rules:
-   ```js
-   // Run once via Firebase Admin SDK
-   admin.auth().setCustomUserClaims('YOUR_ADMIN_UID', { admin: true });
-   ```
+2. Update the admin customer profile in Firestore:
+   - Find the customer document for your admin UID
+   - Set `customerType: 'admin'`
+   - Set `status: 'approved'`
+   - Ensure the document ID matches the Firebase Auth UID
+
+   The app uses the Firestore `customerType` check for admin access; no custom claim is required.
 
 3. Deploy rules:
    ```bash

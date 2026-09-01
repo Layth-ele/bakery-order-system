@@ -58,6 +58,7 @@ export interface OrderActionResult {
 }
 
 export interface AdminInfo {
+  id?: string;
   email: string;
   name: string;
   storeName: string;

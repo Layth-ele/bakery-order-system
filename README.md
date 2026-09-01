@@ -285,10 +285,10 @@ firebase deploy --only hosting
 
 ## Admin Setup
 
-See `ADMIN_AUTH_MODEL.md` for the complete admin authorization model including:
-- How admin access is granted (Firestore `customerType` + custom claim)
+See `docs/admin-auth-model.md` for the complete admin authorization model including:
+- How admin access is granted from the Firestore `customerType` lookup
 - Exact steps to set up a new admin user
-- How the two auth layers (Firestore rules vs Storage rules) work together
+- How the Firestore and Storage rules work together
 
 ## Environment Variables
 

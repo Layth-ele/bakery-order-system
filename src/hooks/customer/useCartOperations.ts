@@ -165,12 +165,15 @@ export function useCartOperations(
   // shape of `cart.subtotal` is preserved for any consumers reading just
   // that field; total/gst/deliveryFee/serviceCharge are intentionally
   // omitted — callers must compute them via the canonical calculator.
-  const cartTotals = useMemo(
-    () => ({
-      subtotal: cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    }),
-    [cartItems]
-  );
+  const cartTotals = useMemo(() => {
+    const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return {
+      subtotal,
+      deliveryFee: 0,
+      serviceCharge: 0,
+      total: subtotal,
+    };
+  }, [cartItems]);
   
   // ============================================================================
   // CART OPERATIONS - useCallback for stable references

@@ -102,7 +102,7 @@ export async function confirmPaymentAction(
     // O(1) doc reads instead of O(N) collection scans.
     if (order.customerId) {
       try {
-        const { getCustomer } = await import('../customersService');
+        const { getCustomerById: getCustomer } = await import('../customersService');
         const { getOrdersByCustomer } = await import('../data/ordersDataService');
         const customer = await getCustomer(order.customerId);
         if (customer) {

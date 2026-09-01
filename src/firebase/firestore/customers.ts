@@ -187,14 +187,17 @@ export const createUserProfile = async (
     const customerId = await generateCustomerId();
 
     // ✅ SCHEMA PROTECTION: Validate input against appropriate schema
-    const schema =
+    const schema: any =
       source === 'admin-on-behalf'
         ? createCustomerInputSchema
         : createCustomerSelfRegistrationInputSchema;
-    const validatedInput = parseOrThrow(schema, customer, source === 'admin-on-behalf'
-      ? 'CreateCustomerInput (admin)'
-      : 'CreateCustomerInput (self-registration)'
-    );
+    const validatedInput = parseOrThrow(
+      schema as any,
+      customer as any,
+      source === 'admin-on-behalf'
+        ? 'CreateCustomerInput (admin)'
+        : 'CreateCustomerInput (self-registration)'
+    ) as Record<string, any>;
 
     const docRef = doc(db, 'customers', uid);
     await setDoc(docRef, {

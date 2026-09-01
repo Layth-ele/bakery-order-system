@@ -101,6 +101,7 @@ export function useOrderActions(): UseOrderActionsReturn {
         email: data.adminEmail,
         name: data.adminEmail,
         storeName: data.adminEmail || "",
+        role: 'admin' as const,
       };
 
       // Execute cancellation via service
@@ -188,7 +189,7 @@ export function useOrderActions(): UseOrderActionsReturn {
       const workflowResult = await editOrderItemsWorkflow(
         order.id || '',
         data.updatedItems,
-        { email: 'admin', name: 'Admin' /* caller hook lacks admin context here; UI passes via order edit modal */ },
+        { email: 'admin', name: 'Admin', role: 'admin' as const /* caller hook lacks admin context here; UI passes via order edit modal */ },
         {
           deliveryFee: data.deliveryFee,
           discount: data.discount,
