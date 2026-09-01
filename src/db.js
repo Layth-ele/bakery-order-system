@@ -98,8 +98,8 @@ function initializeDatabase() {
 }
 
 function resetDatabase() {
-  const connection = initializeDatabase();
-  connection.exec(`
+  initializeDatabase();
+  db.exec(`
     DROP TABLE IF EXISTS order_items;
     DROP TABLE IF EXISTS orders;
     DROP TABLE IF EXISTS products;
@@ -109,11 +109,18 @@ function resetDatabase() {
     DROP TRIGGER IF EXISTS wholesale_customers_updated_at;
   `);
 
+  db = null;
   initializeDatabase();
 }
 
+const dbProxy = new Proxy({}, {
+  get(_target, prop) {
+    return initializeDatabase()[prop];
+  },
+});
+
 module.exports = {
-  db: initializeDatabase(),
+  db: dbProxy,
   initializeDatabase,
   resetDatabase,
 };

@@ -1,7 +1,7 @@
 const { db } = require('../db');
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'in_progress', 'ready', 'delivered', 'cancelled'];
-const ORDER_CATEGORIES_WITH_STOCK = new Set(['confirmed', 'in_progress', 'ready', 'delivered']);
+const STOCK_DEDUCTED_STATUSES = new Set(['confirmed', 'in_progress', 'ready', 'delivered']);
 const STATUS_TRANSITIONS = {
   pending: ['confirmed', 'cancelled'],
   confirmed: ['in_progress', 'ready', 'cancelled'],
@@ -270,8 +270,8 @@ function updateOrderStatus(orderId, nextStatus, orderType) {
 
     ensureValidTransition(order.status, status);
 
-    const hadStockDeducted = ORDER_CATEGORIES_WITH_STOCK.has(order.status);
-    const shouldDeductStock = ORDER_CATEGORIES_WITH_STOCK.has(status);
+    const hadStockDeducted = STOCK_DEDUCTED_STATUSES.has(order.status);
+    const shouldDeductStock = STOCK_DEDUCTED_STATUSES.has(status);
 
     if (!hadStockDeducted && shouldDeductStock) {
       adjustStockForOrderItems(id, 'deduct');
@@ -296,7 +296,7 @@ function deleteRetailOrder(orderId) {
       throw createError(404, 'Order not found');
     }
 
-    if (ORDER_CATEGORIES_WITH_STOCK.has(order.status)) {
+    if (STOCK_DEDUCTED_STATUSES.has(order.status)) {
       adjustStockForOrderItems(id, 'restore');
       db.prepare("UPDATE orders SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?").run(id);
       return { action: 'cancelled' };
