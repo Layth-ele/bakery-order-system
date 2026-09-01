@@ -215,6 +215,7 @@ Possible next steps for the project include:
 - **[🤝 Contributing Guide](docs/contributing.md)** - Development workflow and standards
 - **[✅ Production Readiness](docs/production-readiness.md)** - Comprehensive go-live checklist
 - **[💼 Business Overview](docs/business-overview.md)** - Commercial value and market opportunity
+- **[🔐 Admin Authorization Model](docs/admin-auth-model.md)** - How admin access is granted and enforced
 
 ## 🤝 Contributing
 
@@ -285,7 +286,7 @@ firebase deploy --only hosting
 
 ## Admin Setup
 
-See `ADMIN_AUTH_MODEL.md` for the complete admin authorization model including:
+See [`docs/admin-auth-model.md`](docs/admin-auth-model.md) for the complete admin authorization model including:
 - How admin access is granted (Firestore `customerType` + custom claim)
 - Exact steps to set up a new admin user
 - How the two auth layers (Firestore rules vs Storage rules) work together
