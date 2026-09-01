@@ -1,222 +1,213 @@
-# 🍞 Delight Bakehouse - Professional Bakery Order Management System
+# Bakery Order Management System
 
-> A comprehensive, cloud-native order management platform designed specifically for wholesale bakery operations. Built with modern web technologies and Firebase, this system streamlines the entire bakery business workflow from customer onboarding to order fulfillment.
+A React + TypeScript web application for managing bakery wholesale orders, customer accounts, payments, invoicing, and admin operations. The platform is built around Firebase and follows a route-driven, multi-role architecture for both admin and customer workflows.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
-[![Firebase](https://img.shields.io/badge/Firebase-11.10.0-orange.svg)](https://firebase.google.com/)
-[![Vite](https://img.shields.io/badge/Vite-6.4.1-646CFF.svg)](https://vitejs.dev/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+## Overview
 
-## ✨ Key Features
+This project is a bakery business platform for:
+- customer sign-up and approval flows
+- wholesale order placement and review
+- admin approval and production tracking
+- payment status and invoice management
+- reporting and business insights
 
-### 🏪 **Complete Bakery Management**
-- **Customer Lifecycle Management**: Registration → Approval → Order Placement → Ongoing Service
-- **Order Processing**: Creation → Approval → Production → Delivery → Payment
-- **Product Catalog**: Dynamic pricing, categories, wholesale/retail tiers
-- **Payment Processing**: Credit management, payment tracking, automated invoicing
+It is designed for a bakery operating with wholesale customers, recurring orders, and internal operational workflows.
 
-### 👥 **Multi-Role Architecture**
-- **Admin Dashboard**: Full system control, analytics, customer management
-- **Customer Portal**: Self-service ordering, order history, payment management
-- **Commercial Accounts**: Bulk ordering, special pricing, dedicated support
+## Core Features
 
-### 📊 **Business Intelligence**
-- **Real-time Analytics**: Sales metrics, customer insights, order trends
-- **Financial Reporting**: Revenue tracking, payment status, credit management
-- **Operational Metrics**: Order fulfillment times, customer satisfaction
+### Customer portal
+- customer login and registration
+- account status tracking
+- order dashboard with weekly ordering workflows
+- product browsing by category and filters
+- cart and order submission
+- unpaid orders and balance tracking
+- invoice history and payment visibility
 
-### 🔧 **Technical Excellence**
-- **Type-Safe**: Full TypeScript coverage with Zod schema validation
-- **Real-time**: Live updates via Firebase subscriptions
-- **Offline-Ready**: Progressive Web App with caching
-- **Mobile-Responsive**: Optimized for all devices
-- **Cloud-Native**: Auto-scaling Firebase infrastructure
+### Admin dashboard
+- pending order review and approval
+- approved order workflow tracking
+- unpaid order monitoring
+- customer management and approval flows
+- product catalog management and pricing updates
+- system settings and configuration
+- production task view for fulfillment operations
+- weekly invoice summaries and billing data
+- analytics and reporting overview
 
-## 🚀 Quick Start
+### Business logic and operations
+- order lifecycle states from pending to approved, complete, and paid
+- delivery and service fee handling
+- customer credit and payment management
+- admin notifications and task communication
+- route-based access control for admin and customer pages
+- Firebase-backed realtime data updates
+
+### Data and validation
+- TypeScript-first development
+- Zod schema validation for orders, customers, products, and invoice data
+- Firebase Firestore integration
+- cloud function support for server-side business logic
+
+## Tech Stack
+
+- React 18
+- TypeScript
+- Vite
+- React Router
+- TanStack Query
+- Firebase (Auth, Firestore, Storage, Hosting, Cloud Functions)
+- Tailwind CSS
+- Zod validation
+- Vitest
+
+## Project Structure
+
+```text
+src/
+├── components/
+│   ├── admin/
+│   ├── customer/
+│   ├── modals/
+│   ├── order/
+│   └── shared/
+├── config/
+├── constants/
+├── contexts/
+├── firebase/
+├── functions/
+├── guards/
+├── hooks/
+├── notifications/
+├── pages/
+├── routes/
+├── schemas/
+├── services/
+├── styles/
+├── tests/
+├── types/
+├── utils/
+├── App.tsx
+├── main.tsx
+└── vite-env.d.ts
+
+public/
+├── assets/
+└── ...
+
+scripts/
+└── ...
+
+firebase.json
+firestore.rules
+firestore.indexes.json
+storage.rules
+vite.config.ts
+vitest.config.ts
+package.json
+.env.example
+```
+
+## Routes and app flow
+
+The app uses a route-driven architecture with protected pages:
+- public landing/login experience
+- admin routes for orders, customers, products, settings, analytics, and invoices
+- customer dashboard for order management and account activity
+- account status and password reset screens
+
+The route definitions live in the main router configuration under the src/routes folder.
+
+## Getting Started
 
 ### Prerequisites
-- Node.js 18+ and npm
-- Firebase project with Firestore, Auth, Storage, and Functions enabled
-- Google Cloud Platform project (for some features)
+- Node.js 18+
+- npm
+- Firebase project with Firestore, Authentication, Storage, and Hosting enabled
 
-### Installation
-
-1. **Clone and install**
-   ```bash
-   git clone <repository-url>
-   cd delight-bakehouse
-   npm install
-   ```
-
-2. **Configure Firebase**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your Firebase credentials
-   ```
-
-3. **Setup Firebase project**
-   ```bash
-   firebase use --add
-   firebase deploy --only firestore,storage
-   ```
-
-4. **Seed initial data** (optional)
-   ```bash
-   cd src/seed
-   # Add serviceAccountKey.json
-   node index.js
-   ```
-
-5. **Start development server**
-   ```bash
-   npm run dev
-   ```
-
-## 📁 Project Structure
-
-```
-src/
-├── components/         # React UI components
-│   ├── admin/          # Admin dashboard components
-│   ├── customer/       # Customer portal components
-│   ├── modals/         # Modal dialogs and forms
-│   ├── order/          # Order management components
-│   └── shared/         # Reusable UI components
-├── hooks/              # Custom React hooks
-│   ├── admin/          # Admin-specific hooks
-│   ├── useAuth.tsx     # Authentication
-│   └── useCachedFirebase.ts # Data caching
-├── services/           # Business logic layer
-│   ├── data/           # Firestore CRUD operations
-│   ├── orders/         # Order workflow logic
-│   ├── firebase/       # Firebase integrations
-│   └── analytics/      # Business intelligence
-├── schemas/            # Zod validation schemas
-├── types/              # TypeScript definitions
-├── routes/             # React Router configuration
-├── contexts/           # React Context providers
-├── utils/              # Utility functions
-└── constants/          # Application constants
-
-src/functions/          # Firebase Cloud Functions
-├── src/                # Function source code
-├── lib/                # Compiled JavaScript
-└── package.json        # Function dependencies
-```
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **React 18** - Modern React with hooks and concurrent features
-- **TypeScript 5.9** - Type-safe JavaScript with latest features
-- **Vite** - Fast build tool and dev server
-- **Tailwind CSS** - Utility-first CSS framework
-- **TanStack Query** - Powerful data fetching and caching
-- **React Router v7** - Declarative routing with data loading
-
-### Backend & Infrastructure
-- **Firebase** - Complete backend-as-a-service
-  - **Firestore** - NoSQL database with real-time capabilities
-  - **Authentication** - User management and security
-  - **Cloud Storage** - File uploads and storage
-  - **Cloud Functions** - Serverless backend logic
-  - **Hosting** - CDN deployment and SSL
-- **Zod** - Runtime type validation and schema parsing
-
-### Development & Quality
-- **Vitest** - Fast unit testing framework
-- **ESLint + Prettier** - Code quality and formatting
-- **TypeScript** - Compile-time type checking
-- **Firebase Emulator** - Local development environment
-
-## 📊 Business Features
-
-### Customer Management
-- ✅ Customer registration and approval workflow
-- ✅ Account status management (pending/approved/suspended/archived)
-- ✅ Customer types (individual/commercial/admin)
-- ✅ Contact information and delivery addresses
-- ✅ Order history and preferences
-
-### Order Management
-- ✅ Complex order creation with weekly scheduling
-- ✅ Order approval and rejection workflow
-- ✅ Payment processing and confirmation
-- ✅ Order status tracking (pending → approved → in_process → completed)
-- ✅ Cancellation and refund management
-- ✅ Automated notifications and updates
-
-### Product Management
-- ✅ Dynamic product catalog with categories
-- ✅ Wholesale vs retail pricing tiers
-- ✅ Product availability and inventory tracking
-- ✅ Custom product options and variations
-
-### Financial Management
-- ✅ Credit system for customer accounts
-- ✅ Payment tracking and confirmation
-- ✅ Automated invoice generation (PDF)
-- ✅ Financial reporting and analytics
-- ✅ GST and tax calculations
-
-### Analytics & Reporting
-- ✅ Real-time sales metrics
-- ✅ Customer behavior analytics
-- ✅ Order fulfillment tracking
-- ✅ Revenue and profit analysis
-- ✅ Custom reporting dashboards
-
-## 🔒 Security & Compliance
-
-- **Role-Based Access Control**: Admin, Customer, and Commercial user roles
-- **Firebase Security Rules**: Database and storage access control
-- **Authentication**: Secure user authentication with Firebase Auth
-- **Data Validation**: Runtime validation with Zod schemas
-- **Type Safety**: Full TypeScript coverage prevents runtime errors
-- **Audit Trail**: Complete logging of all business operations
-
-## 🚀 Deployment
-
-### Production Deployment
-```bash
-# Build for production
-npm run build
-
-# Deploy to Firebase (Firestore + Storage + Hosting + Functions)
-firebase deploy
-```
-
-### Environment Configuration
-See `.env.example` for all required environment variables including:
-- Firebase project configuration
-- Google Maps API for address autocomplete
-- Admin account settings
-
-### Firebase Project Setup
-1. Create Firebase project
-2. Enable Firestore, Authentication, Storage, Functions, Hosting
-3. Configure security rules (included in project)
-4. Set up billing for Cloud Functions
-5. Deploy Firestore indexes
-
-## 🧪 Testing
+### Install dependencies
 
 ```bash
-# Run all tests
-npm run test
+npm install
+```
 
-# Run type checking
-npm run typecheck
+### Set up environment variables
 
-# Run development server
+Copy the example file and update the values for your Firebase and admin configuration:
+
+```bash
+cp .env.example .env
+```
+
+Then populate the values for:
+- Firebase web config
+- admin email
+- Google Maps API key if needed
+
+### Start the app locally
+
+```bash
 npm run dev
-
-# Run Firebase emulators
-npm run emulators
 ```
 
-## 📚 Documentation
+The app is usually served on:
+- http://localhost:5173
+
+## Available Scripts
+
+```bash
+npm run dev          # start the dev server
+npm run build        # production build
+npm run preview      # preview production build
+npm run test         # run Vitest tests
+npm run typecheck    # TypeScript validation
+npm run lint         # ESLint check
+npm run format       # format source files
+npm run format:check # check formatting
+```
+
+## Firebase setup notes
+
+This project expects a Firebase project configured with:
+- Firestore
+- Firebase Authentication
+- Storage
+- Hosting
+- optional Cloud Functions for backend operations
+
+The app includes Firebase rules and configuration files in the project root and src/firebase folder.
+
+## Security and access model
+
+The application includes role-aware access controls for:
+- admins
+- customers
+- account-status-driven routing
+
+Sensitive configuration and runtime credentials should never be committed. Use environment variables and keep secrets out of Git.
+
+## Notes
+
+This project is structured as a real-world bakery operations platform rather than a simple demo app. The codebase includes production-style concerns such as:
+- role-based access
+- analytics pages
+- invoice generation logic
+- payment tracking
+- customer lifecycle workflows
+- operational admin tools
+
+## License
+
+This project is currently set up for local development and project use as defined by the repository owner.
+
+## Future improvements
+
+Possible next steps for the project include:
+- stronger automated tests across customer and admin flows
+- more robust invoice/export automation
+- notification and email workflow improvements
+- deployment automation and CI/CD
+- scalability tuning for larger bakery datasets
 
 - **[🚀 Deployment Guide](docs/deployment.md)** - Complete Firebase deployment instructions
 - **[⚙️ Environment Setup](docs/environment-setup.md)** - Environment configuration for dev/staging/production
