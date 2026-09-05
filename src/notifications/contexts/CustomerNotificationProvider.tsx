@@ -1,22 +1,11 @@
-/**
- * Customer Notification Context V3
- * 
- * Provides notification management for customer users.
- * Uses Firestore for real-time notifications.
- * 
- * Path: notifications/user_{customerId}/items
- * 
- * VERSION 3.3: FIXED - Corrected Firestore path to use 3 segments (valid collection)
- * LOCATION: /notifications/contexts/ (Consolidated Feb 11, 2026)
- */
-
-import {createContext, useContext, ReactNode, useState, useEffect, useMemo, useCallback} from 'react'
+import {createContext, useContext, ReactNode, useState, useEffect, useMemo, useCallback, useRef} from 'react'
 import { collection, query, onSnapshot, orderBy, Unsubscribe, Timestamp, doc, updateDoc, deleteDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/firebase/config'; // ✅ Using alias import
 import type { NotificationItem } from '@/types/notification-contract'; // ✅ Using alias import
 import { getServerTimestamp } from '@/utils/timestamps'; // ✅ TIMESTAMP FIX
 import { toDate } from '@/utils/timestampFormatting';
 import { logger } from '../../utils/logger';
+import { safeSubscribe, isExpectedFirestoreListenerError } from '../../utils/subscriptionSafety';
  // ✅ FIX: needed for numeric timestamp conversion
 
 // ============================================================================
@@ -160,6 +149,7 @@ interface CustomerNotificationProviderProps {
 
 export function CustomerNotificationProvider({ children, customerId }: CustomerNotificationProviderProps): JSX.Element | null {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const unsubscribeRef = useRef<Unsubscribe | undefined>(undefined);
   
   // 🔍 DEBUG: Log initialization
 
@@ -182,68 +172,55 @@ export function CustomerNotificationProvider({ children, customerId }: CustomerN
     
     // FIREBASE MODE
     if (isFirebaseConfigured) {
-      
       try {
-        // ✅ FIXED: Use 3-segment path (valid collection in Firestore)
-        const notificationsRef = collection(db, 'notifications', `user_${customerId}`, 'items');
-        // FIX T2R2-H7 (HIGH): Was orderBy('timestamp', 'desc'). Firestore
-        // queries with orderBy on a field silently EXCLUDE documents that
-        // don't have the field set. Legacy notifications (written before
-        // the CF added the timestamp alias) may only have `createdAt` —
-        // those would never appear in the customer's notification list.
-        // The canonical sort field is `createdAt`; the CF writes BOTH
-        // (see customers.ts:102-103, _shared.ts createCustomerNotificationServer)
-        // so switching to `createdAt` covers all cases without losing CF-written
-        // notifications.
-        const q = query(notificationsRef, orderBy('createdAt', 'desc'));
-        
-        unsubscribe = onSnapshot(
-          q,
-          (snapshot) => {
-            const items: NotificationItem[] = snapshot.docs.map(doc => {
-              const data = doc.data();
-              // Convert createdAt to ISO string for compatibility
-              let createdAtStr: string;
-              if (data.createdAt instanceof Timestamp) {
-                createdAtStr = data.createdAt.toDate().toISOString();
-              } else if (data.timestamp instanceof Timestamp) {
-                createdAtStr = data.timestamp.toDate().toISOString();
-              } else if (typeof data.createdAt === 'number') {
-                createdAtStr = (toDate(data.createdAt) ?? new Date()).toISOString();
-              } else {
-                // FIX T2R2-C9 sibling (CRITICAL): same FieldValue-sentinel
-                // fallback bug as in adaptNotificationForUI above.
-                createdAtStr = data.createdAt || new Date().toISOString();
+        const listenerKey = `customer-notifications:${customerId}`;
+        unsubscribe = safeSubscribe(listenerKey, () =>
+          onSnapshot(
+            query(collection(db, 'notifications', `user_${customerId}`, 'items'), orderBy('createdAt', 'desc')),
+            (snapshot) => {
+              const items: NotificationItem[] = snapshot.docs.map(doc => {
+                const data = doc.data();
+                let createdAtStr: string;
+                if (data.createdAt instanceof Timestamp) {
+                  createdAtStr = data.createdAt.toDate().toISOString();
+                } else if (data.timestamp instanceof Timestamp) {
+                  createdAtStr = data.timestamp.toDate().toISOString();
+                } else if (typeof data.createdAt === 'number') {
+                  createdAtStr = (toDate(data.createdAt) ?? new Date()).toISOString();
+                } else {
+                  createdAtStr = data.createdAt || new Date().toISOString();
+                }
+
+                return {
+                  id: doc.id,
+                  target: data.target || 'user',
+                  targetId: data.targetId || customerId,
+                  type: data.type,
+                  title: data.title,
+                  message: data.message,
+                  orderId: data.orderId || "",
+                  invoiceId: data.invoiceId,
+                  amount: data.amount ?? data.metadata?.amount ?? data.metadata?.creditAmount,
+                  customerId: data.customerId || data.metadata?.customerId || customerId,
+                  metadata: data.metadata || {},
+                  read: data.read ?? false,
+                  createdAt: createdAtStr,
+                  actions: data.actions || [],
+                  traceId: data.traceId || `legacy_${doc.id}`,
+                  version: data.version || 3,
+                } as any;
+              });
+              setNotifications(items);
+            },
+            (error) => {
+              if (!isExpectedFirestoreListenerError(error)) {
+                console.error('❌ Firestore listener error:', error);
               }
-              
-              return {
-                id: doc.id,
-                target: data.target || 'user',
-                targetId: data.targetId || customerId,
-                type: data.type,
-                title: data.title,
-                message: data.message,
-                orderId: data.orderId || "",
-                invoiceId: data.invoiceId,
-                amount: data.amount ?? data.metadata?.amount ?? data.metadata?.creditAmount,
-                // ✅ FIX: Map customerId so resolveCreditReceivedProps can find it
-                customerId: data.customerId || data.metadata?.customerId || customerId,
-                // ✅ FIX: Pass through metadata so resolvers can access all fields
-                metadata: data.metadata || {},
-                read: data.read ?? false,
-                createdAt: createdAtStr,
-                actions: data.actions || [],
-                traceId: data.traceId || `legacy_${doc.id}`,
-                version: data.version || 3,
-              } as any;
-            });
-            setNotifications(items);
-          },
-          (error) => {
-            console.error('❌ Firestore listener error:', error);
-            setNotifications([]);
-          }
+              setNotifications([]);
+            }
+          )
         );
+        unsubscribeRef.current = unsubscribe;
       } catch (error) {
         console.error('❌ Failed to set up Firestore listener:', error);
         setNotifications([]);
@@ -282,7 +259,10 @@ export function CustomerNotificationProvider({ children, customerId }: CustomerN
     
     // ✅ CRITICAL: Cleanup function that handles both modes
     return () => {
-      
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = undefined;
+      }
       if (unsubscribe) {
         unsubscribe();
       }

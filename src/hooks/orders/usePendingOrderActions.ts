@@ -41,6 +41,7 @@ import { invalidateCache } from '../useCachedFirebase';
 import { useInvalidateOrders } from '../useOptimizedQueries'; // Auto cache invalidation
 import { getServerTimestamp } from '../../utils/timestamps';
 import { debug } from '../../utils/debug';
+import { canApproveOrder, canRejectOrder } from '../../utils/orderSelectors';
 import type {Order, User} from '../../types'
 
 interface ApproveOrderData {
@@ -130,6 +131,12 @@ export function usePendingOrderActions(user: User): UsePendingOrderActionsReturn
     deliveryFee: number
   ): Promise<void> => {
     try {
+      if (!canApproveOrder(order)) {
+        const message = 'Only pending orders can be approved.';
+        toast.error(message);
+        throw new Error(message);
+      }
+
       debug.log('✅ [usePendingOrderActions] Approving order:', order.id);
       
       const admin = getAdminInfo(user);
@@ -163,6 +170,12 @@ export function usePendingOrderActions(user: User): UsePendingOrderActionsReturn
     reason: string
   ): Promise<void> => {
     try {
+      if (!canRejectOrder(order)) {
+        const message = 'Only pending orders can be rejected.';
+        toast.error(message);
+        throw new Error(message);
+      }
+
       debug.log('❌ [usePendingOrderActions] Rejecting order:', order.id);
       
       if (!reason || !reason.trim()) {

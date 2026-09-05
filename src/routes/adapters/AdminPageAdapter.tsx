@@ -1,21 +1,5 @@
 /**
- * AdminPageAdapter.tsx
- * 
- * Adapter components that bridge React Router outlet context to legacy admin page props.
- * 
- * CONTEXT:
- * - Old admin pages expect props: { user, onLogout, onBack, setCurrentPage }
- * - New routing system provides these via useOutletContext()
- * - These adapters bridge the gap until we refactor all admin pages
- * 
- * USAGE:
- * ```tsx
- * // In routes/index.ts
- * {
- *   path: 'pending',
- *   Component: () => <AdminPageAdapter Component={PendingOrdersPage} />
- * }
- * ```
+ * Shared adapter for admin pages using the route outlet context.
  */
 
 import { useOutletContext, useNavigate } from 'react-router';

@@ -1,29 +1,5 @@
 /**
- * 📄 PendingOrdersPage - Container Component
- * 
- * ✅ PHASE 2: Business Logic Extraction - REFACTORED
- * ✅ MAR 14, 2026: OPTIMIZED - Integrated useOptimizedQueries
- * 
- * PURPOSE:
- * - Container/orchestrator for pending orders
- * - Fetches data using optimized query hooks (99% fewer reads)
- * - Delegates business logic to hooks
- * - Passes data to presentational component
- * 
- * ARCHITECTURE:
- * - Data layer: usePendingOrders() hook (NEW - optimized)
- * - Business logic: usePendingOrderActions() hook
- * - Presentation: PendingOrdersView component
- * - This file: Thin orchestration layer only
- * 
- * PERFORMANCE IMPROVEMENTS (MAR 14, 2026):
- * - Before: Filter all orders client-side
- * - After: Server-side filtered query with caching
- * - Firebase reads: -50% (100 reads → 50 reads per page load)
- * - Cache: 1 minute stale time (pending orders change frequently)
- * 
- * BEFORE: 459 lines (data + logic + UI)
- * AFTER: ~250 lines (orchestration only)
+ * Pending orders page container.
  */
 
 import type { AdminPage } from '../../config/adminNavigation';
@@ -33,12 +9,13 @@ import { useModal } from '../../contexts/ModalContextNew';
 import { useRenderTracking } from '../../hooks/useRenderTracking';
 import { useScrollToTop } from '../../hooks/useScrollToTop';
 import { usePendingOrderActions } from '../../hooks/orders/usePendingOrderActions';
-import { useCachedActiveOrders } from '../../hooks/useCachedFirebase';
+import { useCachedActiveOrders, useCachedOrders } from '../../hooks/useCachedFirebase';
 import { useCachedProducts } from '../../hooks/useCachedProducts';
 import { useCachedCategories } from '../../hooks/useCachedCategories';
 import { withAdminGuard } from '../../guards/adminGuards';
 import { PendingOrdersView } from '../../components/order/PendingOrdersView';
 import { ToastNotification } from '../../components/ToastNotification';
+import { canExportInvoiceDocument, selectPendingOrderGroups } from '../../utils/orderSelectors';
 // FIX T2R2-H8 (HIGH): Was `getAllCustomers` from the service layer,
 // called inside a useEffect that re-ran every isActive flip. Each tab
 // activation triggered a fresh Firestore read of the entire customers
@@ -98,16 +75,18 @@ function PendingOrdersPageComponent({
   // — narrow query, no transfer waste.
   const { data: activeOrders = [], isLoading: ordersLoading, refetch: refetchOrders } = useCachedActiveOrders((isActive ?? false));
 
-  // Filter the (already-narrow) active orders client-side by status.
-  // This is cheap because activeOrders never holds completed/cancelled/rejected.
-  const pendingOrders = activeOrders.filter((o: Order) => o.status === 'pending');
-  const updateRequestedOrders = activeOrders.filter((o: Order) => false /* update_requested removed */);
-  const rejectedOrders: Order[] = []; // rejected orders are NOT in active set; load separately if needed
-  
+  // FIX: The active-order query intentionally excludes terminal/rejected records,
+  // so the page must derive pending/update-requested/rejected groups from the
+  // full order set rather than from the active subset. This preserves all valid
+  // queues without making the page look empty for legitimate update-requested orders.
+  const { data: allOrders = [] } = useCachedOrders((isActive ?? false));
+  const { pendingOrders, updateRequestedOrders, rejectedOrders } = useMemo(
+    () => selectPendingOrderGroups(allOrders),
+    [allOrders]
+  );
 
-  
   // Combine loading states
-  const loading = ordersLoading;
+  const loading = ordersLoading || false;
   
   // ✅ Fetch products and categories
   const { data: products = [], isLoading: productsLoading } = useCachedProducts();
@@ -149,6 +128,11 @@ function PendingOrdersPageComponent({
    * Download order as Excel/CSV
    */
   const handleDownloadExcel = useCallback((order: Order) => {
+    if (!canExportInvoiceDocument(order)) {
+      toast.error('Invoice export is only available for completed paid orders', { duration: 3000 });
+      return;
+    }
+
     const csv = exportOrderToExcel(order, products, categories);
     // ✅ PASS 6: Guard Blob | undefined return.
     if (!csv) return;
@@ -159,6 +143,11 @@ function PendingOrdersPageComponent({
    * Download order invoice as PDF
    */
   const handleDownloadPDF = useCallback((order: Order) => {
+    if (!canExportInvoiceDocument(order)) {
+      toast.error('Invoice PDF is only available for completed paid orders', { duration: 3000 });
+      return;
+    }
+
     try {
       downloadOrderPDF(order, products, categories);
       toast.success('Invoice PDF downloaded', {

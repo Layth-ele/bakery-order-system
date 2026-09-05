@@ -213,11 +213,7 @@ export function getRedirectIfUnauthorized(user: User | null, path: string): stri
   return getDefaultDashboard(user);
 }
 
-// Legacy sync export for backward compat (some hooks call this synchronously)
-// Reads from Firebase Auth synchronously — works after authStateReady() has resolved.
-// FIX BUG 7 (MEDIUM): Role is now sourced from _cachedRole (populated by the async
-// getCurrentUser() path) instead of being hardcoded to 'customer'. Callers that run
-// after the first async resolution will get the correct admin/customer role.
+// Reads from Firebase Auth synchronously after authStateReady() resolves.
 export function getCurrentUserSync(): User | null {
   if (!isFirebaseConfigured) return null;
   const firebaseUser = auth.currentUser;

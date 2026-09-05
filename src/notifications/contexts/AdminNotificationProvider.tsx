@@ -1,13 +1,3 @@
-/**
- * Admin Notification Context V3
- * 
- * Uses Firestore when configured, falls back to localStorage in demo mode.
- * Listens to: notifications/admin/items (both Firestore and localStorage use same path)
- * 
- * VERSION: 3.3 - Firebase + LocalStorage Hybrid (Fixed path matching)
- * LOCATION: /notifications/contexts/ (Consolidated Feb 11, 2026)
- */
-
 import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback, ReactNode } from 'react';
 import { db, isFirebaseConfigured } from '@/firebase/config'; // ✅ Using alias import
 import { 
@@ -27,6 +17,7 @@ import { getAdminNotificationPath, getAdminNotificationPathString } from '../uti
 import { getServerTimestamp } from '@/utils/timestamps'; // ✅ TIMESTAMP FIX
 import { toDate } from '@/utils/timestampFormatting';
 import { logger } from '../../utils/logger';
+import { safeSubscribe, isExpectedFirestoreListenerError } from '../../utils/subscriptionSafety';
  // ✅ FIX: needed for numeric timestamp conversion
 
 interface AdminNotificationContextValue {
@@ -154,6 +145,7 @@ export function AdminNotificationProviderV3({ children }: AdminNotificationProvi
   const [loading, setLoading] = useState(true);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const isMountedRef = useRef<boolean>(false);
+  const listenerGuardRef = useRef<boolean>(false);
   
   // ============================================================================
   // FIRESTORE LISTENER
@@ -166,75 +158,67 @@ export function AdminNotificationProviderV3({ children }: AdminNotificationProvi
       setLoading(false);
       return;
     }
-    
-    const notificationsRef = collection(db, ...getAdminNotificationPath());
-    const q = query(notificationsRef, orderBy('timestamp', 'desc'));
-    
- // CRITICAL FIX - Don't kill listener after errors
-    // Firestore will automatically retry connections. We log errors but keep listening.
+
     let errorCount = 0;
-    
-    unsubscribeRef.current = onSnapshot(
-      q, 
-      (snapshot) => {
-        if (!isMountedRef.current) return;
-        
-        // ✅ Reset error count on successful connection
-        errorCount = 0;
-        
-        const notificationsList: NotificationItem[] = [];
-        
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          
-          // ✅ FIX: Normalize Firestore timestamps to ISO strings
-          let createdAtStr: string;
-          if (data.createdAt instanceof Timestamp) {
-            createdAtStr = data.createdAt.toDate().toISOString();
-          } else if (data.timestamp instanceof Timestamp) {
-            createdAtStr = data.timestamp.toDate().toISOString();
-          } else if (typeof data.createdAt === 'number') {
-            createdAtStr = (toDate(data.createdAt) ?? new Date()).toISOString();
-          } else {
-            // FIX T2R2-C9 sibling (CRITICAL): was getServerTimestamp() which
-            // returns a FieldValue sentinel, not a string. UI rendering would
-            // produce "[object Object]". Use real ISO string.
-            createdAtStr = data.createdAt || new Date().toISOString();
+    const unsubscribe = safeSubscribe('admin-notifications-listener', () =>
+      onSnapshot(
+        query(collection(db, ...getAdminNotificationPath()), orderBy('timestamp', 'desc')),
+        (snapshot) => {
+          if (!isMountedRef.current) return;
+
+          errorCount = 0;
+
+          const notificationsList: NotificationItem[] = [];
+
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+
+            let createdAtStr: string;
+            if (data.createdAt instanceof Timestamp) {
+              createdAtStr = data.createdAt.toDate().toISOString();
+            } else if (data.timestamp instanceof Timestamp) {
+              createdAtStr = data.timestamp.toDate().toISOString();
+            } else if (typeof data.createdAt === 'number') {
+              createdAtStr = (toDate(data.createdAt) ?? new Date()).toISOString();
+            } else {
+              createdAtStr = data.createdAt || new Date().toISOString();
+            }
+
+            notificationsList.push({
+              id: doc.id,
+              ...data,
+              createdAt: createdAtStr,
+            } as NotificationItem);
+          });
+
+          setNotifications(notificationsList);
+          setLoading(false);
+        },
+        (error) => {
+          if (!isMountedRef.current) return;
+
+          errorCount += 1;
+
+          if (!isExpectedFirestoreListenerError(error)) {
+            if (errorCount === 1) {
+              console.error('❌ AdminNotificationContextV3 listener error:', (error as any).message);
+              console.error('   Code:', (error as any).code);
+              console.error('   This may indicate missing Firestore security rules for notifications/admin/items');
+              console.error('   The listener will continue running and auto-retry.');
+            } else if (errorCount === 5) {
+              logger.warn('⚠️ AdminNotificationContextV3: Multiple connection errors detected');
+              logger.warn('   Error count:', errorCount);
+              logger.warn('   Firestore will continue auto-retry. Check Firebase console for issues.');
+            }
           }
-          
-          notificationsList.push({
-            id: doc.id,
-            ...data,
-            createdAt: createdAtStr,
-          } as NotificationItem);
-        });
-        
-        setNotifications(notificationsList);
-        setLoading(false);
-      }, 
-      (error) => {
-        if (!isMountedRef.current) return;
-        
-        errorCount++;
-        
- // CRITICAL FIX - Log errors but NEVER kill the listener
-        // Firestore onSnapshot automatically retries on network/permission errors.
-        // Killing the listener means admin notifications are dead for the entire session.
-        if (errorCount === 1) {
-          console.error('❌ AdminNotificationContextV3 listener error:', (error as any).message);
-          console.error('   Code:', (error as any).code);
-          console.error('   This may indicate missing Firestore security rules for notifications/admin/items');
-          console.error('   The listener will continue running and auto-retry.');
-        } else if (errorCount === 5) {
-          logger.warn('⚠️ AdminNotificationContextV3: Multiple connection errors detected');
-          logger.warn('   Error count:', errorCount);
-          logger.warn('   Firestore will continue auto-retry. Check Firebase console for issues.');
+
+          setLoading(false);
         }
-        
-        setLoading(false);
-      }
+      )
     );
-    
+
+    unsubscribeRef.current = unsubscribe;
+
     return () => {
       isMountedRef.current = false;
       if (unsubscribeRef.current) {

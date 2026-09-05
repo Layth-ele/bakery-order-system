@@ -207,7 +207,7 @@ export function AdminLayout(): JSX.Element | null {
             <div className="bg-neutral-800 border-b border-neutral-700/50 shadow-md backdrop-blur-md">
               <div className="max-w-7xl mx-auto px-4 py-0">
                 <div
-                  className="flex flex-wrap justify-center items-center gap-2 sm:gap-4 py-2"
+                  className="flex flex-wrap items-stretch gap-1.5 py-1.5 sm:justify-between sm:gap-3"
                   role="tablist"
                   aria-label="Order status filters"
                 >
@@ -243,9 +243,7 @@ export function AdminLayout(): JSX.Element | null {
         <main className="pt-[120px]">
           <RouteErrorBoundary>
             <Suspense fallback={<AdminRouteLoader />}>
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <Outlet context={{ user, currentPage, setCurrentPage: handlePageChange }} />
-              </div>
+              <Outlet context={{ user, currentPage, setCurrentPage: handlePageChange }} />
             </Suspense>
           </RouteErrorBoundary>
         </main>

@@ -164,32 +164,27 @@ export async function getPendingOrders(customerId?: string): Promise<Order[]> {
 }
 
 /**
- * Get approved orders (in_process status)
- * Cache for 2 minutes since these change less frequently
- */
-/**
- * Get APPROVED orders (status = 'approved' — awaiting payment).
+ * Get the production-ready queue used by the Approved Orders page.
  *
- * FIX R9-S5-F60 (HIGH): Was querying `where('status', '==', 'in_process')`
- * — the function name said "Approved" but the implementation returned
- * in-process orders (a completely different status: payment confirmed,
- * kitchen working).  Callers expecting approved orders got in-process orders.
- * Combined with 2-min memoization, the wrong data was cached.
+ * Business rule: the page should display orders in status = 'in_process'
+ * because they have cleared payment confirmation and are ready for production.
+ * Orders still awaiting payment remain status = 'approved' and are intentionally
+ * excluded from this queue.
  *
- * If you specifically need in-process orders, use getInProcessOrders() (or
- * getOrdersByStatuses(['in_process'])).
+ * Cache for 2 minutes since these change less frequently.
  */
 export async function getApprovedOrders(customerId?: string): Promise<Order[]> {
   const constraints = [];
-  
+
   if (customerId) {
     constraints.push(where('customerId', '==', customerId));
   }
-  
-  constraints.push(where('status', '==', 'approved'));
+
+  // ✅ Canonical lifecycle rule: approved page queue = in_process only.
+  constraints.push(where('status', '==', 'in_process'));
   constraints.push(orderBy('createdAt', 'desc'));
   constraints.push(limit(100));
-  
+
   // Use memoization with 2min TTL
   return memoizedQuery<Order>('orders', constraints, 120000);
 }

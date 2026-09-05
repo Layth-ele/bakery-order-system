@@ -1,24 +1,3 @@
-/**
- * 🛡️ SUBSCRIPTION SAFETY GUARDS
- * 
- * Prevents memory leaks and app freezes from onSnapshot subscriptions.
- * 
- * COMMON ISSUES:
- * 1. Multiple subscriptions per render (app freeze)
- * 2. Subscriptions in click handlers without cleanup (memory leak)
- * 3. Forgotten unsubscribe in useEffect cleanup
- * 4. Duplicate subscriptions to same data
- * 
- * SOLUTIONS:
- * - Track active subscriptions
- * - Auto-cleanup on duplicate subscriptions
- * - Warning logs for improper usage
- * - Development-only guards
- * 
- * @author Bakery Order Management System
- * @date February 13, 2026
- */
-
 import * as React from 'react';
 import { logger } from './logger';
 
@@ -73,6 +52,25 @@ function getStackTrace(): string {
  * }, [orderId]);
  * ```
  */
+export function isExpectedFirestoreListenerError(error: unknown): boolean {
+  const message = String((error as { message?: string } | null)?.message ?? '').toLowerCase();
+  const code = String((error as { code?: string } | null)?.code ?? '').toLowerCase();
+  const patterns = [
+    'aborted',
+    'cancelled',
+    'deadline-exceeded',
+    'failed-precondition',
+    'internal',
+    'listen stream closed',
+    'network',
+    'permission-denied',
+    'resource-exhausted',
+    'unavailable',
+  ];
+
+  return patterns.some((pattern) => message.includes(pattern) || code.includes(pattern));
+}
+
 export function safeSubscribe(
   key: string,
   subscribe: () => (() => void)

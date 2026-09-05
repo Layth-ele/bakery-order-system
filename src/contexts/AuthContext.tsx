@@ -1,21 +1,3 @@
-/**
- * AuthContext.tsx
- *
- * FIX T2R1-F1 / T2R2-C1 (CRITICAL): Centralized auth state via Context.
- *
- * Before: useAuth was a hook, not a context. 33+ components called it directly,
- * each creating their own onAuthStateChanged listener, customers/{uid} Firestore
- * snapshot, and DOM event listeners.  That meant ~132 active subscriptions for
- * the same data — every login/logout fired 33 parallel callbacks; every Firestore
- * customer-doc change fanned out to 33 onSnapshot callbacks.
- *
- * After: one AuthProvider owns all listeners.  The useAuth hook becomes a thin
- * useContext reader.  All 33 callers stay unchanged because the hook signature
- * is identical.
- *
- * The legacy useAuth from /hooks/useAuth.tsx now re-exports from this module.
- */
-
 import {
   createContext,
   useContext,
@@ -23,6 +5,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   ReactNode,
 } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -31,6 +14,7 @@ import { auth, db, isFirebaseConfigured } from '../firebase/config';
 import * as authService from '../services/firebase/authService';
 import { queryClient } from '../hooks/useCachedFirebase';
 import { logger } from '../utils/logger';
+import { safeSubscribe, isExpectedFirestoreListenerError } from '../utils/subscriptionSafety';
 
 // Re-export types for compatibility with existing consumers.
 export type {
@@ -60,6 +44,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [user, setUser] = useState<authService.User | null>(null);
   const [loading, setLoading] = useState(true);
+  const profileListenerRef = useRef<(() => void) | null>(null);
 
   // ────────────────────────────────────────────────────────────────────────────
   // SINGLE Firebase Auth listener — replaces the 33+ that existed before.
@@ -126,32 +111,48 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   // Picks up admin-side role/status changes live (mirrors BUG 10).
   // ────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isFirebaseConfigured || !user?.id) return;
-    const unsub = onSnapshot(
-      doc(db, 'customers', user.id),
-      (snap) => {
-        if (!snap.exists()) {
-          authService.logout().catch(() => {});
-          queryClient.clear();
-          setUser(null);
-          return;
-        }
-        const data = snap.data();
-        const newRole = data.customerType === 'admin' ? 'admin' : 'customer';
-        const newStatus = data.status;
-        setUser((prev) => {
-          if (!prev) return prev;
-          if (prev.role === newRole && prev.status === newStatus) return prev;
-          return { ...prev, role: newRole, customerType: data.customerType, status: newStatus };
-        });
-      },
-      (err) => {
-        if ((err as any).code !== 'permission-denied') {
-          logger.warn('[AuthProvider] Profile listener error:', err);
-        }
+    if (!isFirebaseConfigured || !user?.id) {
+      if (profileListenerRef.current) {
+        profileListenerRef.current();
+        profileListenerRef.current = null;
       }
+      return;
+    }
+
+    const unsubscribe = safeSubscribe(`profile-listener:${user.id}`, () =>
+      onSnapshot(
+        doc(db, 'customers', user.id),
+        (snap) => {
+          if (!snap.exists()) {
+            authService.logout().catch(() => {});
+            queryClient.clear();
+            setUser(null);
+            return;
+          }
+          const data = snap.data();
+          const newRole = data.customerType === 'admin' ? 'admin' : 'customer';
+          const newStatus = data.status;
+          setUser((prev) => {
+            if (!prev) return prev;
+            if (prev.role === newRole && prev.status === newStatus) return prev;
+            return { ...prev, role: newRole, customerType: data.customerType, status: newStatus };
+          });
+        },
+        (err) => {
+          if (!isExpectedFirestoreListenerError(err)) {
+            logger.warn('[AuthProvider] Profile listener error:', err);
+          }
+        }
+      )
     );
-    return () => unsub();
+
+    profileListenerRef.current = unsubscribe;
+    return () => {
+      if (profileListenerRef.current) {
+        profileListenerRef.current();
+        profileListenerRef.current = null;
+      }
+    };
   }, [user?.id]);
 
   // ────────────────────────────────────────────────────────────────────────────

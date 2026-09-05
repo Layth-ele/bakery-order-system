@@ -41,6 +41,7 @@ import { debug } from '../../utils/debug';
 import { invalidateCache } from '../useCachedFirebase'; // ✅ FIX: Add missing import
 import type { Order, User, Product, Category } from '../../types';
 import { displayOrderNumber, orderFilename } from '../../utils/displayId';
+import { canConfirmPayment } from '../../utils/orderSelectors';
 
 interface UseUnpaidOrderActionsReturn {
   /**
@@ -157,6 +158,15 @@ export function useUnpaidOrderActions(
           title: 'Error',
           message: 'Invalid order data. Please refresh and try again.',
           icon: 'error',
+        });
+        return;
+      }
+
+      if (!canConfirmPayment(order)) {
+        showAlert({
+          title: 'Action unavailable',
+          message: 'Only approved orders with payment submitted can be confirmed.',
+          icon: 'warning',
         });
         return;
       }

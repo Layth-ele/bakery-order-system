@@ -69,7 +69,7 @@ export {
 };
 
 /**
- * ✅ FIX #1: Approve an order (extracted from AdminDashboard)
+ * ✅ FIX #1: Approve an order through the current admin order flow
  * 
  * This function handles the complete approval workflow:
  * 1. Calculate GST (5% of subtotal)

@@ -50,14 +50,12 @@ import { AdminPageAdapter } from './adapters/AdminPageAdapter';
 import { RouterErrorPage } from './components/RouterErrorPage';
 import { RouteLoader } from './components/RouteLoader';
 
-// ✅ MAR 17, 2026: Import layouts statically to fix dynamic import error
 import { RootLayout } from './layouts/RootLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { CustomerLayout } from './layouts/CustomerLayout';
 import { CustomerDashboardMain as CustomerDashboard } from '../components/customer/customer-dashboard/CustomerDashboardMain';
 
 // Admin pages
-const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const AdminAnalyticsDashboard = lazy(() => import('../pages/admin/AdminAnalyticsDashboard').then(m => ({ default: m.AdminAnalyticsDashboard })));
 const CustomersList = lazy(() => import('../pages/admin/CustomersList').then(m => ({ default: m.CustomersList })));
 const ManageProducts = lazy(() => import('../pages/admin/ManageProducts').then(m => ({ default: m.ManageProducts })));
@@ -244,7 +242,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'weekly-invoices',
-            Component: () => <AdminPageAdapter Component={InvoicesPage} />, // Uses same component, different view
+            Component: () => <AdminPageAdapter Component={InvoicesPage} />,
             handle: { 
               crumb: 'Weekly Invoices',
               meta: {

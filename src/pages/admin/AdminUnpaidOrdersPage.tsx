@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import type { User } from '../../services/firebase/authService';
 import type { Order } from '../../types';
 import { logger } from '../../utils/logger';
+import { getUnpaidBaseOrders } from '../../utils/payments/unpaidSelectors';
 
 
 interface AdminUnpaidOrdersPageProps {
@@ -78,7 +79,7 @@ export function AdminUnpaidOrdersPage({
   // This ensures admins see newly submitted payments without manual refresh
   const { data: allOrders = [], isLoading: ordersLoading } = useCachedOrders(
     isActive,
-    100,
+    5000,
     { refetchInterval: isActive ? 30000 : undefined } // Poll every 30 seconds when page is active
   );
   
@@ -105,20 +106,11 @@ export function AdminUnpaidOrdersPage({
     });
   }, [isActive]);
 
-  // ✅ Filter unpaid orders
-  // Must be approved and not paid (excludes locked/completed)
+  // ✅ Use the canonical unpaid selector. This keeps the logic aligned across the app
+  // and avoids dropping valid unpaid orders when the order list exceeds the default
+  // 100-row fetch cap.
   const unpaidOrders = useMemo(() => {
-    const filtered = allOrders.filter((order) => {
-      // Must be approved and not paid
-      if (order.status !== 'approved') return false;
-      if (order.paymentReceived) return false;
-      
-      // Exclude locked/completed orders
-      if (order.locked) return false;
-      if ((order.status as string) === 'in_process') return false;
-      
-      return true;
-    });
+    const filtered = getUnpaidBaseOrders(allOrders);
 
     // ✅ FIX (MAR 17, 2026): Sort so "paymentSubmitted" orders surface to the top.
     // These are the ones needing admin confirmation — admin should see them first.
@@ -136,14 +128,6 @@ export function AdminUnpaidOrdersPage({
     return filtered;
   }, [allOrders]);
   
-  // ✅ Debug logging (development only)
- // PERFORMANCE FIX - Only log when count changes, not on every render
-  const unpaidOrdersCount = unpaidOrders.length;
-  const prevCountRef = useRef<number>(0);
-  
-  useEffect(() => {
-  }, [isActive, unpaidOrdersCount, unpaidOrders, allOrders]);
-  
   // ============================================================================
   // HOOKS - Actions
   // ============================================================================
@@ -153,7 +137,6 @@ export function AdminUnpaidOrdersPage({
     confirmPayment,
     sendReminder,
     cancelOrder,
-    downloadOrder,
     notification,
     clearNotification,
   } = useUnpaidOrderActions(user, products, categories);

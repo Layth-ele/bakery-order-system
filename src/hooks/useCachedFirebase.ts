@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient, QueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { onAuthStateChanged } from '../firebase/auth';
+import { safeSubscribe, isExpectedFirestoreListenerError } from '../utils/subscriptionSafety';
 import { 
   Customer, 
   Product, 
@@ -23,28 +24,6 @@ import {
 import { getAll as getProductsFromDataService } from '../services/data/productsDataService'; // Direct data service import
 // PASS 10: removed unused `getAvailableCredit` import — useCachedCreditBalance
 // uses a dynamic import('../firebase/firestore') for getCreditNotes instead.
-
-/**
- * 🚀 INTELLIGENT CACHING SYSTEM
- * 
- * ✅ MAR 11, 2026: Added request deduplication to prevent cache stampede
- * 
- * This replaces the real-time listeners with a smart caching layer that:
- * 1. Caches data in memory for instant access
- * 2. Persists to IndexedDB for offline support
- * 3. Uses stale-while-revalidate (shows cached data, updates in background)
- * 4. Reduces Firebase reads by 80-95%
- * 5. Auto-invalidates when data changes
- * 6. **NEW:** Request deduplication prevents multiple simultaneous fetches
- * 
- * COST SAVINGS:
- * Before: 1000+ reads/hour
- * After: 50-100 reads/hour (-90%)
- * 
- * STAMPEDE PREVENTION:
- * Before: 100 components = 100 Firebase reads
- * After: 100 components = 1 Firebase read (99% reduction)
- */
 
 // ============================================
 // REQUEST DEDUPLICATION
@@ -400,11 +379,12 @@ export const useCachedSettings = () => {
   // Only subscribe once we know the user is authenticated.
   useEffect(() => {
     if (!isAuthed) return;
-    if (unsubRef.current) return; // already subscribed
 
-    const unsub = subscribeToSettings((settings) => {
-      queryClient.setQueryData<Settings | null>(QUERY_KEYS.settings, settings);
-    });
+    const unsub = safeSubscribe('settings-listener', () =>
+      subscribeToSettings((settings) => {
+        queryClient.setQueryData<Settings | null>(QUERY_KEYS.settings, settings);
+      })
+    );
 
     unsubRef.current = unsub;
 

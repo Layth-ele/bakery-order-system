@@ -133,7 +133,11 @@ export function useCompleteOrdersData(isActive: boolean): UseCompleteOrdersDataR
   // DATA FETCHING
   // ============================================================================
   
-  const { data: allOrders = [], isLoading: ordersLoading } = useCachedOrders(isActive);
+  // ✅ Single source of truth: historical data must include the terminal states
+  // that belong in the Order History page. The default 100-row fetch cap can
+  // silently drop older completed/rejected/cancelled records, so this page uses
+  // the same larger cap as the other corrected admin views.
+  const { data: allOrders = [], isLoading: ordersLoading } = useCachedOrders(isActive, 5000);
   const { data: customers = [], isLoading: customersLoading } = useCachedCustomers();
   
   // ============================================================================

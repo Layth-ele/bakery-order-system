@@ -107,10 +107,10 @@ export function NavBarShell({
   
   return (
     <div 
-      className={`bg-neutral-900/95 border-b border-neutral-700 sticky ${zIndexClass} backdrop-blur-md shadow-lg`}
+      className="sticky border-b border-neutral-700 bg-neutral-950/95 shadow-lg backdrop-blur-md"
       style={{ top: 'var(--nav-bar-offset)' }}
     >
-      <div className="max-w-7xl mx-auto px-2 sm:px-4">
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4">
         <div 
           ref={tablistRef}
           role="tablist"
@@ -177,7 +177,7 @@ export function NavTab({
       aria-controls={ariaControls}
       aria-label={label}
       tabIndex={active ? 0 : -1}
-      className={`${isMain ? 'flex-shrink-0' : ''} relative flex items-center gap-1 sm:gap-2 px-${isMain ? '1.5 xs:px-2 sm:px-4' : '2 sm:px-4'} py-3 sm:py-4 text-xs sm:text-sm md:text-base transition-all whitespace-nowrap ${FOCUS_VISIBLE_CLASS} ${
+      className={`${isMain ? 'flex-shrink-0' : ''} ${variant === 'admin' ? 'flex-1 min-w-[110px] justify-center basis-[calc(50%-0.25rem)] sm:min-w-[140px] sm:basis-auto' : ''} relative flex items-center gap-1 sm:gap-2 px-${isMain ? '1.5 xs:px-2 sm:px-4' : '2 sm:px-3'} py-1.5 sm:py-3 text-[10px] sm:text-sm md:text-base transition-all whitespace-nowrap ${FOCUS_VISIBLE_CLASS} ${
         active ? 'text-[#D4A574] font-medium' : 'text-neutral-400 hover:text-neutral-300'
       }`}
     >
@@ -198,21 +198,16 @@ export function NavTab({
           {badge}
         </span>
       )}
-      {active && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D4A574]" aria-hidden="true" />}
+      <span
+        className={`absolute bottom-0 left-2 right-2 h-0.5 overflow-hidden rounded-full bg-[#D4A574]/15 transition-all duration-300 ease-out ${active ? 'opacity-100' : 'opacity-0'}`}
+        aria-hidden="true"
+      >
+        <span
+          className={`block h-full w-full origin-center rounded-full bg-[#D4A574] transition-transform duration-300 ease-out ${active ? 'scale-x-100' : 'scale-x-0'}`}
+        />
+      </span>
     </button>
   );
-}
-
-// ============================================
-// LEGACY ADMIN NAV TAB (DEPRECATED)
-// ============================================
-
-/**
- * @deprecated Use NavTab with variant="admin" instead
- * This component is kept for backwards compatibility only
- */
-export function AdminNavTab(props: Omit<NavTabProps, 'variant'>): JSX.Element | null {
-  return <NavTab {...props} variant="admin" />;
 }
 
 // ============================================

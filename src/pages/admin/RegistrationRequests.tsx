@@ -1,25 +1,5 @@
 /**
- * RegistrationRequests.tsx
- * 🟢 PAGE - Customer registration requests management
- *
- * REFACTORED - Phase 2: Data-Logic-View Separation Complete
- * ✅ MAR 14, 2026: OPTIMIZED - Integrated useOptimizedQueries
- * 
- * - Extracted data layer to useRegistrationRequestsData hook
- * - Extracted actions to useCustomerAccountActions hook
- * - Extracted view layer to RegistrationRequestsView component
- * - Reduced from 1081 lines to ~230 lines (79% reduction)
- *
- * PERFORMANCE IMPROVEMENTS (MAR 14, 2026):
- * - Before: Fetch all customers, filter client-side
- * - After: Server-side filtered query with caching
- * - Firebase reads: -60% (150 reads → 60 reads)
- * - Cache: 5 minutes stale time (registrations reviewed manually)
- * 
- * Route-level page component for admin registration approval.
- *
- * Used by: Admin routes
- * Location: /pages/admin/RegistrationRequests.tsx
+ * Customer registration requests page.
  */
 
 import React, { useCallback } from 'react';

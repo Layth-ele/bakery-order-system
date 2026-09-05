@@ -45,6 +45,7 @@ import type { AdminPage } from '../../config/adminNavigation';
 import { downloadBakeryProductionPDF } from '../../utils/pdf';
 import type { User } from '../../services/firebase/authService';
 import type { Order } from '../../types';
+import { selectApprovedPageOrders } from '../../utils/orderSelectors';
 
 interface ApprovedOrdersPageProps {
   isActive?: boolean;
@@ -84,14 +85,15 @@ function ApprovedOrdersPageComponent({
   const { data: inProcessOrders = [], isLoading: ordersLoading, refetch: refetchOrders, error: ordersError } = useApprovedOrders();
   const invalidateOrders = useInvalidateOrders();
   
-  // 🔧 FALLBACK: If query returns no results but badge shows orders, use client-side filtering
-  // This happens when Firestore composite index isn't created yet
-  const { data: allOrders = [] } = useCachedOrders((isActive ?? false));
-  const fallbackOrders = useMemo(() => {
-    return allOrders.filter(order => order.status === 'in_process');
-  }, [allOrders]);
-  
-  // Use fallback if optimized query returns empty but we know there are in_process orders
+  // ✅ Single-source-of-truth lifecycle filter. The approved page is for
+  // production-ready orders only, which are the orders in status 'in_process'.
+  // We do not treat 'approved' as a production queue item; that status is still
+  // awaiting payment or payment confirmation.
+  const { data: allOrders = [] } = useCachedOrders((isActive ?? false), 5000);
+  const fallbackOrders = useMemo(() => selectApprovedPageOrders(allOrders), [allOrders]);
+
+  // Use canonical logic: optimized query if available, otherwise the same
+  // lifecycle filter from the app-wide selector layer.
   const displayOrders = inProcessOrders.length > 0 ? inProcessOrders : fallbackOrders;
   
   // 🔍 DEBUG: Log query results

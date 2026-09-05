@@ -1,31 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * ADMIN NAVIGATION CONFIGURATION - SINGLE SOURCE OF TRUTH
- * ═══════════════════════════════════════════════════════════════════════════
- * 
- * This is the CANONICAL definition of all admin pages and navigation structure.
- * 
- * ✅ ELIMINATES DUPLICATION:
- * - No more hardcoded page strings scattered across AdminDashboard.tsx
- * - No more duplicate icon/label definitions
- * - No more mismatches between navigation and rendering
- * 
- * ✅ SINGLE SOURCE OF TRUTH:
- * - Page IDs (TypeScript union type)
- * - Navigation structure (icons, labels, badges)
- * - Rendering logic (component mapping)
- * 
- * 🔒 MAINTENANCE:
- * - Want to add a new page? Add ONE entry to this config
- * - Want to change a label? Update ONE place
- * - Want to remove a page? Delete ONE entry
- * 
- * VERSION: 1.0.0
- * CREATED: 2026-02-09
- * 
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
 import { ReactElement } from 'react';
 import {
   FileText,
