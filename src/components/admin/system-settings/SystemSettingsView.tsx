@@ -272,7 +272,7 @@ export function SystemSettingsView({
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50">
       {/* Notification */}
       {notification && (
         <ToastNotification
@@ -282,7 +282,7 @@ export function SystemSettingsView({
         />
       )}
 
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm mb-6">
           <div className="flex items-center justify-between gap-2 sm:gap-4 p-4 sm:p-6 border-b border-gray-200">

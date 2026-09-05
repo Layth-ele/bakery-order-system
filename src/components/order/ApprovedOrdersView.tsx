@@ -1,20 +1,3 @@
-/**
- * 🎨 ApprovedOrdersView - Presentational Component
- * 
- * ✅ PHASE 2: Business Logic Extraction
- * 
- * PURPOSE:
- * - Pure presentational component
- * - No business logic, no data fetching
- * - Receives data and callbacks via props
- * - Easy to test and maintain
- * 
- * ARCHITECTURE:
- * - Props in → JSX out
- * - All logic delegated to parent/hooks
- * - Reusable across different contexts
- */
-
 import React, { useCallback } from 'react';
 import { DollarSign, Edit2, Eye, Download, XCircle, RefreshCw, CheckCircle, Loader2, FileText } from 'lucide-react';
 import { UnifiedOrderList, ActionButtonSection } from './UnifiedOrderList';

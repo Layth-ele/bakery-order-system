@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { canEditPaidOrder } from '../../services/orders/paidOrderEditService';
 import { isDeliveryFeeRequired, qualifiesForFreeDelivery, calculateOrderTotals } from '../../services/orders/deliveryFeeService';
 import { validateItemEdit, calculateCreditFromReduction } from '../../services/creditService';
+import { canTransitionOrderStatus } from '../../utils/stateTransitionRules';
 import type { Order, OrderItem } from '../../types';
 import { Timestamp } from 'firebase/firestore';
 
@@ -123,5 +124,28 @@ describe('credit calculation', () => {
 
   it('issues no credit when total increases', () => {
     expect(calculateCreditFromReduction(100, 120)).toBe(0);
+  });
+});
+
+describe('canonical order status transitions', () => {
+  it('allows the documented forward progression', () => {
+    expect(canTransitionOrderStatus('pending', 'approved')).toBe(true);
+    expect(canTransitionOrderStatus('approved', 'in_process')).toBe(true);
+    expect(canTransitionOrderStatus('in_process', 'delivered')).toBe(true);
+    expect(canTransitionOrderStatus('delivered', 'completed')).toBe(true);
+  });
+
+  it('allows terminal admin exits for rejected and cancelled flows', () => {
+    expect(canTransitionOrderStatus('pending', 'rejected')).toBe(true);
+    expect(canTransitionOrderStatus('pending', 'cancelled')).toBe(true);
+    expect(canTransitionOrderStatus('approved', 'cancelled')).toBe(true);
+  });
+
+  it('blocks non-sequential or terminal re-entry transitions', () => {
+    expect(canTransitionOrderStatus('approved', 'delivered')).toBe(false);
+    expect(canTransitionOrderStatus('in_process', 'completed')).toBe(false);
+    expect(canTransitionOrderStatus('completed', 'approved')).toBe(false);
+    expect(canTransitionOrderStatus('cancelled', 'approved')).toBe(false);
+    expect(canTransitionOrderStatus('rejected', 'approved')).toBe(false);
   });
 });

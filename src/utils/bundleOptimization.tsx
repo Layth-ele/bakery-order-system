@@ -33,7 +33,7 @@ import { lazy, ComponentType, LazyExoticComponent, Suspense, ReactNode } from 'r
  * 
  * @example
  * ```typescript
- * const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
+ * Example pattern for lazy loading a dashboard shell without bundling everything upfront.
  * ```
  */
 export function lazyWithRetry<T extends ComponentType<any>>(
@@ -229,8 +229,8 @@ export function measureComponentSize(componentName: string) {
  * 
  * @example
  * ```typescript
- * const AdminDashboard = lazy(() => 
- *   webpackChunkName('admin-dashboard', () => import('./AdminDashboard'))
+ * const AdminShell = lazy(() => 
+ *   webpackChunkName('admin-shell', () => import('./AdminShell'))
  * );
  * ```
  */

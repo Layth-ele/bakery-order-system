@@ -158,7 +158,7 @@ export type ModalConfig =
         invoiceNumber?: string;
       };
     }
-  // ❌ DELETED FEB 6, 2026: DELIVERY_FEE - Unused (AdminDashboard uses inline modal)
+  // ❌ DELETED FEB 6, 2026: DELIVERY_FEE - Unused in the current route-based flow
   // ❌ DELETED FEB 6, 2026: PAYMENT_NOTIFICATIONS - Unused (replaced by notification bell)
   // ❌ DELETED FEB 6, 2026: ORDER_UPDATE_CONFIRMATION - Unused (superseded by ORDER_UPDATE_SUBMITTED)
   | {
@@ -573,7 +573,7 @@ export type ModalConfig =
         onConfirm: (orderId: string, fee: number) => void;
       };
     }
-  // AdminOrderDetailsModal - Giant admin order details modal (extracted from AdminDashboard)
+  // AdminOrderDetailsModal - Giant admin order details modal for the current route-driven admin flow
   // OrderUpdateSuccessModal - Success notification after order updates
   | {
       type: 'ORDER_UPDATE_SUCCESS';

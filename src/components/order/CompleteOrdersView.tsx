@@ -1,40 +1,9 @@
-/**
- * 🎨 CompleteOrdersView - Presentational Component
- * 
- * ✅ UPDATED: March 10, 2026 - Migrated to AdminPageLayout + StatCard
- * 
- * CHANGES:
- * - Now uses AdminPageLayout for consistent structure
- * - Replaced 4 inline stat cards with StatCard component
- * - 100% design system compliance
- * - Consistent sizing with all other pages
- * 
- * ✅ PHASE 2: Business Logic Extraction
- * ✅ PERFORMANCE OPTIMIZED (March 7, 2026)
- * 
- * PURPOSE:
- * - Pure presentational component for complete/rejected/cancelled orders
- * - No business logic, no data fetching
- * - Receives data and callbacks via props
- * - Easy to test and maintain
- * 
- * ARCHITECTURE:
- * - Props in → JSX out
- * - All logic delegated to parent/hooks
- * - Reusable across different contexts
- * 
- * PERFORMANCE:
- * - React.memo to prevent unnecessary re-renders
- * - Static action buttons (not recreated per order)
- * - Optimized memoization dependencies
- */
-
 import React, { useMemo } from 'react';
 import {CheckCircle, XCircle, Ban, FileText, RefreshCw, History} from 'lucide-react'
 import { UnifiedOrderList, ActionButtonSection } from './UnifiedOrderList';
-import { AdminPageLayout } from '../admin/AdminPageLayout'; // ✅ Import layout
-import { StatCard } from '../shared/StatCard'; // ✅ Import shared component
-import { SearchBar } from '../ui/SearchBar'; // ✅ Import SearchBar
+import { AdminPageLayout } from '../admin/AdminPageLayout';
+import { StatCard } from '../shared/StatCard';
+import { SearchBar } from '../ui/SearchBar';
 import type { Order, Product, Category, Customer } from '../../types';
 
 interface CompleteOrdersStatistics {
@@ -163,9 +132,9 @@ export function CompleteOrdersView({
       onRefresh={onRefresh}
       isRefreshing={loading}
     >
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="w-full">
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-5 items-stretch">
           {/* Total Orders */}
           <StatCard
             label="Total Orders"

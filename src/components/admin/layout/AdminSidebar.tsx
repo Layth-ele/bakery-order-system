@@ -1,6 +1,6 @@
 /**
  * AdminSidebar.tsx
- * ✅ STEP 1: Extracted from AdminDashboard
+ * ✅ Admin sidebar for the current route-driven admin layout
  * 
  * Luxury sidebar navigation with:
  * - Overlay when open

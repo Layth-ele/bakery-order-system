@@ -22,15 +22,21 @@ import type { Order } from '../types';
  */
 function isFirebaseUID(id: string): boolean {
   if (!id) return false;
-  // Firebase UIDs are exactly 20 chars, alphanumeric only
-  // Real readable IDs always contain at least one hyphen
-  if (id.length >= 16 && !/^[A-Z]+-/.test(id) && !/^\d/.test(id)) {
-    // Contains no hyphens or looks like random chars
-    const hyphenCount = (id.match(/-/g) || []).length;
-    if (hyphenCount === 0) return true;
-    // ORD-2026-03-001 has hyphens but also starts with letters then dash
-    // Firebase UIDs don't start with letters then immediately dash
+
+  const trimmed = id.trim();
+  if (!trimmed || trimmed.includes(' ') || trimmed.includes('/')) return false;
+
+  // Real readable IDs follow a stable pattern like DBH-2026-03-26-000001
+  // or ORD-2026-03-26-001-47 and include at least one hyphen.
+  if (trimmed.includes('-')) return false;
+
+  // Random Firebase doc IDs / raw UIDs are typically long alphanumeric strings
+  // without hyphens. Some older records can be shorter than 16 chars, so we
+  // treat 10+ character alphanumeric strings without separators as UID-like.
+  if (trimmed.length >= 10 && /^[A-Za-z0-9]+$/.test(trimmed)) {
+    return true;
   }
+
   return false;
 }
 
@@ -70,9 +76,14 @@ export function displayInvoiceNumber(order: Pick<Order, 'id' | 'orderNumber' | '
  * Returns "Invoice #DBH-2026-03-26-001-47" or "Order #ORD-2026-03-26-001-47".
  */
 export function displayOrderLabel(order: Pick<Order, 'id' | 'orderNumber' | 'invoiceNumber'>): string {
-  if (order.invoiceNumber) return `Invoice #${order.invoiceNumber}`;
-  if (order.orderNumber) return `Order #${order.orderNumber}`;
-  return `Order #ORD-···${(order.id || "").slice(-6).toUpperCase()}`;
+  const invoiceNumber = order.invoiceNumber && !isFirebaseUID(order.invoiceNumber) ? order.invoiceNumber : null;
+  const orderNumber = order.orderNumber && !isFirebaseUID(order.orderNumber) ? order.orderNumber : null;
+
+  if (invoiceNumber) return `Invoice #${invoiceNumber}`;
+  if (orderNumber) return `Order #${orderNumber}`;
+
+  const maskedId = order.id ? `INV-···${order.id.slice(-6).toUpperCase()}` : 'INV-···N/A';
+  return `Invoice #${maskedId}`;
 }
 
 // ─── Customers ───────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
  * ✅ Used by:
  * - CustomerDashboard (disable ordering inputs via isDayLocked)
  * - ProductionToDoSheet (show status badges via getProductionStatusForDate)
- * - AdminDashboard (order visibility checks)
+ * - Admin order visibility checks
  * - OrderRow (edit permissions)
  * 
  * ✅ All functions use getNowInVancouver() from /utils/timezone.ts (CANONICAL TIME SOURCE)

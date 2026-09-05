@@ -119,14 +119,14 @@ export function CompletedOrderInvoiceModal({
       }
     >
       {/* Completion Status Alert - compact */}
-      <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-1">
+      <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 mb-1">
         <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 w-9 h-9 bg-green-600 rounded-full flex items-center justify-center">
-            <CheckCircle className="w-5 h-5 text-white" />
+          <div className="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-green-600 rounded-full flex items-center justify-center">
+            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-green-900 text-sm">✅ Order Completed & Delivered</p>
-            <p className="text-green-700 text-xs mt-0.5">
+            <p className="font-bold text-green-900 text-[11px] sm:text-xs">✅ Order Completed & Delivered</p>
+            <p className="text-green-700 text-[10px] sm:text-xs mt-0.5">
               Completed on {formatOrderDateWithFallback(order.completedAt || order.updatedAt)}
             </p>
           </div>
@@ -137,48 +137,48 @@ export function CompletedOrderInvoiceModal({
       <div className="bg-[#FFF8F0] border border-[#E8C4A2] rounded-xl overflow-hidden mt-4">
         <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-[#E8C4A2]">
           <span className="text-[#D4A574]"><FileText className="w-4 h-4" /></span>
-          <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#8B6F47]">
+          <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#8B6F47]">
             Invoice Details
           </h3>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <p className="body-sm text-gray-500 mb-1">
+              <p className="text-[9px] sm:text-xs text-gray-500 mb-1">
                 Invoice Number
               </p>
-              <p className="text-sm font-bold text-[#333333] font-mono break-all">
+              <p className="text-[10px] sm:text-xs font-bold text-[#333333] font-mono break-all leading-tight">
                 {displayInvoiceNumber(order)}
               </p>
             </div>
             <div>
-              <p className="body-sm text-gray-500 mb-1">
+              <p className="text-[10px] sm:text-xs text-gray-500 mb-1">
                 Order Date
               </p>
-              <p className="body-base text-[#333333] font-semibold">
+              <p className="text-xs sm:text-sm text-[#333333] font-semibold">
                 {formatOrderDateWithFallback(order.createdAt)}
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <p className="body-sm text-gray-500 mb-1">
+              <p className="text-[10px] sm:text-xs text-gray-500 mb-1">
                 Payment Status
               </p>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="body-base text-green-600 font-semibold">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-green-600 font-semibold">
                   Paid
                 </span>
               </div>
             </div>
             <div>
-              <p className="body-sm text-gray-500 mb-1">
+              <p className="text-[10px] sm:text-xs text-gray-500 mb-1">
                 Delivery Status
               </p>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="body-base text-green-600 font-semibold">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-green-600 font-semibold">
                   Delivered
                 </span>
               </div>

@@ -15,19 +15,19 @@ import {
   searchOrders,
 } from "../../services/invoicing/invoiceAggregationService";
 
-// ✅ P1 OPTIMIZATION: Import TanStack Query cache hooks (eliminates ~420KB duplicate state)
 import { useCachedProducts } from "../../hooks/useCachedProducts";
 import { useCachedCategories } from "../../hooks/useCachedCategories";
 import { useCachedCustomers } from "../../hooks/useCachedCustomers";
-import { useCachedOrders } from "../../hooks/useCachedFirebase"; // ✅ Added for orders data
-import { useModal } from "../../contexts/ModalContextNew"; // Modal context for consistent pattern
+import { useCachedOrders } from "../../hooks/useCachedFirebase";
+import { useModal } from "../../contexts/ModalContextNew";
 import { toDate } from "../../utils/timestampFormatting";
 
-// ✅ MAR 17, 2026: Import export utilities for Excel/PDF downloads
 import { exportOrderToExcel, downloadCSV } from "../../utils/excelExport";
 import { downloadOrderPDF } from "../../utils/pdf";
 import { displayOrderLabel, invoiceFilename } from '../../utils/displayId';
+import { canExportInvoiceDocument } from '../../utils/orderSelectors';
 import { StatCard } from '../shared/StatCard';
+import { AdminPageLayout } from './AdminPageLayout';
 
 interface WeeklyInvoicesProps {
   isActive: boolean;
@@ -44,19 +44,6 @@ export function WeeklyInvoices({
   onBack,
   setCurrentPage,
 }: WeeklyInvoicesProps): JSX.Element | null {
-  // ✅ Get all orders from TanStack Query cache
-  // FIX T2R5-H4 (HIGH): Was `useCachedOrders()` with default limitCount=100.
-  // For a bakery with > 100 total orders, the slice silently dropped older
-  // orders past the 100th newest — including completed ones that are the
-  // very subject of this Weekly Invoices view. The result: admins searching
-  // for old invoices saw an "empty" result without an error, and weekly
-  // revenue totals undercounted historical weeks.
-  //
-  // Now passes 5000 as the limit. A bakery doing 50 weekly invoices for
-  // 100 weeks (~2 years of history) is comfortably under this cap; if a
-  // bakery exceeds it, the proper next step is to migrate this view to
-  // Firestore-side filtering with pagination (no client-side slice needed).
-  // Documented in the H4 fix comment so future scaling is on the radar.
   const { data: allOrders = [], refetch: refetchOrders } = useCachedOrders(true, 5000);
   
   // Extract admin info from user
@@ -84,16 +71,11 @@ export function WeeklyInvoices({
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
-  // ✅ PHASE 1 FIX: Filter completed orders (status === 'completed' ONLY)
-  // Removed legacy 'paid', 'complete', 'cancelled' checks
-  // Business Rule: Only completed orders generate invoices
   const completedOrders = useMemo(
     () => allOrders.filter((order) => order.status === "completed"),
     [allOrders]
   );
 
-  // ✅ PHASE 1 FIX: Apply filters using centralized service functions
-  // Performance: useMemo prevents re-filtering on every render
   const filteredOrders = useMemo(() => {
     let filtered = completedOrders;
 
@@ -109,8 +91,6 @@ export function WeeklyInvoices({
     return filtered;
   }, [completedOrders, selectedYear, selectedCustomer, searchQuery]);
 
-  // ✅ PHASE 1 FIX: Sort by completion date (newest first)
-  // Uses completedAt (primary) or fallback to createdAt
   const sortedOrders = useMemo(() => {
     return [...filteredOrders].sort((a, b) => {
       const dateA = toDate(a.completedAt || a.createdAt)?.getTime() ?? 0;
@@ -139,6 +119,11 @@ export function WeeklyInvoices({
 
  // Excel download handler
   const handleDownloadExcel = (order: Order) => {
+    if (!canExportInvoiceDocument(order)) {
+      toast.error('Invoice export is only available for completed paid orders', { duration: 3000 });
+      return;
+    }
+
     try {
       const csv = exportOrderToExcel(order, products, categories);
       // ✅ PASS 6: exportOrderToExcel returns Blob | undefined. Guard.
@@ -159,6 +144,11 @@ export function WeeklyInvoices({
 
  // PDF download handler
   const handleDownloadPDF = (order: Order) => {
+    if (!canExportInvoiceDocument(order)) {
+      toast.error('Invoice PDF is only available for completed paid orders', { duration: 3000 });
+      return;
+    }
+
     try {
       downloadOrderPDF(order, products, categories);
       toast.success('Invoice PDF generated', { duration: 3000 });
@@ -188,8 +178,6 @@ export function WeeklyInvoices({
     }
   }, [refetchOrders, refetchProducts, refetchCategories, refetchCustomers]);
 
-  // ✅ PHASE 1 FIX: Calculate summary statistics using centralized service
-  // Performance: useMemo prevents recalculation on every render
   const globalStats = useMemo(
     () => calculateGlobalStats(sortedOrders),
     [sortedOrders]
@@ -199,83 +187,52 @@ export function WeeklyInvoices({
   const pagination = usePaginatedOrders(sortedOrders, 10);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-sm mb-4 sm:mb-6">
-          {/* Top Section */}
-          <div className="flex items-center justify-between gap-2 sm:gap-4 p-3 sm:p-6 border-b border-gray-200">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-              <div className="icon-container-lg md:icon-container-xl flex-shrink-0 bg-gradient-to-br from-[#8B6F47] to-[#D4A574] rounded-2xl shadow-md flex items-center justify-center">
-                <Download className="icon-lg md:icon-xl text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="heading-3 md:heading-2 font-bold text-[#8B6F47] leading-tight truncate">
-                  Weekly Invoices
-                </h1>
-                <p className="body-xs text-neutral-500 truncate mt-0.5 hidden sm:block">
-                  View all completed order invoices
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-[#D4A574]/10 border border-[#D4A574]/40 rounded-xl transition-all shadow-sm disabled:opacity-50 flex-shrink-0 active:scale-95"
-              title="Refresh"
-              aria-label="Refresh"
-            >
-              <RefreshCw className={`icon-md text-[#D4A574] transition-transform ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="body-xs text-[#8B6F47] font-semibold hidden sm:inline whitespace-nowrap">Refresh</span>
-            </button>
+    <AdminPageLayout
+      icon={Download}
+      title="Weekly Invoices"
+      subtitle="View all completed order invoices"
+      sectionTitle="Invoice Overview"
+      onRefresh={handleRefresh}
+      isRefreshing={isRefreshing}
+    >
+      {/* Info Banner - Simplified */}
+      <div className="bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB] border-2 border-[#2196F3] rounded-xl p-6 mb-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="bg-white/80 p-2 rounded-lg flex-shrink-0">
+            <FileText className="w-5 h-5 text-[#2196F3]" />
           </div>
-
-          {/* Section Header Bar */}
-          <div className="rounded-b-2xl overflow-hidden">
-            <div className="px-5 py-3.5 bg-gradient-to-r from-[#8B6F47] to-[#D4A574]">
-              <h2 className="text-sm font-bold uppercase tracking-widest text-white">
-                Invoice Overview
-              </h2>
-            </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-[#1976D2] mb-2">Invoice System</h3>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li className="flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>
+                  Orders are marked complete <strong>manually by admin</strong> or{" "}
+                  <strong>automatically</strong> when the order lifecycle ends
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>
+                  <strong>One invoice per order</strong> - simple order list and totals
+                </span>
+              </li>
+            </ul>
           </div>
         </div>
+      </div>
 
-        {/* Info Banner - Simplified */}
-        <div className="bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB] border-2 border-[#2196F3] rounded-xl p-6 mb-6 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="bg-white/80 p-2 rounded-lg flex-shrink-0">
-              <FileText className="w-5 h-5 text-[#2196F3]" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-[#1976D2] mb-2">Invoice System</h3>
-              <ul className="text-sm text-gray-700 space-y-1">
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-0.5">•</span>
-                  <span>
-                    Orders are marked complete <strong>manually by admin</strong> or{" "}
-                    <strong>automatically</strong> when the order lifecycle ends
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-0.5">•</span>
-                  <span>
-                    <strong>One invoice per order</strong> - simple order list and totals
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Statistics Cards - Shared StatCard component */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5">
+      {/* Statistics Cards - Shared StatCard component */}
+      <div className="w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5 items-stretch">
           <StatCard icon={FileText} label="Total Invoices" value={globalStats.totalOrders} color="tan" />
           <StatCard icon={DollarSign} label="Total Revenue" value={`$${globalStats.totalRevenue.toFixed(0)}`} color="green" />
           <StatCard icon={Receipt} label="Avg Order" value={`$${globalStats.averageOrderValue.toFixed(0)}`} color="blue" />
         </div>
+      </div>
 
-        {/* ── Admin Search & Filter Bar ─────────────────────────────────────── */}
-        <div className="bg-white rounded-xl border-2 border-[#D4A574]/30 shadow-lg p-4 mb-6">
+      {/* ── Admin Search & Filter Bar ─────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border-2 border-[#D4A574]/30 shadow-lg p-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
             {/* 1. Invoice / order-ID search — Admin variant */}
@@ -442,36 +399,36 @@ export function WeeklyInvoices({
                   return (
                     <div
                       key={order.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-[#D4A574] hover:shadow-md transition-all"
+                      className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:border-[#D4A574] hover:shadow-md transition-all"
                     >
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
                         {/* Order Info */}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-bold text-[#8B6F47] text-lg">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap min-w-0">
+                            <h3 className="order-card-title">
                               {displayOrderLabel(order)}
                             </h3>
-                            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                            <span className="order-card-badge px-2 py-0.5 sm:px-3 sm:py-1 bg-green-100 text-green-700 rounded-full">
                               COMPLETED
                             </span>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4 text-gray-400" />
-                              <span>{customer?.storeName || customer?.contactPerson || order.customerName}</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-[11px] sm:text-sm text-gray-600">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                              <span className="truncate">{customer?.storeName || customer?.contactPerson || order.customerName}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-gray-400" />
+                              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
                               <span>{order.weekRange}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <DollarSign className="w-4 h-4 text-gray-400" />
+                              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
                               <span className="font-semibold text-[#8B6F47]">
                                 ${order.total?.toFixed(2) || "0.00"}
                               </span>
                             </div>
                           </div>
-                          <div className="mt-2 text-xs text-gray-500">
+                          <div className="mt-2 text-[10px] sm:text-xs text-gray-500">
                             Completed:{" "}
                             {order.completedAt
                               ? (toDate(order.completedAt)?.toLocaleDateString() ?? 'N/A')
@@ -511,7 +468,6 @@ export function WeeklyInvoices({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </AdminPageLayout>
   );
 }

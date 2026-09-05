@@ -16,6 +16,7 @@ import { UnifiedOrderList, ActionButtonSection } from "../order/UnifiedOrderList
 import { toast } from 'sonner';
 import { toDate } from "../../utils/timestampFormatting";
 import { displayOrderNumber, invoiceFilename } from '../../utils/displayId';
+import { canExportInvoiceDocument } from '../../utils/orderSelectors';
 
 interface CustomerInvoicesProps {
   user: User;
@@ -124,6 +125,11 @@ export function CustomerInvoices({
   };
 
   const handleDownloadOrder = async (order: Order) => {
+    if (!canExportInvoiceDocument(order)) {
+      toast.error('Invoice export is only available for completed paid orders', { duration: 3000 });
+      return;
+    }
+
     // ✅ PASS 3: Dynamic import keeps xlsx-js-style out of the customer entry chunk.
     const { exportOrderToExcel, downloadCSV } = await import("../../utils/excelExport");
     const csv = exportOrderToExcel(order, products, categories);

@@ -1,36 +1,3 @@
-/**
- * App.tsx - Main Application Entry Point
- * 
- * ✅ MARCH 7, 2026: Refactored to Route-Driven Architecture
- * ✅ MARCH 11, 2026: Mobile UI optimizations for order cards
- * ✅ MARCH 16, 2026: Timestamp validation fix applied
- * ✅ MAR 17, 2026: Add notification migration
- * 
- * BEFORE: State-based navigation with conditional rendering
- * AFTER: React Router Data Mode with proper URL-based routing
- * 
- * BENEFITS:
- * - URL-based navigation (shareable links, browser history)
- * - Centralized route configuration in /routes/index.ts
- * - Type-safe routing with loaders and guards
- * - Lazy-loaded route components
- * - Proper 404 handling
- * - SEO-friendly URLs
- * 
- * ARCHITECTURE:
- * - Uses RouterProvider from react-router
- * - Routes defined in /routes/index.ts
- * - Layouts in /routes/layouts/
- * - Guards for authentication and authorization
- * - Suspense fallback for lazy-loaded routes
- * 
- * MIGRATION NOTES:
- * - Removed conditional rendering logic
- * - Removed state-based page management
- * - Auth logic moved to route loaders/guards
- * - Navigation providers moved to layout components
- */
-
 import { Suspense, useEffect } from 'react';
 import { ErrorBoundary } from './components/errors/ErrorBoundary';
 import { RouterProvider } from 'react-router';

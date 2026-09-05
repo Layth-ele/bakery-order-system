@@ -88,7 +88,7 @@ export function ManageProductsView({
   }, [filteredProducts, mgmtPage]);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50">
       {/* Notification - Portal-based, always visible in viewport */}
       {notification && (
         <ToastNotification
@@ -97,7 +97,7 @@ export function ManageProductsView({
         />
       )}
 
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm mb-4 sm:mb-6">
           {/* Top Section */}

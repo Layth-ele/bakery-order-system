@@ -74,12 +74,41 @@ export function selectRejectedOrders(orders: Order[]): Order[] {
 }
 
 /**
+ * Groups the pending-order view into the queues the admin screen actually needs.
+ * Pending clean orders are separate from active orders awaiting review updates,
+ * while rejected orders remain visible in the data model but are intentionally
+ * hidden from the pending-page section list.
+ */
+export function selectPendingOrderGroups(orders: Order[]) {
+  const activeStatuses = new Set(['pending', 'approved', 'in_process']);
+
+  return {
+    pendingOrders: orders.filter(
+      order => order.status === 'pending' && order.updateRequested !== true
+    ),
+    updateRequestedOrders: orders.filter(
+      order => activeStatuses.has(order.status) && order.updateRequested === true
+    ),
+    rejectedOrders: selectRejectedOrders(orders),
+  };
+}
+
+/**
  * Select approved orders (awaiting payment or production)
  * @param orders - All orders
  * @returns Filtered approved orders
  */
 export function selectApprovedOrders(orders: Order[]): Order[] {
   return orders.filter(order => order.status === 'approved');
+}
+
+/**
+ * Approved page queue: the production-ready orders shown on the approved screen
+ * are the ones that have already cleared payment confirmation and are now
+ * in the in_process lifecycle stage.
+ */
+export function selectApprovedPageOrders(orders: Order[]): Order[] {
+  return orders.filter(order => order.status === 'in_process');
 }
 
 /**
@@ -304,6 +333,50 @@ export function isOrderTerminal(order: Order): boolean {
 }
 
 /**
+ * Central lifecycle guard for export / action eligibility.
+ * This is the shared decision point for all page-level export actions and
+ * other business operations so pages cannot drift into different rules.
+ */
+export function canExportInvoiceDocument(order: Order): boolean {
+  if (!order) return false;
+  if (order.status !== 'completed') return false;
+  if (order.paymentReceived !== true) return false;
+  return true;
+}
+
+export function canApproveOrder(order: Order): boolean {
+  if (!order) return false;
+  return order.status === 'pending' && order.locked !== true;
+}
+
+export function canRejectOrder(order: Order): boolean {
+  if (!order) return false;
+  return order.status === 'pending' && order.locked !== true;
+}
+
+export function canConfirmPayment(order: Order): boolean {
+  if (!order) return false;
+  return order.status === 'approved' && order.paymentSubmitted === true && order.locked !== true;
+}
+
+export type OrderActionType = 'approve' | 'reject' | 'confirmPayment' | 'exportInvoice';
+
+export function canPerformOrderAction(order: Order, action: OrderActionType): boolean {
+  switch (action) {
+    case 'approve':
+      return canApproveOrder(order);
+    case 'reject':
+      return canRejectOrder(order);
+    case 'confirmPayment':
+      return canConfirmPayment(order);
+    case 'exportInvoice':
+      return canExportInvoiceDocument(order);
+    default:
+      return false;
+  }
+}
+
+/**
  * Check if invoice can be downloaded for this order
  * ✅ PHASE 2 CENTRALIZATION: Invoice visibility rule
  * 
@@ -320,11 +393,5 @@ export function isOrderTerminal(order: Order): boolean {
  * @returns True if invoice can be downloaded
  */
 export function canDownloadInvoice(order: Order): boolean {
-  // ✅ Primary check: Order must be completed
-  if (order.status !== 'completed') return false;
-  
-  // ✅ Secondary check: Payment must be confirmed
-  if (!order.paymentReceived) return false;
-  
-  return true;
+  return canExportInvoiceDocument(order);
 }

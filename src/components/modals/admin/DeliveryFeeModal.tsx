@@ -3,7 +3,7 @@
  *
  * ✅ FEB 19, 2026: Updated to use StyleModalShell (renamed from RejectStyleModalShell)
  * ✅ FEB 18, 2026: Converted to RejectStyleModalShell for consistency
- * ✅ FEB 18, 2026: Extracted from inline modal in AdminDashboard.tsx and useOrderActionHandlers.tsx
+ * ✅ Delivery fee editing modal for the current order flow
  *
  * Prompts admin to enter a delivery fee for orders below the free delivery minimum.
  * Used during order approval flow when subtotal doesn't meet the threshold.

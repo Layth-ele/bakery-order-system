@@ -67,7 +67,7 @@ interface AdminGuardedComponentProps {
  * 
  * @example
  * ```typescript
- * const ProtectedDashboard = withAdminGuard(AdminDashboard, 'admin dashboard');
+ * const ProtectedAdminPage = withAdminGuard(AdminPage, 'admin dashboard');
  * 
  * function App() {
  *   return <ProtectedDashboard user={user} onBack={handleBack} />;

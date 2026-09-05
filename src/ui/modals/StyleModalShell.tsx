@@ -272,13 +272,13 @@ export function StyleModalShell({
             )}
             <div className="min-w-0 flex-1">
               <h2
-                className={`text-base sm:text-xl font-bold ${SKIN_COLORS[skinType].text} truncate`}
+                className={`text-[0.62rem] sm:text-xl font-bold ${SKIN_COLORS[skinType].text} leading-none truncate`}
               >
                 {title}
               </h2>
               {subtitle ? (
                 <div
-                  className={`text-xs ${SKIN_COLORS[skinType].text} opacity-70 break-all leading-tight mt-0.5`}
+                  className={`text-[5.5px] sm:text-xs ${SKIN_COLORS[skinType].text} opacity-80 break-all leading-tight mt-0.25`}
                 >
                   {subtitle}
                 </div>

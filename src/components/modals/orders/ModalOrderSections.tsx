@@ -65,13 +65,13 @@ function SectionCard({ icon, title, children }: {
   return (
     <div className="bg-[#FFF8F0] border border-[#E8C4A2] rounded-xl shadow-sm overflow-hidden">
       {/* Section title bar */}
-      <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-[#E8C4A2]">
-        <span className="text-[#D4A574]">{icon}</span>
-        <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#8B6F47]">
+      <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-[#E8C4A2]">
+        <span className="text-[#D4A574] text-sm sm:text-base">{icon}</span>
+        <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#8B6F47]">
           {title}
         </h3>
       </div>
-      <div className="px-4 sm:px-5 py-4">
+      <div className="px-3 sm:px-4 py-3 sm:py-4">
         {children}
       </div>
     </div>
@@ -82,11 +82,11 @@ function SectionCard({ icon, title, children }: {
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-[#D4A574]">
+      <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-[#D4A574]">
         {label}
       </span>
-      <span className="text-sm sm:text-base font-bold text-[#2d2416]">
-        {value || <span className="text-[#8B6F47]/40 font-normal text-xs">—</span>}
+      <span className="text-xs sm:text-sm font-bold text-[#2d2416] leading-snug">
+        {value || <span className="text-[#8B6F47]/40 font-normal text-[10px]">—</span>}
       </span>
     </div>
   );
@@ -242,9 +242,9 @@ export function OrderFinancialSummary({
   const total       = order.total ?? 0;
 
   const Row = ({ lbl, val, green = false, bold = false }: { lbl: string; val: string; green?: boolean; bold?: boolean }) => (
-    <div className={`flex items-center justify-between py-2.5 ${bold ? '' : 'border-b border-[#E8C4A2]/60'}`}>
-      <span className={`text-sm ${bold ? 'font-bold text-[#8B6F47]' : 'text-[#5a4535]'}`}>{lbl}</span>
-      <span className={`text-sm font-semibold tabular-nums ${green ? 'text-emerald-600' : bold ? 'text-[#8B6F47] text-base font-bold' : 'text-[#2d2416]'}`}>{val}</span>
+    <div className={`flex items-center justify-between py-2 ${bold ? '' : 'border-b border-[#E8C4A2]/60'}`}>
+      <span className={`text-[11px] sm:text-xs ${bold ? 'font-bold text-[#8B6F47]' : 'text-[#5a4535]'}`}>{lbl}</span>
+      <span className={`text-[11px] sm:text-xs font-semibold tabular-nums ${green ? 'text-emerald-600' : bold ? 'text-[#8B6F47] font-bold' : 'text-[#2d2416]'}`}>{val}</span>
     </div>
   );
 

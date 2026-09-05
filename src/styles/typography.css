@@ -202,6 +202,42 @@
 }
 
 /* ───────────────────────────────────────────────────────────────
+   ORDER CARD TYPOGRAPHY
+   Shared mobile-safe sizing for list cards across admin/customer pages.
+   Keeps all order/card labels visually consistent without duplicate inline styles.
+   ─────────────────────────────────────────────────────────────── */
+
+.order-card-title {
+  font-size: clamp(0.62rem, 2vw, 1rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: #8B6F47;
+  min-width: 0;
+  max-width: 48vw;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (min-width: 640px) {
+  .order-card-title {
+    max-width: none;
+    font-size: clamp(0.875rem, 1.4vw, 1.125rem);
+  }
+}
+
+.order-card-badge {
+  font-size: clamp(0.5rem, 1.6vw, 0.75rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.order-card-meta {
+  font-size: clamp(0.62rem, 2vw, 0.875rem);
+  line-height: 1.3;
+}
+
+/* ───────────────────────────────────────────────────────────────
    BADGE/TAG TYPOGRAPHY
    ─────────────────────────────────────────────────────────────── */
 

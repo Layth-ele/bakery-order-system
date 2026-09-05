@@ -79,13 +79,13 @@ const HistoricalOrderCard = memo(({
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         {/* Order Info */}
         <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="font-bold text-[#8B6F47] text-sm sm:text-base">
+          <div className="flex items-center gap-3 mb-2 min-w-0">
+            <h3 className="order-card-title">
               Order #{displayOrderNumber(order)}
             </h3>
             {getStatusBadge(order.status)}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-gray-600">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 order-card-meta text-gray-600">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-gray-400" />
               <span>{customer?.name || order.customerName}</span>

@@ -1,6 +1,6 @@
 /**
  * AdminTopBar.tsx
- * ✅ STEP 1: Extracted from AdminDashboard
+ * ✅ Admin top bar for the current route-driven admin layout
  * 
  * Header bar with:
  * - Admin Dashboard title

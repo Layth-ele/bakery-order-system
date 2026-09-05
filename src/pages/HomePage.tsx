@@ -338,26 +338,27 @@ export function HomePage(): JSX.Element | null {
   // ============================================================================
 
   return (
-    <div className="page bg-gradient-to-b from-black via-neutral-900 to-black">
-      {/* ========================================================================
-          HERO SECTION
-       ======================================================================== */}
-      <div id="hero-section" className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Elegant background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `radial-gradient(circle at 2px 2px, #e8dcc8 1px, transparent 0)`,
-              backgroundSize: '40px 40px',
-            }}
-          />
-        </div>
+    <div className="page app-shell bg-gradient-to-b from-black via-neutral-900 to-black">
+      <div className="app-shell--centered">
+        {/* ========================================================================
+            HERO SECTION
+         ======================================================================== */}
+        <div id="hero-section" className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 sm:px-6">
+          {/* Elegant background pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `radial-gradient(circle at 2px 2px, #e8dcc8 1px, transparent 0)`,
+                backgroundSize: '40px 40px',
+              }}
+            />
+          </div>
 
-        {/* Radial gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-radial from-transparent via-black/50 to-black" />
+          {/* Radial gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-radial from-transparent via-black/50 to-black" />
 
-        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
+          <div className="relative z-10 text-center px-4 max-w-5xl mx-auto w-full">
           {/* Logo */}
           <div className="mb-8 flex justify-center">
             <div className="relative">
@@ -395,6 +396,7 @@ export function HomePage(): JSX.Element | null {
         </div>
 
 
+        </div>
       </div>
 
       {/* ========================================================================
@@ -402,7 +404,7 @@ export function HomePage(): JSX.Element | null {
        ======================================================================== */}
       <div
         id="auth-section"
-        className="relative min-h-screen flex items-center justify-center py-20 px-4 bg-gradient-to-b from-stone-100 to-amber-50"
+        className="relative min-h-screen flex items-center justify-center py-20 px-4 sm:px-6 bg-gradient-to-b from-stone-100 to-amber-50"
       >
         {/* Subtle background texture */}
         <div className="absolute inset-0 opacity-30" style={{
@@ -410,7 +412,7 @@ export function HomePage(): JSX.Element | null {
           backgroundSize: '24px 24px',
         }} />
 
-        <div className="relative w-full max-w-md">
+        <div className="relative w-full max-w-md mx-auto">
           {/* Header above tabs */}
           <div className="text-center mb-6">
             <p className="text-sm font-medium text-amber-700 uppercase tracking-widest mb-1">Wholesale Portal</p>
@@ -595,7 +597,7 @@ export function HomePage(): JSX.Element | null {
           FOOTER — compact, luxury dark, dynamic from Settings
           ════════════════════════════════════════════════════════════ */}
       <footer className="bg-gradient-to-b from-neutral-900 to-black border-t border-[#D4A574]/20">
-        <div className="max-w-5xl mx-auto px-5 py-7">
+        <div className="max-w-5xl mx-auto px-5 py-7 w-full">
 
           {/* ── Main content: stacks vertically on mobile, row on sm+ ── */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 sm:gap-4 mb-5">

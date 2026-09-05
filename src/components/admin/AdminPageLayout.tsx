@@ -1,38 +1,3 @@
-/**
- * AdminPageLayout - Unified Layout Component for Admin Dashboard
- * 
- * ✅ CREATED: March 10, 2026 - Phase 1 Layout Consistency
- * 
- * PURPOSE:
- * - Single source of truth for ALL admin dashboard page layouts
- * - Matches CustomerPageLayout for consistency across the application
- * - Ensures consistent spacing, backgrounds, headers, and section bars
- * 
- * FEATURES:
- * - Gradient background (matching customer pages)
- * - Gold gradient header with icon
- * - Section bar with gold gradient
- * - Optional refresh button
- * - Responsive design (mobile-friendly)
- * - Uses design system typography and icon classes
- * 
- * USAGE:
- * ```tsx
- * import { AdminPageLayout } from '@/components/admin/AdminPageLayout';
- * 
- * <AdminPageLayout
- *   icon={Clock}
- *   title="Pending Orders"
- *   subtitle="Review and approve customer orders"
- *   sectionTitle="Pending Orders Overview"
- *   onRefresh={handleRefresh}
- *   isRefreshing={isRefreshing}
- * >
- *   {/* Page content here *\/}
- * </AdminPageLayout>
- * ```
- */
-
 import { ReactNode } from 'react';
 import { LucideIcon, RefreshCw } from 'lucide-react';
 
@@ -83,7 +48,7 @@ export function AdminPageLayout({
 }: AdminPageLayoutProps): JSX.Element | null {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5f5f5] via-[#e8e8e8] to-[#f0f0f0] py-8">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ── Page Header ─────────────────────────────────────────────────── */}
         <div className="mb-6">

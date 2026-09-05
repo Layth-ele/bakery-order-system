@@ -320,38 +320,38 @@ export function OrderRow({
                 {/* Status - Plain Text */}
                 <div className="flex-shrink-0 text-right">
                   {order.status === 'pending' && (
-                    <div className="text-[#FF9800] font-bold text-base leading-tight uppercase">
+                    <div className="order-card-meta text-[#FF9800] font-bold leading-tight uppercase">
                       Pending
                     </div>
                   )}
                   {order.status === 'approved' && (
                     order.paymentSubmitted ? (
-                      <div className="text-[#FF9800] font-bold text-base leading-tight uppercase">
+                      <div className="order-card-meta text-[#FF9800] font-bold leading-tight uppercase">
                         Waiting
                       </div>
                     ) : (
-                      <div className="text-[#F44336] font-bold text-base leading-tight uppercase">
+                      <div className="order-card-meta text-[#F44336] font-bold leading-tight uppercase">
                         Payment
                       </div>
                     )
                   )}
                   {order.status === 'rejected' && (
-                    <div className="text-neutral-600 font-bold text-base leading-tight uppercase">
+                    <div className="order-card-meta text-neutral-600 font-bold leading-tight uppercase">
                       Rejected
                     </div>
                   )}
                   {order.status === 'cancelled' && (
-                    <div className="text-neutral-600 font-bold text-base leading-tight uppercase">
+                    <div className="order-card-meta text-neutral-600 font-bold leading-tight uppercase">
                       Cancelled
                     </div>
                   )}
                   {order.status === 'completed' && (
-                    <div className="text-[#4CAF50] font-bold text-base leading-tight uppercase">
+                    <div className="order-card-meta text-[#4CAF50] font-bold leading-tight uppercase">
                       Completed
                     </div>
                   )}
                   {order.status === 'in_process' && (
-                    <div className="text-[#2196F3] font-bold text-base leading-tight uppercase">
+                    <div className="order-card-meta text-[#2196F3] font-bold leading-tight uppercase">
                       Production
                     </div>
                   )}

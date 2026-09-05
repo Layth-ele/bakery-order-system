@@ -1,39 +1,8 @@
-/**
- * 🎨 PendingOrdersView - Presentational Component
- * 
- * ✅ PHASE 3: Migrated to AdminPageLayout (March 10, 2026)
- * 
- * CHANGES:
- * - Now uses AdminPageLayout for consistent structure
- * - Replaced 4 inline stat cards with StatCard component
- * - 100% design system compliance
- * - Matches all other admin pages
- * 
- * ✅ PHASE 2: Business Logic Extraction
- * ✅ PERFORMANCE OPTIMIZED (March 7, 2026)
- * 
- * PURPOSE:
- * - Pure presentational component for pending orders
- * - No business logic, no data fetching
- * - Receives data and callbacks via props
- * - Easy to test and maintain
- * 
- * ARCHITECTURE:
- * - Props in → JSX out
- * - All logic delegated to parent/hooks
- * - Reusable across different contexts
- * 
- * PERFORMANCE:
- * - React.memo to prevent unnecessary re-renders
- * - Static action buttons (not recreated per order)
- * - Optimized memoization dependencies
- */
-
 import React, { useMemo } from 'react';
 import { Clock, CheckCircle, XCircle, Edit2, RefreshCw, AlertCircle, Eye } from 'lucide-react';
 import { UnifiedOrderList, ActionButtonSection } from './UnifiedOrderList';
-import { AdminPageLayout } from '../admin/AdminPageLayout'; // ✅ PHASE 3: Import layout
-import { StatCard } from '../shared/StatCard'; // ✅ PHASE 3: Import shared component
+import { AdminPageLayout } from '../admin/AdminPageLayout';
+import { StatCard } from '../shared/StatCard';
 import type { Order, Product, Category } from '../../types';
 
 export interface PendingOrdersViewProps {
@@ -230,39 +199,40 @@ function PendingOrdersViewComponent({
       sectionTitle="Pending Orders Overview"
       onRefresh={onRefresh}
     >
-      {/* Statistics Cards - Using Shared StatCard Component */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
-        {/* Total Orders */}
-        <StatCard
-          icon={Clock}
-          label="Total Orders"
-          value={totalPendingCount}
-          color="tan"
-        />
+      <div className="w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-5 items-stretch">
+          {/* Total Orders */}
+          <StatCard
+            icon={Clock}
+            label="Total Orders"
+            value={totalPendingCount}
+            color="tan"
+          />
 
-        {/* Pending */}
-        <StatCard
-          icon={Clock}
-          label="Pending"
-          value={pendingOrders.length}
-          color="tan"
-        />
+          {/* Pending */}
+          <StatCard
+            icon={Clock}
+            label="Pending"
+            value={pendingOrders.length}
+            color="orange"
+          />
 
-        {/* Update Requested */}
-        <StatCard
-          icon={Edit2}
-          label="Update Requested"
-          value={updateRequestedOrders.length}
-          color="orange"
-        />
+          {/* Update Requested */}
+          <StatCard
+            icon={Edit2}
+            label="Update Requested"
+            value={updateRequestedOrders.length}
+            color="amber"
+          />
 
-        {/* Rejected */}
-        <StatCard
-          icon={XCircle}
-          label="Rejected"
-          value={rejectedOrders.length}
-          color="red"
-        />
+          {/* Rejected */}
+          <StatCard
+            icon={XCircle}
+            label="Rejected"
+            value={rejectedOrders.length}
+            color="red"
+          />
+        </div>
       </div>
 
       {/* Pending Registrations Alert */}

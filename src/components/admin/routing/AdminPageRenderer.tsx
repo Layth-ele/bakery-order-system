@@ -1,10 +1,10 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ADMIN PAGE RENDERER - STEP 3 OF ADMINDASHBOARD REFACTOR
+ * ADMIN PAGE RENDERER
  * ═══════════════════════════════════════════════════════════════════════════
  * 
  * This component handles the routing/rendering logic for all admin pages.
- * Extracted from AdminDashboard.tsx to improve maintainability.
+ * It keeps page mapping centralized and avoids scattered page logic.
  * 
  * ✅ RESPONSIBILITIES:
  * - Route currentPage to correct component
@@ -31,10 +31,10 @@ import { CustomersList } from '../../../pages/admin/CustomersList';
 import { ManageProducts } from '../../../pages/admin/ManageProducts';
 import { SystemSettings } from '../../../pages/admin/SystemSettings';
 import { RegistrationRequests } from '../../../pages/admin/RegistrationRequests';
-import { PendingOrders } from '../../order/PendingOrders';
-import { AdminUnpaidOrders } from '../../order/AdminUnpaidOrders'; // Import unpaid orders component
-import { ApprovedOrders } from '../../order/ApprovedOrders';
-import { CompleteOrders } from '../../order/CompleteOrders'; // Import complete orders component for history page
+import { PendingOrdersPage as PendingOrders } from '../../../pages/admin/PendingOrdersPage';
+import { AdminUnpaidOrdersPage as AdminUnpaidOrders } from '../../../pages/admin/AdminUnpaidOrdersPage';
+import { ApprovedOrdersPage as ApprovedOrders } from '../../../pages/admin/ApprovedOrdersPage';
+import { CompleteOrdersPage as CompleteOrders } from '../../../pages/admin/CompleteOrdersPage';
 import { WeeklyInvoices } from '../WeeklyInvoices';
 import { ProductionToDoSheet } from '../ProductionToDoSheet';
 

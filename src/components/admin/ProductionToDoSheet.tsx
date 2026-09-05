@@ -15,6 +15,7 @@
 import {useState, useMemo, useCallback, memo, useEffect, useRef} from 'react'
 import {ClipboardList, RefreshCw, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Package, Briefcase, Users, Printer, FileDown} from 'lucide-react'
 import { StatCard } from '../shared/StatCard';
+import { AdminPageLayout } from './AdminPageLayout';
 import { Order, Product, Category } from '../../types';
 import { useCachedActiveOrders } from '../../hooks/useCachedFirebase'  // BUG 2 FIX
 import { useCachedProducts } from '../../hooks/useCachedProducts';
@@ -462,179 +463,141 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f5f5f5] via-[#e8e8e8] to-[#f0f0f0] py-4 sm:py-8">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4">
-        {/* Header */}
-        <div className="mb-4 sm:mb-8">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-              <div className="icon-container-lg md:icon-container-xl flex items-center justify-center bg-gradient-to-br from-[#8B6F47] to-[#D4A574] rounded-2xl shadow-md flex-shrink-0">
-                <ClipboardList className="icon-lg md:icon-xl text-white" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="heading-3 md:heading-2 font-bold text-[#8B6F47] truncate leading-tight">
-                  Production To Do
-                </h1>
-                <p className="body-xs text-neutral-500 truncate mt-0.5 hidden sm:block">
-                  Weekly production schedule with confirmed payments
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-[#D4A574]/10 border border-[#D4A574]/40 rounded-xl transition-all shadow-sm disabled:opacity-50 active:scale-95"
-                title="Refresh"
-                aria-label="Refresh"
-              >
-                <RefreshCw className={`icon-md text-[#D4A574] transition-transform ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="body-xs text-[#8B6F47] font-semibold hidden sm:inline whitespace-nowrap">Refresh</span>
-              </button>
-              <button
-                onClick={handlePrint}
-                disabled={!selectedDayInfo || selectedDayInfo.orderCount === 0}
-                className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-[#D4A574] hover:bg-[#C49564] disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
-              >
-                <Printer className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm">Print</span>
-              </button>
-              <button
-                onClick={handleExportPDF}
-                disabled={!selectedDayInfo || selectedDayInfo.orderCount === 0}
-                className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-[#8B6F47] hover:bg-[#7A5F3C] disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
-              >
-                <FileDown className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm">PDF</span>
-              </button>
-            </div>
-          </div>
+    <AdminPageLayout
+      icon={ClipboardList}
+      title="Production To Do"
+      subtitle="Weekly production schedule with confirmed payments"
+      sectionTitle="Production Overview"
+      onRefresh={handleRefresh}
+      isRefreshing={isRefreshing}
+    >
+      <div className="mb-4 sm:mb-6">
+        <div className="flex items-center justify-end gap-1 sm:gap-2 flex-shrink-0 mb-4">
+          <button
+            onClick={handlePrint}
+            disabled={!selectedDayInfo || selectedDayInfo.orderCount === 0}
+            className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-[#D4A574] hover:bg-[#C49564] disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm">Print</span>
+          </button>
+          <button
+            onClick={handleExportPDF}
+            disabled={!selectedDayInfo || selectedDayInfo.orderCount === 0}
+            className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-[#8B6F47] hover:bg-[#7A5F3C] disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
+          >
+            <FileDown className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm">PDF</span>
+          </button>
         </div>
 
-        {/* Production Overview */}
         {selectedDayInfo && (
-          <div className="mb-4 sm:mb-6">
-            <div className="rounded-xl overflow-hidden mb-3 sm:mb-4 shadow-md">
-              <div className="px-5 py-3.5 bg-gradient-to-r from-[#8B6F47] to-[#D4A574]">
-                <h2 className="text-sm font-bold uppercase tracking-widest text-white">
-                  Production Overview
-                </h2>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
-              <StatCard icon={ClipboardList} label="Total Orders"  value={selectedDayInfo.orderCount}   color="orange" />
-              <StatCard icon={Briefcase}     label="Commercial"    value={customerCounts.commercial}    color="blue"   />
-              <StatCard icon={Users}         label="Individual"    value={customerCounts.individual}    color="purple" />
-              <StatCard icon={Package}       label="Total Items"   value={selectedDayInfo.productCount} color="green"  />
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+            <StatCard icon={ClipboardList} label="Total Orders" value={selectedDayInfo.orderCount} color="orange" />
+            <StatCard icon={Briefcase} label="Commercial" value={customerCounts.commercial} color="blue" />
+            <StatCard icon={Users} label="Individual" value={customerCounts.individual} color="purple" />
+            <StatCard icon={Package} label="Total Items" value={selectedDayInfo.productCount} color="green" />
           </div>
-        )}
-
-        {/* Day Selector */}
-        <div className="bg-white rounded-xl border-2 border-[#D4A574]/30 shadow-lg p-3 sm:p-4 mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 sm:mb-4">
-            <h2 className="text-base sm:text-lg font-bold text-[#8B6F47]">Production Schedule</h2>
-            <div className="text-xs sm:text-sm text-gray-600">
-              Select a day to view production details
-            </div>
-          </div>
-          
-          {/* Responsive day card grid — 4 cols on mobile wraps into 2 rows, 7 cols on desktop */}
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 sm:gap-2">
-            {dayInfos.map((dayInfo, index) => (
-              <DayCard
-                key={index}
-                dayInfo={dayInfo}
-                index={index}
-                isSelected={index === selectedDayIndex}
-                onClick={() => setSelectedDayIndex(index)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Selected Day Details */}
-        {selectedDayInfo && (
-          <>
-            <div className="bg-white rounded-xl border border-[#D4A574]/25 shadow-sm overflow-hidden">
-              <div className="px-5 py-3.5 bg-gradient-to-r from-[#8B6F47] to-[#D4A574]">
-                <h2 className="text-sm font-bold uppercase tracking-widest text-white truncate">
-                  Production List — {selectedDayInfo.dayShort}, {selectedDayInfo.date?.toLocaleDateString("en-US", {month: "short", day: "numeric"})}
-                </h2>
-              </div>
-
-              <div className="p-3 sm:p-6">
-                {productionSummary.length === 0 ? (
-                  <div className="text-center py-8 sm:py-12">
-                    <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
-                    <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">
-                      No Production Scheduled
-                    </h3>
-                    <p className="text-sm sm:text-base text-gray-500">
-                      No orders scheduled for production on this day.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 sm:space-y-4">
-                    {Object.entries(productsByCategory).map(([categoryName, productsInCategory]) => {
-                      const categoryProducts = productsInCategory as any[];
-                      const isExpanded = expandedCategories.has(categoryName);
-                      const totalQty = categoryProducts.reduce((sum, p) => sum + p.quantity, 0);
-                      
-                      return (
-                        <div key={categoryName} className="border-2 border-gray-200 rounded-lg overflow-hidden">
-                          <button
-                            onClick={() => toggleCategory(categoryName)}
-                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 transition-colors flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                              {isExpanded ? (
-                                <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4A574] flex-shrink-0" />
-                              ) : (
-                                <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4A574] flex-shrink-0" />
-                              )}
-                              <span className="font-bold text-[#8B6F47] uppercase text-xs sm:text-sm truncate">{categoryName}</span>
-                              <span className="text-xs text-gray-500 flex-shrink-0">({categoryProducts.length})</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-                              <span className="text-xs text-gray-500 hidden sm:inline">Total:</span>
-                              <span className="font-bold text-[#8B6F47] text-sm sm:text-base">{totalQty}</span>
-                            </div>
-                          </button>
-
-                          {isExpanded && (
-                            <div className="p-2 sm:p-4 space-y-2">
-                              {categoryProducts.map((product, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-center justify-between py-2 px-2 sm:px-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                >
-                                  <div className="flex-1 min-w-0 mr-2">
-                                    <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{product.name}</div>
-                                    <div className="text-[10px] sm:text-xs text-gray-500">
-                                      {product.orderCount} order{product.orderCount !== 1 ? 's' : ''}
-                                    </div>
-                                  </div>
-                                  <div className="text-right flex-shrink-0">
-                                    <div className="text-lg sm:text-xl font-bold text-[#8B6F47]">{product.quantity}</div>
-                                    <div className="text-[10px] sm:text-xs text-gray-500">units</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
         )}
       </div>
-    </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#D4A574]/30 shadow-lg p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 sm:mb-4">
+          <h2 className="text-base sm:text-lg font-bold text-[#8B6F47]">Production Schedule</h2>
+          <div className="text-xs sm:text-sm text-gray-600">
+            Select a day to view production details
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 sm:gap-2">
+          {dayInfos.map((dayInfo, index) => (
+            <DayCard
+              key={index}
+              dayInfo={dayInfo}
+              index={index}
+              isSelected={index === selectedDayIndex}
+              onClick={() => setSelectedDayIndex(index)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {selectedDayInfo && (
+        <div className="bg-white rounded-xl border border-[#D4A574]/25 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 bg-gradient-to-r from-[#8B6F47] to-[#D4A574]">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-white truncate">
+              Production List — {selectedDayInfo.dayShort}, {selectedDayInfo.date?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </h2>
+          </div>
+
+          <div className="p-3 sm:p-6">
+            {productionSummary.length === 0 ? (
+              <div className="text-center py-8 sm:py-12">
+                <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">
+                  No Production Scheduled
+                </h3>
+                <p className="text-sm sm:text-base text-gray-500">
+                  No orders scheduled for production on this day.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 sm:space-y-4">
+                {Object.entries(productsByCategory).map(([categoryName, productsInCategory]) => {
+                  const categoryProducts = productsInCategory as any[];
+                  const isExpanded = expandedCategories.has(categoryName);
+                  const totalQty = categoryProducts.reduce((sum, p) => sum + p.quantity, 0);
+
+                  return (
+                    <div key={categoryName} className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => toggleCategory(categoryName)}
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 transition-colors flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4A574] flex-shrink-0" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4A574] flex-shrink-0" />
+                          )}
+                          <span className="font-bold text-[#8B6F47] uppercase text-xs sm:text-sm truncate">{categoryName}</span>
+                          <span className="text-xs text-gray-500 flex-shrink-0">({categoryProducts.length})</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                          <span className="text-xs text-gray-500 hidden sm:inline">Total:</span>
+                          <span className="font-bold text-[#8B6F47] text-sm sm:text-base">{totalQty}</span>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="p-2 sm:p-4 space-y-2">
+                          {categoryProducts.map((product, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between py-2 px-2 sm:px-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              <div className="flex-1 min-w-0 mr-2">
+                                <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{product.name}</div>
+                                <div className="text-[10px] sm:text-xs text-gray-500">
+                                  {product.orderCount} order{product.orderCount !== 1 ? 's' : ''}
+                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-lg sm:text-xl font-bold text-[#8B6F47]">{product.quantity}</div>
+                                <div className="text-[10px] sm:text-xs text-gray-500">units</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </AdminPageLayout>
   );
 }

@@ -11,11 +11,11 @@
 export const rejectSkin = {
   // Backdrop overlay
   overlay:
-    "fixed inset-0 bg-black/70 backdrop-blur-sm z-50 p-4 flex items-center justify-center",
+    "fixed inset-0 bg-black/70 backdrop-blur-sm z-modal-backdrop p-4 flex items-center justify-center",
 
   // Main modal container/panel
   panel:
-    "relative bg-white rounded-xl shadow-2xl w-full max-h-[90vh] overflow-hidden flex flex-col",
+    "relative bg-white rounded-xl shadow-2xl w-full max-h-[90vh] overflow-hidden flex flex-col z-modal-content",
 
   // Header section (gold gradient)
   header:

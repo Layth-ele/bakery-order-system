@@ -3,7 +3,7 @@
  * ✅ FEB 22, 2026: Converted to StyleModalShell + ModalFooterButtons
  * ✅ FEB 19, 2026: MOVED to /components/modals/orders/ (consolidation project)
  *
- * This modal was ~760 lines inline in AdminDashboard
+ * Admin order details modal for the current route-based admin flow
  * Now extracted for better maintainability
  */
 

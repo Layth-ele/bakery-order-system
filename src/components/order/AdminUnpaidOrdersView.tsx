@@ -1,20 +1,3 @@
-/**
- * 🎨 AdminUnpaidOrdersView - Presentational Component
- * 
- * ✅ PHASE 2: Business Logic Extraction
- * 
- * PURPOSE:
- * - Pure presentational component for unpaid orders
- * - No business logic, no data fetching
- * - Receives data and callbacks via props
- * - Easy to test and maintain
- * 
- * ARCHITECTURE:
- * - Props in → JSX out
- * - All logic delegated to parent/hooks
- * - Reusable across different contexts
- */
-
 import React, { useState } from 'react';
 import { DollarSign, RefreshCw, Clock, CheckCircle2 } from 'lucide-react';
 import { UnpaidOrderCard } from './UnpaidOrderCard';
@@ -110,7 +93,7 @@ export function AdminUnpaidOrdersView({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5f5f5] via-[#e8e8e8] to-[#f0f0f0] py-8">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between gap-2 sm:gap-4">

@@ -1,24 +1,11 @@
 /**
- * CustomerPageLayout
- * 
- * ✅ UPDATED: March 10, 2026 - Phase 1 Layout Consistency
- * 
- * Unified layout component for all customer dashboard pages
- * Matches the Admin Dashboard production tools style with:
- * - Gold gradient headers
- * - Centered pastel grid cards
- * - Consistent spacing and styling
- * 
- * CHANGES:
- * - StatCard moved to /components/shared/StatCard.tsx for reusability
- * - Now imports shared StatCard component
- * - Maintains exact same API and functionality
+ * Shared layout shell for customer dashboard pages.
+ * Uses the single canonical StatCard component across the app.
  */
 
 import { ReactNode } from 'react';
 import { LucideIcon, RefreshCw } from 'lucide-react';
 
-// ✅ Import shared StatCard component
 export { StatCard } from '../shared/StatCard';
 
 interface CustomerPageLayoutProps {
@@ -42,7 +29,7 @@ export function CustomerPageLayout({
 }: CustomerPageLayoutProps): JSX.Element | null {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5f5f5] via-[#e8e8e8] to-[#f0f0f0] py-8">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ── Page Header ─────────────────────────────────────────────────── */}
         <div className="mb-6">

@@ -4,17 +4,14 @@
  * ✅ PHASE 2: Admin Pages Standardization - Navigation Logic Layer
  * 
  * PURPOSE:
- * - Extract all navigation logic from AdminDashboard
- * - Handle page changes, sidebar state, keyboard shortcuts
+ * - Handle page changes, sidebar state, and keyboard shortcuts
  * - Calculate badge counts for navigation items
  * - Single source of truth for navigation behavior
- * 
+ *
  * ARCHITECTURE:
  * - Input: currentPage, setCurrentPage, badge counts, modal actions
  * - Output: Navigation handlers and state
  * - Encapsulates all navigation business logic
- * 
- * EXTRACTED FROM: /pages/admin/AdminDashboard.tsx
  */
 
 import { useState, useCallback, useMemo } from 'react';
