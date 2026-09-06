@@ -29,6 +29,7 @@
 
 import { useMemo } from 'react';
 import { useCachedOrders } from '../useCachedFirebase';
+import { isAdmin } from '../auth/useAdminPermission';
 import {
   selectInProcessOrders,
   selectPendingOrders,
@@ -128,7 +129,7 @@ export function useOrdersData(
   const filteredOrders = useMemo(() => {
     if (!user) return allOrders;
     
-    if (user.role === 'admin') {
+    if (isAdmin(user)) {
       return allOrders; // Admin sees all orders
     }
     

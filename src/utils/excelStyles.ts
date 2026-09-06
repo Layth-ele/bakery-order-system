@@ -5,7 +5,6 @@ import { getWeekDates } from './dateUtils';
  * Brand colors, border helpers, and cell style builders for Excel exports.
  * Extracted from excelExport.ts to reduce its size.
  */
-import * as XLSX from 'xlsx';
 
 /**
  * 12-slot category palette for the Delight Bakehouse order form.

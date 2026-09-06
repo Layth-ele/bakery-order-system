@@ -36,6 +36,7 @@ import type { User } from "../../services/firebase/authService"; // ✅ Import U
 import { withAdminGuard } from "../../guards/adminGuards";
 import { generateCustomerId } from '../../services/idCounterService';
 import { updateCustomer } from '../../services/customersService';
+import { logger } from '../../utils/logger';
 import { AdminPageLayout } from "../../components/admin/AdminPageLayout"; // ✅ PHASE 2: New layout
 import { StatCard } from "../../components/shared/StatCard"; // ✅ PHASE 2: Shared component
 
@@ -132,11 +133,30 @@ function CustomersListComponent({
   // Bulletproof: retries on failure, staggered writes, never duplicates.
   const backfilledRef = useRef<Set<string>>(new Set());
 
+  // FIX: cap total generation attempts per customer *per browser tab session*
+  // (not just per-mount). Without this, a customer whose write never sticks
+  // (e.g. Firestore write silently rolled back) burns a fresh sequential
+  // CUST-##### id every time this page remounts — an audit-compliance risk
+  // for a system that requires gapless sequential ids.
+  const MAX_BACKFILL_ATTEMPTS = 3;
+  const ATTEMPTS_KEY = 'bakery_customerCode_backfill_attempts';
+  const readAttempts = (): Record<string, number> => {
+    try { return JSON.parse(sessionStorage.getItem(ATTEMPTS_KEY) || '{}'); } catch { return {}; }
+  };
+  const bumpAttempts = (customerId: string): number => {
+    const attempts = readAttempts();
+    attempts[customerId] = (attempts[customerId] || 0) + 1;
+    try { sessionStorage.setItem(ATTEMPTS_KEY, JSON.stringify(attempts)); } catch { /* ignore quota errors */ }
+    return attempts[customerId];
+  };
+
   useEffect(() => {
     if (!allCustomers || allCustomers.length === 0) return;
+    const attempts = readAttempts();
     const missing = (allCustomers as any[]).filter(
       (c) => !c.customerCode && c.id && c.customerType !== 'admin'
         && !backfilledRef.current.has(c.id)
+        && (attempts[c.id] || 0) < MAX_BACKFILL_ATTEMPTS
     );
     if (missing.length === 0) return;
 
@@ -146,14 +166,16 @@ function CustomersListComponent({
     // Stagger writes: 500ms apart to avoid Firestore rate limits
     missing.forEach((customer, idx) => {
       setTimeout(async () => {
+        bumpAttempts(customer.id);
         let code = '';
         // Try up to 3 times
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             code = await generateCustomerId();
             break;
-          } catch {
+          } catch (genError) {
             if (attempt === 3) {
+              logger.error(`\u274c [CustomersList] generateCustomerId failed 3x for ${customer.id}, using local fallback:`, genError);
               // Final fallback: date + crypto-secure 3-digit suffix.
               // FIX T2R3-H3 (HIGH): was Math.random()-based which is
               // reverse-engineerable in V8 and prone to collisions when
@@ -175,9 +197,20 @@ function CustomersListComponent({
           }
         }
         try {
-          await updateCustomer({ id: customer.id, customerCode: code } as any);
-        } catch {
-          // Remove so it retries on next render cycle
+          const updated = await updateCustomer({ id: customer.id, customerCode: code } as any);
+          // NOTE: updateCustomer() re-reads the doc right after writing it.
+          // With Firestore persistence enabled that read can occasionally
+          // return a stale cached snapshot, so a one-off mismatch here isn't
+          // proof the write failed — just log it, don't burn another id by
+          // retrying immediately. The session attempt cap above is what
+          // actually prevents runaway id generation if the write is truly
+          // never landing.
+          if ((updated as any)?.customerCode !== code) {
+            logger.warn(`\u26a0\ufe0f [CustomersList] customerCode not visible immediately after write for ${customer.id} (wrote "${code}"); will not retry until next tab session`);
+          }
+        } catch (updateError) {
+          logger.error(`\u274c [CustomersList] Failed to save customerCode for ${customer.id}:`, updateError);
+          // Remove so it can retry (still bounded by MAX_BACKFILL_ATTEMPTS above)
           backfilledRef.current.delete(customer.id);
         }
       }, idx * 600);

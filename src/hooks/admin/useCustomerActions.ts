@@ -10,7 +10,7 @@ import {
   deleteCustomerFromStorage,
 } from '../../services/customersService';
 import { copyToClipboard } from '../../utils/clipboardUtils';
-import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
+import { resetPassword as sendPasswordResetLink } from '../../services/firebase/authService';
 import { toast } from 'sonner';
 import type { User } from '../useAuth';
 import type { Customer } from '../../types/customer';
@@ -41,11 +41,14 @@ export function useCustomerActions({ user }: UseCustomerActionsProps): CustomerA
     if (!checkAdmin('customer-action')) { toast.error('Permission denied'); return; }
     try {
       const customerWithId = customer as User;
-      const updated = await (isCustomerSuspended(customerWithId)
+      const wasSuspended = isCustomerSuspended(customerWithId);
+      const updated = await (wasSuspended
         ? unarchiveCustomer(customerWithId.id)
         : archiveCustomer(customerWithId.id));
       await invalidateCache.customers();
-      toast.success(updated.status === 'suspended' ? '🔒 Account suspended' : '🔓 Account activated', { duration: 3000 });
+      // archiveCustomer() sets status:'archived', not 'suspended' — isCustomerSuspended()
+      // treats both as suspended, so check that instead of the literal status string.
+      toast.success(isCustomerSuspended(updated as User) ? '🔒 Account suspended' : '🔓 Account activated', { duration: 3000 });
     } catch (error) {
       toast.error((error as any)?.code === 'permission-denied' ? 'Permission denied' : 'Failed to update status');
     }
@@ -109,19 +112,22 @@ export function useCustomerActions({ user }: UseCustomerActionsProps): CustomerA
       toast.error('Cannot reset admin password through this interface'); return;
     }
     try {
-      const auth = getAuth();
-      await sendPasswordResetEmail(auth, customer.email);
+      // FIX: sendPasswordResetEmail() with no actionCodeSettings uses Firebase's
+      // default action URL, which doesn't route into this app's ResetPasswordPage —
+      // the customer's email link just landed on the home page. resetPassword()
+      // sets actionCodeSettings.url to `${origin}/reset-password` correctly.
+      const result = await sendPasswordResetLink(customer.email);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
       toast.success(
         `📧 Password reset email sent to ${customer.email}. The customer will receive a link to set a new password.`,
         { duration: 8000 }
       );
     } catch (error: any) {
       console.error('Password reset error:', error);
-      if (error.code === 'auth/user-not-found') {
-        toast.error('No Firebase account found for this email. The customer may not have completed registration.');
-      } else {
-        toast.error('Failed to send password reset email. Please try again.');
-      }
+      toast.error('Failed to send password reset email. Please try again.');
     }
   }, [checkAdmin]);
 

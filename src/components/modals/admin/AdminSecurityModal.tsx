@@ -15,6 +15,7 @@ import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { SaveFooter } from "../../../ui/modals/ModalFooterButtons"; // ✅ FEB 21, 2026
 import { Shield, Lock } from "lucide-react";
 import { useModal } from "../../../contexts/ModalContextNew";
+import { isAdmin } from "../../../hooks/auth/useAdminPermission";
 
 interface AdminSecurityModalProps {
   user: User;
@@ -31,7 +32,7 @@ export function AdminSecurityModal({
   const handleConfirm = () => {
     // Role-based check
     const isCurrentUserAdmin =
-      user.role === "admin" || user.customerType === "admin";
+      isAdmin(user) || user.customerType === "admin";
 
     if (!isCurrentUserAdmin) {
       setError("❌ Only admins can create new admin accounts!");

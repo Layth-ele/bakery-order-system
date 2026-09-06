@@ -22,7 +22,8 @@ import { useCallback } from 'react';
 import { useAlert } from '../../contexts/AlertContext';
 import { toast } from 'sonner';
 import { updateCustomer, createCustomer } from '../../services/dataService';
-import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { resetPassword as sendPasswordResetLink } from '../../services/firebase/authService';
 import { initializeApp, deleteApp, getApps } from 'firebase/app';
 import { getFirebaseConfig } from '../../firebase/config';
 import { generateCustomerId } from '../../services/idCounterService';
@@ -121,9 +122,10 @@ export function useCustomerAccountActions({
         let resetEmailSent = false;
         if (registration.email) {
           try {
-            const auth = getAuth();
-            await sendPasswordResetEmail(auth, registration.email);
-            resetEmailSent = true;
+            // FIX: raw sendPasswordResetEmail() with no actionCodeSettings used
+            // Firebase's default action URL, not this app's /reset-password route.
+            const result = await sendPasswordResetLink(registration.email);
+            resetEmailSent = result.success;
           } catch (resetErr) {
             // Non-fatal: account is approved. Admin can trigger reset manually via customer list.
             logger.warn('[approveRegistration] Password reset email failed (non-fatal):', resetErr);
@@ -394,9 +396,10 @@ export function useCustomerAccountActions({
         // is irrelevant after first reset.
         let resetEmailSent = false;
         try {
-          const auth = getAuth();
-          await sendPasswordResetEmail(auth, normalisedEmail);
-          resetEmailSent = true;
+          // FIX: raw sendPasswordResetEmail() with no actionCodeSettings used
+          // Firebase's default action URL, not this app's /reset-password route.
+          const result = await sendPasswordResetLink(normalisedEmail);
+          resetEmailSent = result.success;
         } catch (resetErr) {
           // Non-fatal: account exists. Admin can trigger reset manually.
           logger.warn('[createNewCustomer] Password reset email failed (non-fatal):', resetErr);

@@ -20,6 +20,7 @@ import {
 import { Customer, Order } from "../../../types";
 import { getOrdersByCustomer } from "../../../services/data/ordersDataService";
 import { displayOrderNumber, displayCustomerCode } from '../../../utils/displayId';
+import { useModal } from "../../../contexts/ModalContextNew";
 
 interface CustomerProfileModalProps {
   customerEmail: string;
@@ -48,6 +49,7 @@ export function CustomerProfileModal({
   isAdmin = false,
   openModal,
 }: CustomerProfileModalProps): JSX.Element | null {
+  const { closeModal } = useModal();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders,   setOrders]   = useState<Order[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -262,7 +264,7 @@ export function CustomerProfileModal({
           {isAdmin && openModal && (
             <button
               onClick={() => openModal('ADD_CREDIT', {
-                customer, onClose: () => {}, onSuccess: loadCustomerData,
+                customer, onClose: closeModal, onSuccess: loadCustomerData,
               })}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#D4A574] text-white rounded-lg hover:bg-[#B8935F] transition-colors font-medium"
             >

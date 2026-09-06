@@ -76,6 +76,7 @@ export const customerSchema = z.object({
   customerType: customerTypeSchema.optional(),
   status: customerStatusSchema.optional(),
   role: z.string().optional(),           // 'admin' | 'customer'
+  customerCode: z.string().optional(),   // human-readable ID, e.g. CUST-2026-03-26-001-47
   
   // Timestamps (Firestore Timestamp)
   createdAt: optionalFirestoreTimestampSchema,
