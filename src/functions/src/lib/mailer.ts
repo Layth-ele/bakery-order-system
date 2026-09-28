@@ -16,6 +16,9 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { emailBrandFrom, type EmailBrand } from "./emailLayout";
 import { paymentInfoFrom, type PaymentInfo } from "./emailContent";
+import { isResendApiKey } from "./resendKey";
+
+export { isResendApiKey };
 
 export const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 export const EMAIL_FROM = defineString("EMAIL_FROM", {
@@ -103,13 +106,6 @@ export type SendResult =
   | { state: "sent"; providerId: string }
   | { state: "skipped"; reason: string }
   | { state: "failed"; reason: string };
-
-/**
- * Real Resend API keys start with "re_". Anything else (e.g. the
- * "not-configured" placeholder the secret is created with so functions can
- * deploy before Resend is set up) counts as not configured.
- */
-export const isResendApiKey = (v: unknown): boolean => typeof v === "string" && /^re_\S{8,}$/.test(v.trim());
 
 export function emailConfigStatus(): { apiKey: boolean; from: boolean; appUrl: boolean } {
   let apiKey = false;
