@@ -62,7 +62,9 @@ To change wording, edit `emailContent.ts`. To change the look, edit `emailLayout
    - **Payment methods** and **payment address** appear in approved and reminder emails.
 7. Click **Send test email** in System Settings. It either delivers, or tells you which piece of setup is missing.
 
-If email isn't configured (no key or no sender), nothing breaks:
+The secret is first created with the placeholder value `not-configured`, so the functions can deploy before Resend is set up. Only a real Resend key (it starts with `re_`) turns email on; replace the placeholder in step 3.
+
+If email isn't configured (no real key or no sender), nothing breaks:
 - Automatic emails are skipped and logged.
 - Reminder and update actions tell the admin that no email went out, and reminder counters don't advance.
 - Password reset falls back to Firebase's built-in sender.

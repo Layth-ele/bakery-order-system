@@ -7,7 +7,7 @@
  *   EMAIL_FROM  = "Bakery Name <orders@your-verified-domain.com>"
  *   APP_URL     = "https://your-portal-domain.com"
  *
- * When RESEND_API_KEY or EMAIL_FROM is missing, sends are skipped (logged
+ * When RESEND_API_KEY (a real "re_…" key) or EMAIL_FROM is missing, sends are skipped (logged
  * as `skipped` in /emailLog) instead of failing the caller — the app keeps
  * working in dev/staging without email configured.
  */
@@ -104,10 +104,17 @@ export type SendResult =
   | { state: "skipped"; reason: string }
   | { state: "failed"; reason: string };
 
+/**
+ * Real Resend API keys start with "re_". Anything else (e.g. the
+ * "not-configured" placeholder the secret is created with so functions can
+ * deploy before Resend is set up) counts as not configured.
+ */
+export const isResendApiKey = (v: unknown): boolean => typeof v === "string" && /^re_\S{8,}$/.test(v.trim());
+
 export function emailConfigStatus(): { apiKey: boolean; from: boolean; appUrl: boolean } {
   let apiKey = false;
   try {
-    apiKey = !!RESEND_API_KEY.value();
+    apiKey = isResendApiKey(RESEND_API_KEY.value());
   } catch {
     apiKey = false;
   }
@@ -127,7 +134,7 @@ export async function sendEmail(input: SendInput): Promise<SendResult> {
   if (!isEmail(input.to)) return { state: "failed", reason: "Invalid recipient address" };
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${RESEND_API_KEY.value()}`,
+    Authorization: `Bearer ${RESEND_API_KEY.value().trim()}`,
     "Content-Type": "application/json",
   };
   if (input.idempotencyKey) headers["Idempotency-Key"] = input.idempotencyKey.slice(0, 256);
