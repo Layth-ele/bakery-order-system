@@ -23,6 +23,7 @@ import {
   assertTransitionAllowed,
   logStatusChange,
   getFreeDeliveryMin,
+  getTaxRate,
   round2,
   type OrderDoc,
 } from "./_shared";
@@ -59,7 +60,7 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
     : 0;
   const totalDiscount = flatDiscount + pctDiscount;
   const discountedBase = Math.max(0, (order.subtotal ?? 0) - totalDiscount);
-  const gst = round2(discountedBase * 0.05);
+  const gst = round2(discountedBase * (await getTaxRate()));
 
   // Resolve delivery fee
   let finalDeliveryFee: number;

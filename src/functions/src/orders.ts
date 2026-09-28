@@ -14,6 +14,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getNextDailyId } from "./idGenerator";
+import { getTaxRate } from "./_shared";
 
 const db = getFirestore();
 
@@ -221,34 +222,6 @@ async function recalculateOrder(
   const total = Math.round((subtotal + gst) * 100) / 100;
 
   return { subtotal, gst, total, resolvedItems };
-}
-
-/**
- * Read the GST/tax rate from settings, defaulting to 5% (Canadian GST baseline).
- *
- * PASS 10 FIX: Previously only checked `taxRate`. The admin Settings UI and
- * SystemSettings type write `gstRate`; `taxRate` is documented as a legacy
- * alias. Without this fallback, an admin updating gstRate in the UI would
- * have NO effect on this Cloud Function — it would silently keep using 5%
- * even though the client (post-Pass 10) reads gstRate first.
- *
- * Order of preference: gstRate → taxRate (legacy) → 0.05 fallback.
- */
-async function getTaxRate(): Promise<number> {
-  try {
-    const snap = await db.collection("settings").doc("default").get();
-    if (snap.exists) {
-      const data = snap.data() as { gstRate?: number; taxRate?: number };
-      for (const candidate of [data.gstRate, data.taxRate]) {
-        if (typeof candidate === "number" && candidate >= 0 && candidate < 1) {
-          return candidate;
-        }
-      }
-    }
-  } catch {
-    // Fall through to default
-  }
-  return 0.05;
 }
 
 /**
