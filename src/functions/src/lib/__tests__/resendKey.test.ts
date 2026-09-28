@@ -3,7 +3,7 @@
  * deploy before Resend is set up; only a real "re_…" key enables email.
  */
 import { describe, it, expect } from 'vitest';
-import { isResendApiKey } from '../mailer';
+import { isResendApiKey } from '../resendKey';
 
 describe('isResendApiKey', () => {
   it('accepts real Resend keys', () => {
