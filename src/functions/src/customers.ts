@@ -88,10 +88,14 @@ export const createCustomerWithCode = onCall(async (request) => {
       .doc(notifId)
       .set({
         id: notifId,
-        type: "new_registration",
+        type: "NEW_REGISTRATION", // see src/types/notification-contract.ts
         title: "🆕 New Registration Request",
         message: `New customer registration: ${data.storeName} (${data.email})`,
+        orderId: "",
+        customerId: data.uid,
+        customerName: data.storeName,
         actions: [{ type: "VIEW_REGISTRATION", label: "Review Request" }],
+        source: "server",
         metadata: {
           customerId: data.uid,
           customerEmail: data.email,

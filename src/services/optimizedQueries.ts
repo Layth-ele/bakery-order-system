@@ -25,7 +25,6 @@ import {
   batchGetDocumentsWhere,
   memoizedQuery,
   buildOrderQuery,
-  buildNotificationQuery,
   buildCustomerQuery,
   clearQueryCache,
 } from '../firebase/queryOptimizations';
@@ -278,24 +277,6 @@ export async function getPendingRegistrations(): Promise<Customer[]> {
 }
 
 // ============================================
-// OPTIMIZED NOTIFICATION QUERIES
-// ============================================
-
-/**
- * Get unread notifications count (lightweight query)
- */
-export async function getUnreadNotificationCount(userId: string): Promise<number> {
-  const q = buildNotificationQuery({
-    userId,
-    read: false,
-    limitCount: 100, // Limit to prevent counting thousands
-  });
-  
-  const snapshot = await getDocs(q);
-  return snapshot.size;
-}
-
-// ============================================
 // CACHE INVALIDATION HELPERS
 // ============================================
 
@@ -319,13 +300,6 @@ export function invalidateCustomerQueries() {
   clearQueryCache('customers');
 }
 
-/**
- * Invalidate notification queries
- * Call after creating/reading notifications
- */
-export function invalidateNotificationQueries(userId: string) {
-  clearQueryCache(`notifications::.*userId.*${userId}`);
-}
 
 // ============================================
 // MIGRATION HELPERS

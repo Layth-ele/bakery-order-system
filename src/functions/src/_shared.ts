@@ -8,6 +8,7 @@
 
 import { HttpsError, CallableRequest } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { canTransitionOrderStatus } from "./lib/orderLifecycle";
 
 const db = getFirestore();
 
@@ -145,29 +146,11 @@ export async function loadOrder(
 }
 
 /**
- * Allowed status transitions. Server is the single source of truth.
- *
- * pending     → approved | rejected | cancelled
- * approved    → in_process | cancelled                 (customer can submit payment proof at this stage)
- * in_process  → delivered | cancelled                  (admin moves orders forward)
- * delivered   → completed | cancelled
- * completed   → (terminal)
- * rejected    → (terminal)
- * cancelled   → (terminal)
+ * Allowed status transitions — defined once in lib/orderLifecycle.ts and
+ * shared with the web app.
  */
-const ALLOWED_TRANSITIONS: Record<string, ReadonlyArray<string>> = {
-  pending: ["approved", "rejected", "cancelled"],
-  approved: ["in_process", "cancelled"],
-  in_process: ["delivered", "cancelled"],
-  delivered: ["completed", "cancelled"],
-  completed: [],
-  rejected: [],
-  cancelled: [],
-};
-
 export function assertTransitionAllowed(from: string, to: string) {
-  const allowed = ALLOWED_TRANSITIONS[from] ?? [];
-  if (!allowed.includes(to)) {
+  if (!canTransitionOrderStatus(from, to)) {
     throw new HttpsError(
       "failed-precondition",
       `Cannot transition order from "${from}" to "${to}".`
@@ -221,83 +204,9 @@ export async function logStatusChange(params: {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Notification helpers (server-side admin notifications)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Create an admin notification (server-side, uses Admin SDK so rules don't apply).
- * Used to replace dead client-side calls that failed because the caller was
- * unauthenticated (post-signOut) or unapproved (status: 'pending').
- */
-export async function createAdminNotificationServer(params: {
-  notifId: string;
-  type: string;
-  title: string;
-  message: string;
-  orderId?: string;
-  actions?: Array<{ type: string; label: string; payload?: any }>;
-  metadata?: Record<string, unknown>;
-}): Promise<void> {
-  try {
-    await db
-      .collection("notifications")
-      .doc("admin")
-      .collection("items")
-      .doc(params.notifId)
-      .set({
-        id: params.notifId,
-        type: params.type,
-        title: params.title,
-        message: params.message,
-        orderId: params.orderId ?? "",
-        actions: params.actions ?? [],
-        metadata: params.metadata ?? {},
-        read: false,
-        createdAt: FieldValue.serverTimestamp(),
-        timestamp: FieldValue.serverTimestamp(),
-      });
-  } catch (err) {
-    console.warn("[createAdminNotificationServer] Failed:", err);
-    // Non-fatal — caller's primary action should still succeed
-  }
-}
-
-/**
- * Create a customer notification (server-side).
- */
-export async function createCustomerNotificationServer(params: {
-  customerId: string;
-  notifId: string;
-  type: string;
-  title: string;
-  message: string;
-  orderId?: string;
-  actions?: Array<{ type: string; label: string; payload?: any }>;
-  metadata?: Record<string, unknown>;
-}): Promise<void> {
-  try {
-    await db
-      .collection("notifications")
-      .doc(`user_${params.customerId}`)
-      .collection("items")
-      .doc(params.notifId)
-      .set({
-        id: params.notifId,
-        type: params.type,
-        title: params.title,
-        message: params.message,
-        orderId: params.orderId ?? "",
-        actions: params.actions ?? [],
-        metadata: params.metadata ?? {},
-        read: false,
-        createdAt: FieldValue.serverTimestamp(),
-        timestamp: FieldValue.serverTimestamp(),
-      });
-  } catch (err) {
-    console.warn("[createCustomerNotificationServer] Failed:", err);
-  }
-}
+// Notifications: order lifecycle notifications are written ONLY by the
+// onOrderLifecycle trigger (orderLifecycleTrigger.ts). Don't add per-function
+// notification writes here — they would duplicate the trigger's.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings

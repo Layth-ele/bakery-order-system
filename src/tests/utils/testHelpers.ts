@@ -6,7 +6,7 @@
 
 import { vi, expect } from 'vitest';
 import {NOTIFICATION_TYPES} from '../../types/notification-contract'
-import type { Notification } from '../../types/notification-canonical';
+import type { NotificationItem as Notification } from '../../types/notification-contract';
 import type { Order } from '../../services/dataService';
 import type { ActionType } from '../../types/notification-contract';
 
@@ -235,7 +235,7 @@ export const testData = {
       type: NOTIFICATION_TYPES.ORDER_APPROVED_PAY_REQUIRED,
       title: 'Order Approved',
       message: 'Your order has been approved',
-      actions: [{ type: 'PAY_NOW', label: 'Pay Now' }],
+      actions: [{ type: 'SUBMIT_PAYMENT', label: 'Pay Now' }],
     }),
     
     paymentSubmitted: createMockNotification({

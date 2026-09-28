@@ -39,7 +39,7 @@ import {Bell, Trash2, Check, Eye} from "lucide-react"
 import {
   useCustomerNotificationsSafe,
 } from "../../../notifications/contexts"; // ✅ FIX: Use customer-specific hook
-import { getModalForNotification } from "../../../notifications/types/notification-modal-mapping"; // ✅ NEW: Use mapping system
+import { normalizeNotificationType } from "../../../types/notification-contract";
 
 // ✅ FIXED: Correct type - matches UINotification from CustomerNotificationProvider
 interface CustomerNotification {
@@ -137,103 +137,25 @@ export function NotificationsModal({
     });
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "ORDER_APPROVED_PAY_REQUIRED":
-      case "ORDER_COMPLETED":
-        return "✅";
-      case "ORDER_REJECTED":
-      case "ORDER_CANCELLED":
-        return "❌";
-      case "PAYMENT_CONFIRMED":
-      case "CREDIT_ISSUED":
-        return "💰";
-      case "INVOICE_UPDATED":
-        return "📄";
-      case "PAYMENT_IN_REVIEW":
-      case "PAYMENT_REMINDER":
-        return "⏳";
-      case "ORDER_PENDING":
-        return "📝";
-      case "ADDITIONAL_PAYMENT_REQUIRED":
-        return "💳";
-      default:
-        return "🔔";
-    }
+  // One entry per customer notification type (see notification-contract.ts).
+  const CUSTOMER_TYPE_UI: Record<string, { icon: string; label: string; style: string }> = {
+    ORDER_APPROVED_PAY_REQUIRED: { icon: "✅", label: "Pay Now", style: "bg-orange-50 hover:bg-orange-100 text-orange-600" },
+    ORDER_REJECTED: { icon: "❌", label: "View Details", style: "bg-red-50 hover:bg-red-100 text-red-600" },
+    ORDER_CANCELLED: { icon: "❌", label: "View Details", style: "bg-gray-50 hover:bg-gray-100 text-gray-600" },
+    PAYMENT_CONFIRMED: { icon: "💰", label: "View Order", style: "bg-green-50 hover:bg-green-100 text-green-600" },
+    ORDER_COMPLETED: { icon: "✅", label: "View Invoice", style: "bg-green-50 hover:bg-green-100 text-green-600" },
+    PAYMENT_REMINDER: { icon: "⏳", label: "Check Status", style: "bg-purple-50 hover:bg-purple-100 text-purple-600" },
+    CREDIT_ISSUED: { icon: "💰", label: "View Credit", style: "bg-emerald-50 hover:bg-emerald-100 text-emerald-600" },
+    ORDER_EDITED: { icon: "✏️", label: "View Changes", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" },
   };
+  const DEFAULT_UI = { icon: "🔔", label: "View", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" };
+  const uiFor = (type: string) => CUSTOMER_TYPE_UI[normalizeNotificationType(type) ?? ""] ?? DEFAULT_UI;
 
-  // ✅ NEW: Get button label and style based on notification type
-  const getViewButtonConfig = (
-    notification: CustomerNotification,
-  ) => {
-    const modalConfig = getModalForNotification(
-      notification.type,
-    );
+  const getNotificationIcon = (type: string) => uiFor(type).icon;
 
-    // Default if no mapping found
-    if (!modalConfig) {
-      return {
-        label: "View",
-        style: "bg-blue-50 hover:bg-blue-100 text-blue-600",
-      };
-    }
-
-    // Custom labels and styles per notification type
-    switch (notification.type) {
-      case "ORDER_PENDING":
-        return {
-          label: "View Order",
-          style:
-            "bg-yellow-50 hover:bg-yellow-100 text-yellow-700",
-        };
-      case "ORDER_APPROVED_PAY_REQUIRED":
-      case "ADDITIONAL_PAYMENT_REQUIRED":
-        return {
-          label: "View Details",
-          style:
-            "bg-orange-50 hover:bg-orange-100 text-orange-600",
-        };
-      case "ORDER_REJECTED":
-        return {
-          label: "View Details",
-          style: "bg-red-50 hover:bg-red-100 text-red-600",
-        };
-      case "ORDER_CANCELLED":
-        return {
-          label: "View Details",
-          style: "bg-gray-50 hover:bg-gray-100 text-gray-600",
-        };
-      case "PAYMENT_IN_REVIEW":
-      case "PAYMENT_REMINDER":
-        return {
-          label: "Check Status",
-          style:
-            "bg-purple-50 hover:bg-purple-100 text-purple-600",
-        };
-      case "PAYMENT_CONFIRMED":
-      case "ORDER_COMPLETED":
-        return {
-          label: "View Invoice",
-          style:
-            "bg-green-50 hover:bg-green-100 text-green-600",
-        };
-      case "INVOICE_UPDATED":
-        return {
-          label: "View Invoice",
-          style: "bg-blue-50 hover:bg-blue-100 text-blue-600",
-        };
-      case "CREDIT_ISSUED":
-        return {
-          label: "View Credit",
-          style:
-            "bg-emerald-50 hover:bg-emerald-100 text-emerald-600",
-        };
-      default:
-        return {
-          label: "View",
-          style: "bg-blue-50 hover:bg-blue-100 text-blue-600",
-        };
-    }
+  const getViewButtonConfig = (notification: CustomerNotification) => {
+    const { label, style } = uiFor(notification.type);
+    return { label, style };
   };
 
   return (
@@ -279,7 +201,6 @@ export function NotificationsModal({
               .filter(n => !deletingIds.has(n.id))
               .map((notification) => {
               const viewButtonConfig = getViewButtonConfig(notification);
-              const hasModalMapping = getModalForNotification(notification.type) !== null;
 
               return (
                 <div
@@ -342,18 +263,16 @@ export function NotificationsModal({
                         </button>
                       )}
 
-                      {hasModalMapping && (
-                        <button
-                          onClick={() => {
-                            onClose();
-                            onViewNotification?.(notification as any);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all font-semibold ${viewButtonConfig.style}`}
-                        >
-                          <Eye className="w-3 h-3" />
-                          {viewButtonConfig.label}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onViewNotification?.(notification as any);
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all font-semibold ${viewButtonConfig.style}`}
+                      >
+                        <Eye className="w-3 h-3" />
+                        {viewButtonConfig.label}
+                      </button>
 
                       <button
                         onClick={() => handleDelete(notification.id)}

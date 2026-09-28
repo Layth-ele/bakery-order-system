@@ -22,7 +22,6 @@ import {
   loadOrder,
   assertTransitionAllowed,
   logStatusChange,
-  createCustomerNotificationServer,
   getFreeDeliveryMin,
   round2,
   type OrderDoc,
@@ -120,17 +119,7 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
     metadata: { deliveryFee: finalDeliveryFee, total: newTotal, gst },
   });
 
-  // Customer notification
-  await createCustomerNotificationServer({
-    customerId: order.customerId,
-    notifId: `order-approved-${orderId}-${Date.now()}`,
-    type: "ORDER_APPROVED_PAY_REQUIRED", // FIX R5-S6-F7: was snake_case, schema rejects
-    title: "✅ Order Approved",
-    message: `Your order has been approved. Total: $${newTotal.toFixed(2)}`,
-    orderId,
-    actions: [{ type: "VIEW_ORDER", label: "View Order" }],
-    metadata: { total: newTotal, gst, deliveryFee: finalDeliveryFee },
-  });
+  // Customer notification + email: onOrderLifecycle trigger.
 
   return {
     success: true,
@@ -198,17 +187,7 @@ export const rejectOrder = onCall<RejectOrderInput>(async (request) => {
     reason,
   });
 
-  await createCustomerNotificationServer({
-    customerId: order.customerId,
-    notifId: `order-rejected-${orderId}-${Date.now()}`,
-    type: "ORDER_REJECTED",
-    title: "❌ Order Rejected",
-    message: reason
-      ? `Your order has been rejected: ${reason}`
-      : `Your order has been rejected. Please contact support for details.`,
-    orderId,
-    metadata: { reason: reason ?? null },
-  });
+  // Customer notification + email: onOrderLifecycle trigger.
 
   return { success: true, orderId };
 });
@@ -298,9 +277,29 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request) => {
       );
     }
 
-    // 1) Flip status
+    // 1) Optional credit note — created in the SAME transaction as the
+    //    status change, so a cancellation can never commit without the
+    //    credit it promises (the lifecycle notification announces it).
+    const issuesCredit = !!(creditAmount && creditAmount > 0 && freshData.customerId);
+    const creditRef = issuesCredit ? db.collection("creditNotes").doc() : null;
+    if (creditRef) {
+      tx.set(creditRef, {
+        customerId: freshData.customerId,
+        orderId,
+        amount: creditAmount,
+        remainingBalance: creditAmount,
+        status: "available",
+        reason: `Order cancellation: ${reason}`,
+        sourceType: "cancellation",
+        createdBy: admin.email,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 2) Flip status
     tx.update(ref, {
       status: "cancelled",
+      ...(creditRef && { creditNoteId: creditRef.id }),
       cancelledAt: FieldValue.serverTimestamp(),
       cancelledBy: admin.email,
       cancellationReason: reason,
@@ -317,7 +316,7 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request) => {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // 2) If the order had an invoice number, record void atomically
+    // 3) If the order had an invoice number, record void atomically
     if (freshData.invoiceNumber) {
       const voidRef = db.collection("voidedInvoices").doc(freshData.invoiceNumber);
       tx.set(voidRef, {
@@ -333,7 +332,7 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request) => {
     }
   });
 
-  // 3) Status change audit (immutable)
+  // Status change audit (immutable)
   await logStatusChange({
     orderId,
     fromStatus,
@@ -348,86 +347,8 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request) => {
     },
   });
 
-  // 4) Optional credit note creation
-  //
-  // FIX T2R6-C1 (CRITICAL — silent loss of customer money): This was the
-  // server-side equivalent of the bug T2R4-C3 fixed on the client.  If
-  // `creditNotes.add(...)` failed, the cancellation was committed AND the
-  // customer notification (step 5 below) told them about credit that didn't
-  // exist.  Real money silently lost.  Now: surface the failure in the
-  // result so admin retries can be triggered by the UI.
-  let creditNoteIssued = false;
-  let creditNoteError: string | undefined;
-  if (creditAmount && creditAmount > 0 && order.customerId) {
-    try {
-      await db.collection("creditNotes").add({
-        customerId: order.customerId,
-        orderId,
-        amount: creditAmount,
-        remainingBalance: creditAmount,
-        status: "available",
-        reason: `Order cancellation: ${reason}`,
-        sourceType: "cancellation",
-        createdBy: admin.email,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-      creditNoteIssued = true;
-    } catch (err: any) {
-      creditNoteError = err?.message ?? "Unknown credit-note error";
-      console.error(
-        "[cancelOrder] CRITICAL: Credit note creation FAILED — credit was NOT issued:",
-        { orderId, customerId: order.customerId, creditAmount, error: err }
-      );
-      // Surface the failure to admin via an audit row so it appears in the
-      // security_alerts dashboard for follow-up reconciliation.
-      try {
-        await db.collection("security_alerts").add({
-          type: "CREDIT_NOTE_ISSUANCE_FAILED",
-          severity: "HIGH",
-          orderId,
-          customerId: order.customerId,
-          adminEmail: admin.email,
-          attemptedCreditAmount: creditAmount,
-          error: creditNoteError,
-          timestamp: FieldValue.serverTimestamp(),
-        });
-      } catch {
-        // If alerts collection write also fails, the console.error above is
-        // the only remaining trail.
-      }
-    }
-  } else {
-    // No credit owed — successful cancellation with nothing to issue.
-    creditNoteIssued = true;
-  }
+  // Customer notification + email: onOrderLifecycle trigger.
 
-  // 5) Customer notification.
-  //
-  // FIX T2R6-C1: notification message now reflects whether credit was
-  // actually issued.  Previously claimed credit issuance unconditionally
-  // even if the credit-note write had failed.
-  await createCustomerNotificationServer({
-    customerId: order.customerId,
-    notifId: `order-cancelled-${orderId}-${Date.now()}`,
-    type: "ORDER_CANCELLED",
-    title: "🛑 Order Cancelled",
-    message: creditAmount && creditAmount > 0
-      ? (creditNoteIssued
-          ? `Your order has been cancelled. Credit of $${creditAmount.toFixed(2)} has been issued. Reason: ${reason}`
-          : `Your order has been cancelled. Reason: ${reason} (Note: credit issuance is pending — please contact support.)`)
-      : `Your order has been cancelled. Reason: ${reason}`,
-    orderId,
-    metadata: {
-      reason,
-      creditAmount: creditAmount ?? null,
-      creditNoteIssued,
-    },
-  });
-
-  return {
-    success: true,
-    orderId,
-    creditNoteIssued,
-    ...(creditNoteError ? { creditNoteError } : {}),
-  };
+  // Credit (if any) was issued atomically with the status change above.
+  return { success: true, orderId, creditNoteIssued: true };
 });

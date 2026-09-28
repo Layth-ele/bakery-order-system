@@ -4,22 +4,12 @@
  * order.schema.ts and orderSnapshot.schema.ts
  */
 import { z } from 'zod';
+import { ORDER_STATUSES } from '../../functions/src/lib/orderLifecycle';
 
-export const orderStatusSchema = z.enum([
-  'pending',
-  'approved',
-  'in_process',
-  'completed',
-  // FIX R5-S6-F1 (CRITICAL): Cloud Functions write `status: 'delivered'` (per
-  // _shared.ts allowed-transitions matrix), but the schema previously rejected
-  // this value, causing parseArrayPartial to silently drop delivered orders from
-  // every read path. Effects: orders disappeared from admin dashboards after
-  // delivery, balance calculations excluded delivered orders, financial summaries
-  // miscounted. Adding 'delivered' brings schema into agreement with the writer.
-  'delivered',
-  'rejected',
-  'cancelled',
-]);
+// The status list is defined once in src/functions/src/lib/orderLifecycle.ts
+// and shared with the Cloud Functions. It still accepts the legacy
+// 'delivered' value so older order documents keep parsing.
+export const orderStatusSchema = z.enum(ORDER_STATUSES);
 
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 

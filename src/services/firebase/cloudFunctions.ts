@@ -193,6 +193,37 @@ export async function createInvoiceViaCloudFunction(
 }
 
 // ============================================
+// ERRORS
+// ============================================
+
+/**
+ * User-facing message for a failed order-action callable.
+ *
+ * Order actions (approve / reject / cancel / submit & confirm payment) run
+ * ONLY in Cloud Functions — there is no client-side fallback, because
+ * re-running an action in the browser after a server error could apply it
+ * twice (the server may have committed before the error reached us).
+ */
+export function callableErrorMessage(error: unknown, action: string): string {
+  const code = (error as { code?: string })?.code ?? '';
+  const message = (error as { message?: string })?.message ?? '';
+  switch (code) {
+    case 'functions/unavailable':
+    case 'functions/deadline-exceeded':
+      return `Couldn't reach the server to ${action}. Check your connection, refresh, and try again.`;
+    case 'functions/internal':
+    case 'functions/unknown':
+      return `The server hit an error while trying to ${action}. Refresh to check the order before trying again.`;
+    case 'functions/not-found':
+      return message && !/^not[ -]found$/i.test(message)
+        ? message
+        : `The server function to ${action} isn't deployed. Deploy Cloud Functions and try again.`;
+    default:
+      return message || `Failed to ${action}.`;
+  }
+}
+
+// ============================================
 // PASS 2 — ORDER ACTION FUNCTIONS
 // ============================================
 

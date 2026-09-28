@@ -30,10 +30,8 @@ import {
   type OrderEditHistory as FirestoreOrderEditHistory,
 } from '../firebase/firestore/orderEditHistory';
 
-import { toDate } from '../utils/timestampFormatting';
 import {
   getCreditApplicationHistory as getFirestoreCreditApplicationHistory,
-  createCreditApplication as createFirestoreCreditApplication,
   type CreditApplicationRecord,
 } from '../firebase/firestore/creditApplicationHistory';
 import { logger } from '../utils/logger';
@@ -134,190 +132,26 @@ export async function getTotalAdminEditCredit(orderId: string): Promise<number> 
 }
 
 /**
- * Apply credit to an order
- * ✅ MAR 14, 2026: Firebase integration with dual-mode pattern
- * FIX BUG 12: The entire read-validate-write sequence is now wrapped in a
- * Firestore transaction. Without this, two concurrent order submissions could
- * both read the same credit balance (TOCTOU), pass the validation check, and
- * each deduct the full amount — effectively double-spending the credit.
+ * Apply store credit to an order — applyOrderCredit Cloud Function only.
+ *
+ * The server reads the customer's credit notes, deducts FIFO, updates the
+ * order's creditApplied / amountDue and writes the history record in one
+ * transaction. There is no client-side fallback: retrying in the browser
+ * after a server error could deduct the credit twice.
+ *
+ * @throws Error with a user-facing message (e.g. insufficient credit)
  */
 export async function applyCreditToOrder(
   orderId: string,
-  customerId: string,
+  _customerId: string,
   amount: number
 ): Promise<void> {
-  // ✅ PASS 2: Prefer Cloud Function path. Server is sole authority for credit
-  // application — atomic read of all candidate notes, FIFO deduction, order
-  // update, and audit log all in one transaction. After this is the default,
-  // the Firestore rule on creditNotes can deny ALL customer writes (Pass 2
-  // rules update). Customers can no longer mint credit by ANY direct path.
-  if (isFirebaseConfigured) {
-    try {
-      const { applyOrderCreditViaCloudFunction } = await import('./firebase/cloudFunctions');
-      await applyOrderCreditViaCloudFunction({ orderId, amount });
-      return;
-    } catch (cfError: any) {
-      const isTransportError =
-        cfError?.code === 'functions/internal' ||
-        cfError?.code === 'functions/unavailable' ||
-        cfError?.code === 'functions/deadline-exceeded' ||
-        cfError?.code === 'functions/not-found';
-      if (!isTransportError) {
-        // Real business error from server — surface it
-        throw cfError;
-      }
-      logger.warn('⚠️ [applyCreditToOrder] Cloud Function unavailable, falling back to client transaction:', cfError);
-      // Fall through to legacy
-    }
+  const { applyOrderCreditViaCloudFunction, callableErrorMessage } = await import('./firebase/cloudFunctions');
+  try {
+    await applyOrderCreditViaCloudFunction({ orderId, amount });
+  } catch (error) {
+    throw new Error(callableErrorMessage(error, 'apply your credit'));
   }
-
-  if (isFirebaseConfigured) {
-    // ── Firestore transactional path ─────────────────────────────────────────
-    const { db: firestoreDb } = await import('../firebase/config');
-    const { runTransaction, collection, query, where, getDocs, doc, serverTimestamp }
-      = await import('firebase/firestore');
-
-    // FIX BUG 1 (CRITICAL): Pre-fetch document refs OUTSIDE the transaction.
-    // getDocs() with a query is NOT tracked by Firestore's conflict detection —
-    // only tx.get(docRef) reads are. Running getDocs() inside runTransaction()
-    // created a TOCTOU window: two concurrent applications could both read the
-    // same balance, both pass the validation check, and both deduct, resulting
-    // in double-spending. The fix: collect document IDs first (outside the tx),
-    // then re-read each document via tx.get() inside the transaction so every
-    // read participates in conflict detection and triggers a retry on conflict.
-    const preQuerySnap = await getDocs(
-      query(
-        collection(firestoreDb, 'creditNotes'),
-        where('customerId', '==', customerId),
-        where('status', 'in', ['available', 'partially_used'])
-      )
-    );
-    // Collect document refs — these are stable IDs, not data subject to races
-    const candidateRefs = preQuerySnap.docs.map(d => doc(firestoreDb, 'creditNotes', d.id));
-
-    await runTransaction(firestoreDb, async (tx) => {
-      // 1. Re-read every candidate note via tx.get() so each read is registered
-      //    with the transaction's conflict-detection mechanism. If any note is
-      //    modified concurrently, Firestore will abort and retry this transaction.
-      const noteSnaps = await Promise.all(candidateRefs.map(ref => tx.get(ref)));
-
-      const availableNotes = noteSnaps
-        .filter(snap => snap.exists())
-        .map(snap => ({ id: snap.id, ref: snap.ref, ...snap.data() } as any))
-        .filter((n: any) => n.status === 'available' || n.status === 'partially_used')
-        .sort((a: any, b: any) =>
-          (toDate(a.createdAt)?.getTime() ?? 0) - (toDate(b.createdAt)?.getTime() ?? 0)
-        );
-
-      // 2. Validate available balance — now truly atomic (all reads are in-tx)
-      const totalAvailable = availableNotes.reduce(
-        (sum: number, n: any) => sum + (n.remainingBalance ?? n.amount ?? 0), 0
-      );
-      if (amount > totalAvailable) {
-        throw new Error(
-          `Insufficient credit. Available: ${formatCreditAmount(totalAvailable)}, Requested: ${formatCreditAmount(amount)}`
-        );
-      }
-
-      // 3. Compute deductions (FIFO) inside the transaction
-      let remainingAmount = amount;
-      for (const note of availableNotes) {
-        if (remainingAmount <= 0) break;
-        const noteBalance = note.remainingBalance ?? (note.amount ?? 0);
-        const amountToUse = Math.min(noteBalance, remainingAmount);
-        const newBalance = noteBalance - amountToUse;
-        tx.update(note.ref, {
-          remainingBalance: newBalance,
-          status: newBalance <= 0 ? 'fully_used' : 'partially_used',
-          updatedAt: serverTimestamp(),
-        });
-        remainingAmount -= amountToUse;
-      }
-
-      // 4. Read current order and update creditApplied inside the transaction
-      const orderRef = doc(firestoreDb, 'orders', orderId);
-      const orderSnap = await tx.get(orderRef);
-      if (orderSnap.exists()) {
-        const orderData = orderSnap.data();
-        const newCreditApplied = (orderData.creditApplied || 0) + amount;
-        const newAmountDue = Math.max(0, (orderData.total || 0) - newCreditApplied);
-        tx.update(orderRef, {
-          creditApplied: newCreditApplied,
-          amountDue: newAmountDue,
-          updatedAt: serverTimestamp(),
-        });
-      }
-    });
-
-    // 5. Record application history outside the transaction (non-critical audit trail)
-    try {
-      await createFirestoreCreditApplication({ orderId, customerId, amount });
-    } catch (historyErr) {
-      logger.warn('[applyCreditToOrder] History record failed (non-fatal):', historyErr);
-    }
-
-  } else {
-    // ── localStorage demo path (unchanged) ───────────────────────────────────
-    // Validate credit amount
-    const availableCredit = await getAvailableCredit(customerId);
-    if (amount > availableCredit) {
-      throw new Error(`Insufficient credit. Available: ${formatCreditAmount(availableCredit)}, Requested: ${formatCreditAmount(amount)}`);
-    }
-
-    // Get all credit notes
-    const creditNotes = await getAllCreditNotes(customerId);
-    const availableNotes = creditNotes
-      .filter((note: CreditNote) => note.status === 'available' || note.status === 'partially_used')
-      .sort((a: CreditNote, b: CreditNote) => (toDate(a.createdAt)?.getTime() ?? 0) - (toDate(b.createdAt)?.getTime() ?? 0));
-
-    let remainingAmount = amount;
-    const updatedNotes: Array<{ id: string; updates: Partial<CreditNote> }> = [];
-
-    for (const note of availableNotes) {
-      if (remainingAmount <= 0) break;
-      const noteBalance = note.remainingBalance ?? (note.amount ?? 0);
-      const amountToUse = Math.min(noteBalance, remainingAmount);
-      const newBalance = noteBalance - amountToUse;
-      updatedNotes.push({
-        id: note.id,
-        updates: {
-          remainingBalance: newBalance,
-          status: newBalance <= 0 ? 'fully_used' : 'partially_used',
-        },
-      });
-      remainingAmount -= amountToUse;
-    }
-
-    // Update credit notes in localStorage
-    const allCreditNotes = safeParseJSON<any[]>('bakery_credit_notes', []);
-    for (const { id, updates } of updatedNotes) {
-      const noteIndex = allCreditNotes.findIndex((n: CreditNote) => n.id === id);
-      if (noteIndex !== -1) {
-        allCreditNotes[noteIndex] = { ...allCreditNotes[noteIndex], ...updates };
-      }
-    }
-    safeSetJSON('bakery_credit_notes', allCreditNotes);
-
-    const currentOrder = await getOrderFromDS(orderId);
-    if (currentOrder) {
-      const newCreditApplied = (currentOrder.creditApplied || 0) + amount;
-      await updateOrderInDS(orderId, { creditApplied: newCreditApplied });
-    }
-
-    const applicationHistory = safeParseJSON<any[]>('bakery_credit_application_history', []);
-    applicationHistory.push({
-      id: `APP-${Date.now()}-${cryptoIdSuffix()}`,
-      orderId,
-      customerId,
-      amount,
-      appliedAt: getServerTimestamp() as any,
-    });
-    safeSetJSON('bakery_credit_application_history', applicationHistory);
-  }
-
-  // ✅ Invalidate TanStack Query cache after applying credit
-  invalidateCache.credit(customerId);
-  invalidateCache.orders(); // Order also changed (creditApplied field)
 }
 
 /**

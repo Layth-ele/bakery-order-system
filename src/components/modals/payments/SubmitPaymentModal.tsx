@@ -36,7 +36,7 @@ import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 // dateUtils exports: getWeekDates, formatRelativeDate, getWeekDayNames only
 import { getWeekRange } from "../../../utils/weekUtils";
 import { copyToClipboard } from "../../../utils/clipboardUtils";
-import { submitPaymentWorkflow } from "../../../notifications"; // ✅ PHASE 5: Updated to use consolidated notifications
+import { submitPaymentAction } from "../../../services/orders/paymentActionService";
 import { formatTimestamp } from "../../../utils/timestampFormatting"; // 🔥 TIMESTAMP FIX: Use new utility
 import { ModalThreeSections } from '../orders/ModalOrderSections';
 import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
@@ -102,9 +102,9 @@ export function SubmitPaymentModal({
     setSubmitting(true);
 
     try {
-      // ✅ NEW: Use workflow service for complete payment submission + notification update
-      // This handles: order update, admin notification, AND customer notification update
-      await submitPaymentWorkflow(
+      // Server-side submission (submitPaymentProof); the admin notification
+      // comes from the onOrderLifecycle trigger.
+      await submitPaymentAction(
         order.id,                    // orderId
         order.customerId,            // customerId
         order.invoiceId || order.id, // invoiceNumber (payment reference)
@@ -113,7 +113,6 @@ export function SubmitPaymentModal({
 
       // ✅ NEW: Invalidate caches to refresh UI immediately
       await invalidateCache.orders(); // Refresh orders cache
-      await invalidateCache.notifications(order.customerId); // Refresh notifications cache
 
       // Create updated order object for modal
       const updatedOrder = {

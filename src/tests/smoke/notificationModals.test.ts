@@ -1,6 +1,5 @@
 /**
- * Notification modal mapping smoke tests
- * Validates that notification types correctly map to modals.
+ * Notification type → modal/page mapping.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -8,36 +7,36 @@ import {
   hasModalMapping,
   NOTIFICATION_MODAL_MAP,
 } from '../../notifications/types/notification-modal-mapping';
+import { NOTIFICATION_TYPES, normalizeNotificationType } from '../../types/notification-contract';
 
 describe('notification modal mapping', () => {
-  it('maps order_placed to a modal', () => {
-    const mapping = getModalForNotification('order_placed');
-    expect(mapping).toBeTruthy();
-    expect(mapping?.modalType).toBeTruthy();
+  it('maps every current notification type', () => {
+    for (const type of Object.values(NOTIFICATION_TYPES)) {
+      expect(hasModalMapping(type)).toBe(true);
+      expect(NOTIFICATION_MODAL_MAP[type].modalType).toBeTruthy();
+    }
   });
 
-  it('maps payment_confirmed to a modal', () => {
-    const mapping = getModalForNotification('PAYMENT_CONFIRMED');
-    expect(mapping).toBeTruthy();
+  it('opens the right modal for key lifecycle notifications', () => {
+    expect(getModalForNotification('ORDER_APPROVED_PAY_REQUIRED').modalType).toBe('SUBMIT_PAYMENT');
+    expect(getModalForNotification('ORDER_COMPLETED').modalType).toBe('COMPLETED_ORDER_INVOICE');
+    expect(getModalForNotification('PAYMENT_SUBMITTED').modalType).toBe('ADMIN_ORDER_VIEW');
   });
 
-  it('returns a mapping for order_approved', () => {
-    expect(hasModalMapping('order_approved')).toBe(true);
+  it('sends new registrations to the Registrations page', () => {
+    expect(getModalForNotification('NEW_REGISTRATION').route).toBe('/admin/registrations');
   });
 
-  it('handles unknown notification type gracefully', () => {
-    const mapping = getModalForNotification('UNKNOWN_TYPE_XYZ');
-    // Should return null or a fallback — must not throw
-    expect(() => getModalForNotification('UNKNOWN_TYPE_XYZ')).not.toThrow();
+  it('keeps notifications stored under legacy type names clickable', () => {
+    expect(normalizeNotificationType('new_registration')).toBe('NEW_REGISTRATION');
+    expect(normalizeNotificationType('PAYMENT_SUBMITTED_TRACKING')).toBe('PAYMENT_SUBMITTED');
+    expect(normalizeNotificationType('order-approved')).toBe('ORDER_APPROVED_PAY_REQUIRED');
+    expect(getModalForNotification('new_registration').route).toBe('/admin/registrations');
   });
 
-  it('has entries in the modal map', () => {
-    expect(Object.keys(NOTIFICATION_MODAL_MAP).length).toBeGreaterThan(5);
-  });
-
-  it('every modal map entry has a modalType', () => {
-    const invalid = Object.entries(NOTIFICATION_MODAL_MAP)
-      .filter(([, v]) => !v.modalType);
-    expect(invalid).toHaveLength(0);
+  it('falls back to the details modal for unknown types without throwing', () => {
+    expect(getModalForNotification('UNKNOWN_TYPE_XYZ').modalType).toBe('NOTIFICATION_DETAILS');
+    expect(hasModalMapping('UNKNOWN_TYPE_XYZ')).toBe(false);
+    expect(hasModalMapping(undefined)).toBe(false);
   });
 });

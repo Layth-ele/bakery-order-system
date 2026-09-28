@@ -78,6 +78,10 @@ export const settingsSchema = z.object({
   orderEmail: z.union([z.string().email(), z.string().max(0), z.literal(null)]).optional().nullable(),
   orderCcEmail: z.union([z.string().email(), z.string().max(0), z.literal(null)]).optional().nullable(),
   sendApprovalEmails: z.boolean().optional(),
+  /** Automatic customer emails on order status changes (Cloud Function). Missing = on. */
+  sendOrderStatusEmails: z.boolean().optional(),
+  /** https logo shown in the email header. Empty = business name only. */
+  emailLogoUrl: z.union([z.string().url().startsWith('https://'), z.string().max(0), z.literal(null)]).optional().nullable(),
   
   // Payment methods
   paymentMethod1: optionalNonEmptyStringSchema,

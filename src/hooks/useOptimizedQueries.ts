@@ -21,10 +21,8 @@ import {
   getOrdersByStatuses,
   getCustomersByStatus,
   getPendingRegistrations,
-  getUnreadNotificationCount,
   invalidateOrderQueries,
   invalidateCustomerQueries,
-  invalidateNotificationQueries,
 } from '../services/optimizedQueries';
 import { logger } from '../utils/logger';
 import type { Order, Customer, Product, Category } from '../types';
@@ -181,23 +179,6 @@ export function usePendingRegistrations() {
 }
 
 // ============================================
-// OPTIMIZED NOTIFICATION HOOKS
-// ============================================
-
-/**
- * Get unread notification count (lightweight)
- */
-export function useUnreadNotificationCount(userId: string) {
-  return useQuery<number>({
-    queryKey: ['unread-notification-count', userId],
-    queryFn: () => getUnreadNotificationCount(userId),
-    staleTime: 30 * 1000, // 30 seconds (refresh frequently)
-    gcTime: 2 * 60 * 1000, // 2 minutes
-    enabled: !!userId,
-  });
-}
-
-// ============================================
 // CACHE INVALIDATION HOOKS
 // ============================================
 
@@ -256,23 +237,6 @@ export function useInvalidateCustomers() {
   };
 }
 
-/**
- * Hook to invalidate notification queries
- */
-export function useInvalidateNotifications() {
-  const queryClient = useQueryClient();
-  
-  return (userId: string) => {
-    // Invalidate Phase 3 query cache
-    invalidateNotificationQueries(userId);
-    
-    // Invalidate TanStack Query cache
-    queryClient.invalidateQueries({ queryKey: ['notifications', userId] });
-    queryClient.invalidateQueries({ queryKey: ['unread-notification-count', userId] });
-    
-    logger.cache(`Invalidated notification queries for ${userId}`);
-  };
-}
 
 // ============================================
 // MUTATION HELPERS

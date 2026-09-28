@@ -30,7 +30,6 @@ export * from './balanceCalculator';
 export * from './creditCalculator';
 
 // Notification calculations
-export * from './notificationCalculator';
 
 // Pricing calculations (delivery fees, discounts, taxes)
 // Note: explicit exports to avoid name conflicts with orderCalculator

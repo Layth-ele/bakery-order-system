@@ -45,7 +45,7 @@ import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { Bell, Trash2, Check, Eye } from "lucide-react";
 import { NotificationItem } from "../../../types/notification-contract"; // Changed to relative path for consistency
 import { useAdminNotificationsSafe } from "../../../notifications/contexts"; // ✅ FEB 20: Updated for admin subfolder
-import { getModalForNotification } from "../../../notifications/types/notification-modal-mapping"; // ✅ FEB 20: Updated for admin subfolder
+import { normalizeNotificationType } from "../../../types/notification-contract";
 import { startTransition, useState, useCallback } from "react";
 
 interface AdminNotificationsModalProps {
@@ -130,85 +130,21 @@ export function AdminNotificationsModal({
     });
   };
 
-  const getNotificationIcon = (type: string) => {
-    // Map admin notification types to emojis
-    switch (type) {
-      case "ORDER_SUBMITTED":
-        return "📝";
-      case "PAYMENT_SUBMITTED":
-        return "💰";
-      case "ORDER_UPDATE_REQUESTED":
-        return "🔄";
-      case "PAYMENT_CONFIRMED_ADMIN":
-        return "✅";
-      case "ORDER_AUTO_COMPLETED_ADMIN":
-        return "🎊";
-      case "ORDER_DECREASED_ADMIN":
-        return "📉";
-      default:
-        return "🔔";
-    }
+  // One entry per admin notification type (see notification-contract.ts).
+  const ADMIN_TYPE_UI: Record<string, { icon: string; label: string; style: string }> = {
+    ORDER_PLACED_TRACKING: { icon: "📦", label: "Review Order", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" },
+    PAYMENT_SUBMITTED: { icon: "💰", label: "Review Payment", style: "bg-green-50 hover:bg-green-100 text-green-600" },
+    PAYMENT_CONFIRMED_ADMIN: { icon: "✅", label: "View Details", style: "bg-emerald-50 hover:bg-emerald-100 text-emerald-600" },
+    NEW_REGISTRATION: { icon: "🆕", label: "Review Request", style: "bg-orange-50 hover:bg-orange-100 text-orange-600" },
   };
+  const DEFAULT_UI = { icon: "🔔", label: "View", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" };
+  const uiFor = (type: string) => ADMIN_TYPE_UI[normalizeNotificationType(type) ?? ""] ?? DEFAULT_UI;
 
-  // ✅ NEW: Get button label and style based on notification type
-  const getViewButtonConfig = (
-    notification: NotificationItem,
-  ) => {
-    const modalConfig = getModalForNotification(
-      notification.type,
-    );
+  const getNotificationIcon = (type: string) => uiFor(type).icon;
 
-    // Default if no mapping found
-    if (!modalConfig) {
-      return {
-        label: "View",
-        style: "bg-blue-50 hover:bg-blue-100 text-blue-600",
-      };
-    }
-
-    // Custom labels and styles per admin notification type
-    switch (notification.type) {
-      case "ORDER_SUBMITTED":
-        return {
-          label: "Review Order",
-          style: "bg-blue-50 hover:bg-blue-100 text-blue-600",
-        };
-      case "PAYMENT_SUBMITTED":
-        return {
-          label: "Review Payment",
-          style:
-            "bg-green-50 hover:bg-green-100 text-green-600",
-        };
-      case "ORDER_UPDATE_REQUESTED":
-        return {
-          label: "Review Update",
-          style:
-            "bg-orange-50 hover:bg-orange-100 text-orange-600",
-        };
-      case "PAYMENT_CONFIRMED_ADMIN":
-        return {
-          label: "View Details",
-          style:
-            "bg-emerald-50 hover:bg-emerald-100 text-emerald-600",
-        };
-      case "ORDER_AUTO_COMPLETED_ADMIN":
-        return {
-          label: "View Invoice",
-          style:
-            "bg-purple-50 hover:bg-purple-100 text-purple-600",
-        };
-      case "ORDER_DECREASED_ADMIN":
-        return {
-          label: "View Changes",
-          style:
-            "bg-yellow-50 hover:bg-yellow-100 text-yellow-600",
-        };
-      default:
-        return {
-          label: "View",
-          style: "bg-blue-50 hover:bg-blue-100 text-blue-600",
-        };
-    }
+  const getViewButtonConfig = (notification: NotificationItem) => {
+    const { label, style } = uiFor(notification.type);
+    return { label, style };
   };
 
   return (
@@ -252,7 +188,6 @@ export function AdminNotificationsModal({
               .filter(n => !deletingIds.has(n.id))
               .map((notification) => {
               const viewButtonConfig = getViewButtonConfig(notification);
-              const hasModalMapping = getModalForNotification(notification.type) !== null;
 
               return (
                 <div
@@ -315,18 +250,16 @@ export function AdminNotificationsModal({
                         </button>
                       )}
 
-                      {hasModalMapping && (
-                        <button
-                          onClick={() => {
-                            onClose();
-                            startTransition(() => onViewNotification?.(notification));
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all font-semibold ${viewButtonConfig.style}`}
-                        >
-                          <Eye className="w-3 h-3" />
-                          {viewButtonConfig.label}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          onClose();
+                          startTransition(() => onViewNotification?.(notification));
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all font-semibold ${viewButtonConfig.style}`}
+                      >
+                        <Eye className="w-3 h-3" />
+                        {viewButtonConfig.label}
+                      </button>
 
                       <button
                         onClick={() => handleDelete(notification.id)}

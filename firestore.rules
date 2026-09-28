@@ -332,53 +332,12 @@ service cloud.firestore {
     // ============================================================================
     
     match /notifications/admin/items/{notificationId} {
-      // FIX BUG 4: Was isAuthenticated() — pending/rejected users could spam admin.
-      // Customers need approved status to trigger order notifications.
-      //
-      // FIX T2R8-C1 (CRITICAL — admin phishing / spam via fake notifications):
-      // Previous rule had NO content validation.  Any approved customer could
-      // direct-write arbitrary notifications to the admin feed:
-      //   - Spam (no rate limit at the rule layer)
-      //   - Phishing — write `type: 'PAYMENT_RECEIVED'` notifications with
-      //     malicious action payloads that admin clicks would execute
-      //   - Fabricate notifications attributed to OTHER customers (the rule
-      //     never bound the notification's customerId field to the caller)
-      //
-      // Legitimate customer-triggered admin notifications are limited to a
-      // small set of types that fire from approved-order workflows
-      // (notifyPaymentSubmitted, notifyOrderPlacedTracking, etc).  The fix
-      // enforces:
-      //   1. type must be one of the customer-triggerable enum values
-      //   2. orderId must be present (every customer-side notif references
-      //      an order; this prevents spam without a real order target)
-      //   3. metadata.customerId (if present) must match caller's auth UID
-      //   4. notificationId field (if present) must equal the document ID,
-      //      blocking ID-spoofing attacks
-      //
-      // Admins can still write any notification (the isAnyAdmin branch).
-      // CFs writing via Admin SDK bypass these rules entirely (e.g.,
-      // createCustomerWithCode's "new registration" notification).
-      allow create: if isAnyAdmin() ||
-                       (isAuthenticated() && isApproved() &&
-                        // Must reference a real order
-                        request.resource.data.keys().hasAll(['type', 'orderId']) &&
-                        request.resource.data.orderId is string &&
-                        request.resource.data.orderId.size() > 0 &&
-                        // Type must be one of the customer-triggerable values
-                        request.resource.data.type in [
-                          'PAYMENT_SUBMITTED',
-                          'PAYMENT_SUBMITTED_TRACKING',
-                          'ORDER_PLACED_TRACKING',
-                          'ORDER_PLACED',
-                          'NEW_ORDER',
-                          'new_order',
-                          'new_registration'
-                        ] &&
-                        // If metadata.customerId is set, it MUST match caller's UID
-                        (!request.resource.data.keys().hasAny(['metadata']) ||
-                         request.resource.data.metadata == null ||
-                         !request.resource.data.metadata.keys().hasAny(['customerId']) ||
-                         request.resource.data.metadata.customerId == request.auth.uid));
+      // Admin feed. Order lifecycle alerts (new order, payment submitted,
+      // payment confirmed) and new-registration alerts are written by Cloud
+      // Functions with the Admin SDK, which bypasses these rules. Customers
+      // never write here — the old customer-create allowance (with a list of
+      // legacy types) was a spam/phishing surface and has been removed.
+      allow create: if isAnyAdmin();
       allow read, update, delete: if isAnyAdmin();
     }
     
@@ -893,6 +852,23 @@ service cloud.firestore {
                         request.resource.data.customerId == resource.data.customerId);
       // Delete: only admin (customers cannot self-clear their lockout)
       allow delete: if isAnyAdmin();
+    }
+
+    // ============================================================================
+    // EMAIL AUDIT LOG + SEND QUOTAS (written only by Cloud Functions)
+    // ============================================================================
+    // emailLog/{logId}: one row per customer email (order status, reminder,
+    // order updated, password reset, test) with state sent/failed/skipped.
+    // emailQuota/{key}: rate-limit windows. Neither is client-writable.
+    // ============================================================================
+
+    match /emailLog/{logId} {
+      allow read: if isAnyAdmin();
+      allow write: if false;
+    }
+
+    match /emailQuota/{key} {
+      allow read, write: if false;
     }
   }
 }

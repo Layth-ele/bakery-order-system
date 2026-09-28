@@ -32,7 +32,6 @@ import { Order } from '../../types';
 import { finalizeOrderToInvoice } from '../invoicing/finalizeOrderToInvoice';
 import { invalidateCache } from '../../hooks/useCachedFirebase';
 import { createAndSaveInvoiceSnapshot } from '../orders/invoiceSnapshotService';
-import { notifyOrderAutoCompleted } from '../../notifications';
 import { getWeekInfoByNumber } from '../../utils/weekUtils';
 import { getServerTimestamp } from '../../utils/timestamps';
 import { getOrder, updateOrder } from '../data/ordersDataService';
@@ -275,15 +274,8 @@ export async function completeOrderNow(
     invalidateCache.orders();
     
 
-    // ---------------------------
-    // 8️⃣ STEP 8: Send completion notification to customer
-    // ---------------------------
-    try {
-      await notifyOrderAutoCompleted(orderWithInvoice, invoiceId);
-    } catch (notifError) {
-      console.error(`⚠️ [completeOrderNow] Failed to send notification for order ${order.id}:`, notifError);
-      // Don't fail the entire operation if notification fails
-    }
+    // Customer "order complete" notification + email: onOrderLifecycle
+    // Cloud Function trigger (fires on the status change in step 2).
 
     return {
       success: true,

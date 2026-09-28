@@ -49,10 +49,6 @@ export * from "./domain";
  */
 export * from "./notification-contract";
 
-/**
- * Notification store - Repository pattern interfaces
- */
-export * from "./notification-store";
 
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -35,7 +35,6 @@ export {
   type Product,
   type Order,
   type Settings,
-  type NotificationData,
   type CreditNote,
   
   // Customer operations
@@ -70,12 +69,6 @@ export {
   getSettings,
   updateSettings,
   subscribeToSettings,
-  
-  // Notification operations
-  createNotification,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  subscribeToNotifications,
   
   // Credit note operations
   getCreditNotes,

@@ -1,7 +1,6 @@
 import type { Order, OrderItem } from '../types';
 import { addOrder, getOrder, deleteOrder } from './data/ordersDataService';
 import { applyCreditToOrder } from './creditService';
-import { notifyOrderPlacedTracking } from '../notifications';
 import { generateOrderNumber, computeCheckDigit } from './idCounterService';
 import { getAllProducts } from './data/productsDataService';
 // PASS 10 FIX: Read GST rate from settings instead of hardcoding 0.05.
@@ -204,16 +203,8 @@ async function createOrderClientSide(params: CreateOrderParams): Promise<CreateO
     // Fetch the created order to return full object
     const order = await getOrder(orderId);
 
-    // ✅ Notify admin of new order — single notification only
-    try {
-      if (order) {
-        await notifyOrderPlacedTracking(order);
-      } else {
-        logger.warn('⚠️ [orderCreationService] Order is null, skipping admin notification');
-      }
-    } catch (notifErr) {
-      logger.warn('⚠️ Admin notification failed (non-fatal):', notifErr);
-    }
+    // Admin "new order" notification + customer "order received" email:
+    // onOrderLifecycle Cloud Function trigger (fires on this create).
 
     // FIX M1: Apply credit BEFORE returning success, and roll back the order
     // if it fails.  Previously, credit was applied after the order was committed

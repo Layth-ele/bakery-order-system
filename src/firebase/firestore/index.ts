@@ -38,11 +38,8 @@ export type {
   Order, 
   Settings, 
   CreditNote,
-  NotificationItem,
 } from '../../schemas';
 
-// ✅ Legacy alias for NotificationItem
-export type { NotificationItem as NotificationData } from '../../schemas';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CUSTOMERS
@@ -113,12 +110,6 @@ export {
 // NOTIFICATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export {
-  subscribeToNotifications,
-  createNotification,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-} from './notifications';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CREDIT NOTES
