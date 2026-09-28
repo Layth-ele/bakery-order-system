@@ -41,7 +41,8 @@ import { useCallback, useMemo, startTransition, useRef } from 'react';
 import { useModal } from '@/contexts/ModalContextNew';
 import type { ModalType } from '@/types/modals'; // ✅ Using alias import
 import type { Product, Category } from '@/types'; // ✅ PASS 5: explicit imports for noImplicitAny
-import { NotificationItem, normalizeNotificationType } from '@/types/notification-contract';
+import { NotificationItem } from '@/types/notification-contract';
+import { resolveNotificationTarget } from '../utils/notificationTarget';
 import { getModalForNotification } from '../types/notification-modal-mapping';
 import { resolveModalProps } from '@/utils/notification-modal-resolver';
 import { getServerTimestamp } from '@/utils/timestamps'; // ✅ TIMESTAMP FIX
@@ -195,22 +196,14 @@ export function useNotificationActions({
         await new Promise(resolve => setTimeout(resolve, 50));
       }
 
-      const mapping = getModalForNotification(notification.type);
+      const target = await resolveNotificationTarget(notification, modalTypeOverride, getOrder);
 
       // Page-based notifications (e.g. a new registration → Registrations).
-      if (!modalTypeOverride && mapping.route) {
-        navigate(mapping.route);
+      if (target.kind === 'route') {
+        navigate(target.route);
         return;
       }
-
-      let modalType: string = modalTypeOverride || mapping.modalType;
-
-      // Payment reminder: pay now, or show the payment already submitted.
-      // Loads only this order — customers may read their own order, not list all.
-      if (!modalTypeOverride && normalizeNotificationType(notification.type) === 'PAYMENT_REMINDER' && notification.orderId) {
-        const order = await getOrder(notification.orderId).catch(() => null);
-        modalType = order?.paymentSubmitted ? 'PAYMENT_IN_REVIEW' : 'SUBMIT_PAYMENT';
-      }
+      const modalType = target.modalType;
 
       const resolvedProps = await resolveModalProps(modalType, notification, appContext);
       const finalModalType = resolvedProps._modalRedirect || modalType;
