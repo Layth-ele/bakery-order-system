@@ -6,15 +6,18 @@
  * (top-level customerId / customerName / amount / invoiceId) as well as
  * older ones that only carried those in `metadata`.
  */
-import { Timestamp, type DocumentData } from 'firebase/firestore';
+import type { DocumentData } from 'firebase/firestore';
 import type { NotificationItem } from '@/types/notification-contract';
-import { toDate } from '@/utils/timestampFormatting';
+
+/** Firestore Timestamp (or anything with toDate()) — duck-typed on purpose. */
+const isTimestamp = (v: unknown): v is { toDate: () => Date } =>
+  !!v && typeof (v as { toDate?: unknown }).toDate === 'function';
 
 function isoTime(data: DocumentData): string {
   for (const v of [data.createdAt, data.timestamp]) {
-    if (v instanceof Timestamp) return v.toDate().toISOString();
+    if (isTimestamp(v)) return v.toDate().toISOString();
   }
-  if (typeof data.createdAt === 'number') return (toDate(data.createdAt) ?? new Date()).toISOString();
+  if (typeof data.createdAt === 'number') return new Date(data.createdAt).toISOString();
   if (typeof data.createdAt === 'string' && data.createdAt) return data.createdAt;
   // Pending server timestamp (local write not yet acknowledged).
   return new Date().toISOString();
@@ -27,8 +30,8 @@ export type FeedNotification = Omit<NotificationItem, 'createdAt' | 'readAt'> & 
 };
 
 function isoOrUndefined(v: unknown): string | undefined {
-  if (v instanceof Timestamp) return v.toDate().toISOString();
-  if (typeof v === 'number') return toDate(v)?.toISOString();
+  if (isTimestamp(v)) return v.toDate().toISOString();
+  if (typeof v === 'number') return new Date(v).toISOString();
   return typeof v === 'string' && v ? v : undefined;
 }
 

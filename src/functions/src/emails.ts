@@ -42,6 +42,7 @@ import {
   buildPasswordResetEmail,
   buildTestEmail,
 } from "./lib/emailContent";
+import { orderStatusEmailLogId } from "./lib/orderSideEffects";
 
 const db = getFirestore();
 export const WITH_EMAIL = { secrets: [RESEND_API_KEY] };
@@ -95,7 +96,7 @@ export async function sendOrderStatusEmail(
 
   const email = buildOrderStatusEmail(status, normalizeOrder(raw, orderId), ctx.brand, ctx.pay);
   await sendLoggedOnce(
-    `order_${orderId}_${status}`,
+    orderStatusEmailLogId(orderId, status),
     { kind: "order_status", to, subject: email.subject, orderId, status, triggeredBy: "system" },
     { to, ...email, replyTo: ctx.brand.email, bcc: orderBcc(ctx.settings), category: `order_${status}` }
   );

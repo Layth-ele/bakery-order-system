@@ -1,8 +1,9 @@
 /**
  * onOrderLifecycle — the single place order side effects happen.
  *
- * Fires on every write to orders/{orderId}, derives lifecycle events with
- * lib/orderLifecycle.detectOrderEvents(), and for each event:
+ * Fires on every write to orders/{orderId} and runs
+ * lib/orderSideEffects.runOrderSideEffects(), which derives lifecycle events
+ * and for each one:
  *   1. writes the in-app notifications (lib/orderNotifications.ts)
  *   2. sends the customer email (emails.ts → sendOrderStatusEmail)
  *
@@ -14,8 +15,8 @@
  */
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { detectOrderEvents, type OrderEvent } from "./lib/orderLifecycle";
-import { buildOrderNotifications, type NotificationWrite } from "./lib/orderNotifications";
+import type { NotificationWrite } from "./lib/orderNotifications";
+import { runOrderSideEffects } from "./lib/orderSideEffects";
 import { sendOrderStatusEmail, WITH_EMAIL } from "./emails";
 
 const db = getFirestore();
@@ -62,37 +63,16 @@ async function applyNotification(w: NotificationWrite): Promise<void> {
   }
 }
 
-function emailStatusFor(e: OrderEvent): string | null {
-  if (e.kind === "placed") return "pending";
-  if (e.kind === "status") return e.to;
-  return null;
-}
-
 export const onOrderLifecycle = onDocumentWritten(
   { document: "orders/{orderId}", ...WITH_EMAIL },
   async (event) => {
-    const before = event.data?.before?.data();
-    const after = event.data?.after?.data();
-    const events = detectOrderEvents(before, after);
-    if (!after || events.length === 0) return;
-
     const orderId = event.params.orderId;
-    const tasks: Array<{ label: string; run: () => Promise<void> }> = [];
-    for (const e of events) {
-      const label = e.kind === "status" ? `status:${e.from}->${e.to}` : e.kind;
-      for (const w of buildOrderNotifications(e, after, orderId)) {
-        tasks.push({ label: `${label} notification ${w.id}`, run: () => applyNotification(w) });
-      }
-      const status = emailStatusFor(e);
-      if (status) tasks.push({ label: `${label} email`, run: () => sendOrderStatusEmail(orderId, status, after) });
-    }
-
-    // Independent side effects: one failing must not block the others.
-    const results = await Promise.allSettled(tasks.map((t) => t.run()));
-    results.forEach((r, i) => {
-      if (r.status === "rejected") {
-        console.error(`[onOrderLifecycle] ${orderId} ${tasks[i].label} failed:`, r.reason);
-      }
+    const results = await runOrderSideEffects(event.data?.before?.data(), event.data?.after?.data(), orderId, {
+      writeNotification: applyNotification,
+      sendStatusEmail: sendOrderStatusEmail,
     });
+    for (const r of results) {
+      if (!r.ok) console.error(`[onOrderLifecycle] ${orderId} ${r.label} failed:`, r.error);
+    }
   }
 );
