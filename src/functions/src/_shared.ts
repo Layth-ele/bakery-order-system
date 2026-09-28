@@ -9,6 +9,7 @@
 import { HttpsError, CallableRequest } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { canTransitionOrderStatus } from "./lib/orderLifecycle";
+import { resolveTaxRate, resolveFreeDeliveryMin } from "./lib/settingsValues";
 
 const db = getFirestore();
 
@@ -212,78 +213,36 @@ export async function logStatusChange(params: {
 // Settings
 // ─────────────────────────────────────────────────────────────────────────────
 
-let _cachedTaxRate: { value: number; fetchedAt: number } | null = null;
-let _cachedFreeDeliveryMin: { value: number; fetchedAt: number } | null = null;
-// FIX T2R6-H2 (HIGH — settings staleness on warm CF instances):
-// Was 60_000ms (1 minute). When admin updated the tax rate in Settings,
-// warm Cloud Function instances continued using the old rate for up to a
-// full minute. Orders created during that window applied the wrong tax.
-// Reducing to 10s cuts the drift window 6× while still absorbing the
-// burst-read pattern (CFs typically receive batches of related calls
-// within a few seconds — the cache still de-duplicates those).
-//
-// A future settings-change Firestore trigger can call
-// `invalidateTaxRateCache()` (exported below) to drop the cache to zero
-// and pick up the new rate on the next CF invocation. That's the
-// "gold-standard" fix; this TTL reduction is the safe interim.
-const TAX_RATE_TTL_MS = 10_000;
+// Settings are read from settings/general — the document Admin → System
+// Settings edits — with settings/default as a legacy fallback (see
+// lib/settingsValues.ts). Cached briefly so a burst of order actions doesn't
+// re-read them; an admin change takes effect within SETTINGS_TTL_MS.
+const SETTINGS_TTL_MS = 10_000;
+let _settingsCache: { general: Record<string, unknown>; legacy: Record<string, unknown>; fetchedAt: number } | null = null;
 
-/**
- * Read GST/tax rate from settings, defaulting to 5%. Cached to avoid hammering
- * Firestore on every order action.
- */
+async function loadBusinessSettings() {
+  if (_settingsCache && Date.now() - _settingsCache.fetchedAt < SETTINGS_TTL_MS) return _settingsCache;
+  const [general, legacy] = await Promise.all(
+    ["general", "default"].map((id) =>
+      db.collection("settings").doc(id).get()
+        .then((snap) => (snap.data() ?? {}) as Record<string, unknown>)
+        .catch(() => ({}) as Record<string, unknown>)
+    )
+  );
+  _settingsCache = { general, legacy, fetchedAt: Date.now() };
+  return _settingsCache;
+}
+
+/** GST rate as a fraction (0.05 = 5%). */
 export async function getTaxRate(): Promise<number> {
-  if (_cachedTaxRate && Date.now() - _cachedTaxRate.fetchedAt < TAX_RATE_TTL_MS) {
-    return _cachedTaxRate.value;
-  }
-  let value = 0.05;
-  try {
-    const snap = await db.collection("settings").doc("default").get();
-    if (snap.exists) {
-      const taxRate = (snap.data() as any)?.taxRate;
-      if (typeof taxRate === "number" && taxRate >= 0 && taxRate < 1) {
-        value = taxRate;
-      }
-    }
-  } catch {
-    // fall back to default
-  }
-  _cachedTaxRate = { value, fetchedAt: Date.now() };
-  return value;
+  const { general, legacy } = await loadBusinessSettings();
+  return resolveTaxRate(general, legacy);
 }
 
-/**
- * Drop the cached tax rate so the next call re-reads from Firestore.
- *
- * FIX T2R6-H2: Exported for use by a future settings-change Firestore
- * trigger (onUpdate /settings/default → invalidateTaxRateCache()).  Until
- * that trigger is wired up, the 10-second TTL above is the bound on
- * staleness.
- */
-export function invalidateTaxRateCache(): void {
-  _cachedTaxRate = null;
-  _cachedFreeDeliveryMin = null;
-}
-
-/**
- * Read free-delivery threshold from settings, defaulting to 250.
- */
+/** Subtotal (after discounts) that qualifies for free delivery. */
 export async function getFreeDeliveryMin(): Promise<number> {
-  if (_cachedFreeDeliveryMin && Date.now() - _cachedFreeDeliveryMin.fetchedAt < TAX_RATE_TTL_MS) {
-    return _cachedFreeDeliveryMin.value;
-  }
-  let value = 250;
-  try {
-    const snap = await db.collection("settings").doc("default").get();
-    if (snap.exists) {
-      const v = (snap.data() as any)?.freeDeliveryMin;
-      if (typeof v === "number" && v >= 0) value = v;
-    }
-  } catch {
-    // fall back to default
-  }
-  _cachedFreeDeliveryMin = { value, fetchedAt: Date.now() };
-  return value;
+  const { general, legacy } = await loadBusinessSettings();
+  return resolveFreeDeliveryMin(general, legacy);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
