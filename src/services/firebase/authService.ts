@@ -2,6 +2,7 @@ import { isFirebaseConfigured } from '../../firebase/config';
 import { auth } from '../../firebase/config';
 import { toDate } from '../../utils/timestampFormatting';
 import { logger } from '../../utils/logger';
+import { requestPasswordResetEmail } from '../emailService';
 import { 
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -513,15 +514,37 @@ export async function resetPassword(email: string): Promise<{ success: boolean; 
       };
     }
 
-    const actionCodeSettings = {
-      url: `${window.location.origin}/reset-password`,
-      handleCodeInApp: true,
-    };
+    const normalisedEmail = email.trim().toLowerCase();
 
-    // Always attempt — Firebase silently ignores unknown addresses and
-    // returns the same success response, which is the industry-standard
-    // approach for avoiding account enumeration.
-    await firebaseSendPasswordResetEmail(auth, email.trim().toLowerCase(), actionCodeSettings);
+    // Preferred path: branded reset email via the sendPasswordResetEmail
+    // Cloud Function (Resend). It answers identically whether or not the
+    // account exists, and is rate limited per email and per IP.
+    // Falls back to Firebase's built-in mailer only when email isn't set up
+    // on the server yet ("unavailable") or the function isn't deployed.
+    let sentBranded = false;
+    try {
+      const { status } = await requestPasswordResetEmail(normalisedEmail);
+      sentBranded = status === 'ok';
+    } catch (cfError) {
+      const cfCode = (cfError as any)?.code;
+      if (cfCode === 'functions/invalid-argument') {
+        return { success: false, message: 'Please enter a valid email address.' };
+      }
+      if (cfCode !== 'functions/not-found' && cfCode !== 'functions/unavailable') {
+        throw cfError;
+      }
+      logger.warn('[resetPassword] branded reset email unavailable, using Firebase mailer:', cfCode);
+    }
+
+    if (!sentBranded) {
+      const actionCodeSettings = {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: true,
+      };
+      // Firebase silently ignores unknown addresses and returns the same
+      // success response, which avoids account enumeration.
+      await firebaseSendPasswordResetEmail(auth, normalisedEmail, actionCodeSettings);
+    }
 
     return {
       success: true,

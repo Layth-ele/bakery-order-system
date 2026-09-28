@@ -32,7 +32,6 @@ import {
   startAfter,
 } from 'firebase/firestore';
 import { db } from './config';
-import { getCustomerNotificationPath, getAdminNotificationPath } from '../notifications/utils/paths';
 import { logger } from '../utils/logger';
 
 // ============================================
@@ -430,41 +429,6 @@ export function buildOrderQuery(options: {
   return query(collection(db, 'orders'), ...constraints);
 }
 
-/**
- * Build optimized notification query - ✅ FIXED: Now uses hierarchical paths
- */
-export function buildNotificationQuery(options: {
-  userId: string;
-  read?: boolean;
-  limitCount?: number;
-  target?: 'admin' | 'customer';
-}): Query {
-  const { userId, read, limitCount = 50, target = 'customer' } = options;
-  
-  // ✅ GUARD: Check if db is available
-  if (!db) {
-    throw new Error('Firestore is not initialized');
-  }
-  
-  // ✅ FIX: Use hierarchical path instead of flat collection
-  const path = target === 'admin' 
-    ? getAdminNotificationPath()
-    : getCustomerNotificationPath(userId);
-  
-  const constraints: QueryConstraint[] = [];
-  
-  // ❌ REMOVED: No longer need userId filter with hierarchical paths
-  // constraints.push(where('userId', '==', userId));
-  
-  if (read !== undefined) {
-    constraints.push(where('read', '==', read));
-  }
-  
-  constraints.push(orderBy('createdAt', 'desc'));
-  constraints.push(limit(limitCount));
-  
-  return query(collection(db, ...path), ...constraints);  // ✅ HIERARCHICAL
-}
 
 /**
  * Build optimized customer query

@@ -4,7 +4,6 @@ import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { RouteLoader } from './routes/components/RouteLoader';
 import { fixLocalStorageData } from './utils/fixLocalStorageData';
-import { runNotificationMigrations } from './utils/notification-migration';
 import { useButtonKeyboardBinding } from './hooks/useButtonKeyboardBinding';
 // PASS 11: Wire the structured-event reporter (Sentry / Bugsnag / etc.)
 // at startup. Default is a no-op; see src/utils/errorReporterInit.ts for
@@ -30,8 +29,6 @@ function App() {
     const timer = setTimeout(() => {
       try {
         fixLocalStorageData();
- // Run notification data migrations
-        runNotificationMigrations();
       } catch (error) {
         // PASS 11: Boot-time cleanup failure is rare but worth structured
         // capture — useful for spotting regressions in localStorage shape

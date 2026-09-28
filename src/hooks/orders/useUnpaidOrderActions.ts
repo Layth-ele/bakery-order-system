@@ -30,10 +30,9 @@ import { useAlert } from '../../contexts/AlertContext';
 import { useModal } from '../../contexts/ModalContextNew';
 import { updateOrder } from '../../services/data/ordersDataService';
 import { toast } from 'sonner';
-import { getAllCustomers } from '../../services/customersService';
 import { cancelOrderAction, getAdminInfo } from '../../services/orderActionService';
 import { notifyPaymentReminder } from '../../notifications';
-import { sendPaymentReminderEmail } from '../../services/emailService';
+import { sendPaymentReminderEmail, describeEmailResult } from '../../services/emailService';
 // ✅ PASS 3: excelExport intentionally NOT imported at top — pulls in
 // xlsx-js-style (~750KB). Dynamic import below at the call site.
 import { serverTimestamp } from 'firebase/firestore';
@@ -323,39 +322,37 @@ export function useUnpaidOrderActions(
           cancelText: 'CANCEL',
           onConfirm: async () => {
             try {
-              // Get customer email
-              const allCustomers = await getAllCustomers();
-              const customer = allCustomers.find((c) => c.id === order.customerId);
-              
-              if (!customer || !(customer.email ?? "")) {
+              // Send first; the counter only advances once the email is
+              // actually delivered to Resend. The server resolves the
+              // customer's address.
+              const result = await sendPaymentReminderEmail(order.id, emailReminderNumber);
+              if (result.state !== 'sent') {
                 showAlert({
-                  title: 'Error',
-                  message: 'Could not find customer email address.',
+                  title: 'Email Not Sent',
+                  message: describeEmailResult(result),
                   icon: 'error',
                 });
                 return;
               }
-              
+
               await updateOrder(order.id, {
                 emailReminderCount: emailReminderNumber,
                 lastEmailReminderSentAt: serverTimestamp() as any,
               });
-              await sendPaymentReminderEmail(order, (customer.email ?? ""), emailReminderNumber);
               await notifyPaymentReminder(order, emailReminderNumber);
-              
+
               // ✅ Invalidate cache to refresh UI with updated reminder count
               await invalidateCache.orders();
-              
- // Replaced modal with toast notification
+
               toast.success('✅ Email Sent!', {
-                description: `Email reminder #${emailReminderNumber} sent to ${customer.email}. Customer should receive it shortly.`,
+                description: `Email reminder #${emailReminderNumber} sent to ${result.to}. Customer should receive it shortly.`,
                 duration: 5000,
               });
             } catch (error) {
               debug.error('❌ [useUnpaidOrderActions] Failed to send email reminder:', error);
               showAlert({
                 title: 'Error',
-                message: 'Failed to send email reminder. Please try again.',
+                message: `Failed to send email reminder: ${(error as Error).message || 'please try again.'}`,
                 icon: 'error',
               });
             }

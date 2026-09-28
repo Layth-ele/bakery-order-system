@@ -59,6 +59,8 @@ export interface SystemSettings {
   ccEmail?: string;
   orderCcEmail?: string;
   sendApprovalEmails?: boolean;
+  sendOrderStatusEmails?: boolean;
+  emailLogoUrl?: string;
 
   // Payment method settings
   paymentMethod1?: string;

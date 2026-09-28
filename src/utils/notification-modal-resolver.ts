@@ -1,4 +1,4 @@
-import type { NotificationItem } from '../types/notification-canonical';
+import type { NotificationItem } from '../types/notification-contract';
 import type { Order, Product, Category, Customer } from '../types';
 import type { User } from '../services/firebase/authService';
 import type { ModalType, ModalProps } from '../types/modals';
@@ -895,4 +895,3 @@ export async function resolveModalProps(
  */
 
 // Context factories — re-exported from notification-modal-context for backward compat
-export { createMinimalContext, createContextWithCallbacks } from "./notification-modal-context";

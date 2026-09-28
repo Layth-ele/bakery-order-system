@@ -19,8 +19,6 @@ import {
   assertTransitionAllowed,
   logStatusChange,
   appendAuditLog,
-  createAdminNotificationServer,
-  createCustomerNotificationServer,
 } from "./_shared";
 
 const db = getFirestore();
@@ -95,20 +93,7 @@ export const submitPaymentProof = onCall<SubmitPaymentProofInput>(async (request
     },
   });
 
-  // Notify admin
-  await createAdminNotificationServer({
-    notifId: `payment-submitted-${orderId}-${Date.now()}`,
-    type: "PAYMENT_SUBMITTED", // FIX R5-S6-F7: was snake_case, schema rejects
-    title: "💳 Payment Proof Submitted",
-    message: `Customer ${order.customerName ?? customer.email} submitted payment for order. Method: ${paymentMethod}`,
-    orderId,
-    actions: [{ type: "VIEW_ORDER", label: "Review Payment" }],
-    metadata: {
-      customerId: customer.uid,
-      paymentMethod,
-      total: order.total,
-    },
-  });
+  // Admin "payment submitted" notification: onOrderLifecycle trigger.
 
   return { success: true, orderId };
 });
@@ -217,16 +202,7 @@ export const confirmOrderPayment = onCall<ConfirmOrderPaymentInput>(async (reque
     },
   });
 
-  // Customer notification
-  await createCustomerNotificationServer({
-    customerId: order.customerId,
-    notifId: `payment-confirmed-${orderId}-${Date.now()}`,
-    type: "PAYMENT_CONFIRMED",
-    title: "✅ Payment Confirmed",
-    message: `Your payment of $${(order.total ?? 0).toFixed(2)} has been confirmed. We'll start preparing your order.`,
-    orderId,
-    metadata: { total: order.total ?? 0 },
-  });
+  // Customer notification + email: onOrderLifecycle trigger.
 
   // Update customer totalSpent (best-effort, non-fatal)
   try {

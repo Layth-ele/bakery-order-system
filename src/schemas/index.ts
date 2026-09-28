@@ -172,25 +172,6 @@ export {
   type CreditNoteType, // ✅ NEW: Type type
 } from './creditNote/creditNote.schema';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// NOTIFICATION
-// ═══════════════════════════════════════════════════════════════════════════
-
-export {
-  // Notification
-  notificationItemSchema,
-  notificationItemsArraySchema,
-  notificationTypeSchema,
-  actionTypeSchema,
-  notificationActionSchema,
-  notificationSummarySchema,
-  type NotificationItem,
-  type NotificationItemsArray,
-  type NotificationType,
-  type ActionType,
-  type NotificationAction,
-  type NotificationSummary,
-} from './notification/notification.schema';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INVOICE

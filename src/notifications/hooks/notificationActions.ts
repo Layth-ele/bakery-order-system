@@ -38,16 +38,16 @@
  */
 
 import { useCallback, useMemo, startTransition, useRef } from 'react';
-import { safeParseJSON } from '../../utils/safeLocalStorage';
 import { useModal } from '@/contexts/ModalContextNew';
 import type { ModalType } from '@/types/modals'; // ✅ Using alias import
 import type { Product, Category } from '@/types'; // ✅ PASS 5: explicit imports for noImplicitAny
-import { NotificationItem } from '@/types/notification-contract'; // ✅ Using alias import
+import { NotificationItem, normalizeNotificationType } from '@/types/notification-contract';
 import { getModalForNotification } from '../types/notification-modal-mapping';
-import { resolveModalProps } from '../utils/modalResolver'; // ✅ PHASE 5: Updated to use consolidated modalResolver
+import { resolveModalProps } from '@/utils/notification-modal-resolver';
 import { getServerTimestamp } from '@/utils/timestamps'; // ✅ TIMESTAMP FIX
 import { toast } from 'sonner'; // Add toast import
-import { getOrders } from '@/services/data/ordersDataService';
+import { getOrders, getOrder } from '@/services/data/ordersDataService';
+import { useNavigate } from 'react-router';
 import { logger } from '../../utils/logger';
  // ✅ MAR 17: Use data service
 
@@ -120,6 +120,7 @@ export function useNotificationActions({
   ordersMap,
 }: UseNotificationActionsConfig): NotificationActions {
   const { openModal, closeModal, closeAllModals, modalStack } = useModal();
+  const navigate = useNavigate();
   // ✅ Guard against re-entrant calls (prevents infinite loop with Firestore listeners)
   const isProcessingRef = useRef(false);
   
@@ -175,127 +176,60 @@ export function useNotificationActions({
     'VIEW_HISTORY': 'ADMIN_ORDER_VIEW',
   }), []);
   
-  /**
-   * ✅ CORE BUSINESS LOGIC: Opens the appropriate modal for a notification
-   * 
-   * Responsibilities:
-   * 1. Mark notification as read
-   * 2. Determine which modal to open (via mapping or override)
-   * 4. Handle modal redirects (e.g., INVOICE_DETAIL → PAID_ORDER_DETAILS)
-   * 5. Open modal with hydrated props
-   * 6. Error handling with fallback modal
+    /**
+   * Open whatever a notification points to: a page (e.g. registrations) or
+   * a modal whose data is loaded by the modal resolver.
    */
   const openNotificationModal = useCallback(async (
     notification: NotificationItem,
     modalTypeOverride?: string
   ) => {
-    // ✅ Prevent re-entrant calls (Firestore snapshot updates can re-trigger this)
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
-    await markAsRead(notification.id);
-    
-    // ✅ Close any existing modals before opening notification modal
-    if (modalStack.length > 0) {
-      closeAllModals();
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-    
     try {
-      // Determine which modal to open
-      let modalType = modalTypeOverride;
-      
-      if (!modalType) {
-        const modalConfig = getModalForNotification(notification.type);
-        if (!modalConfig) {
-          return;
-        }
-        modalType = modalConfig.modalType;
+      await markAsRead(notification.id);
+
+      if (modalStack.length > 0) {
+        closeAllModals();
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
-      
-      // ✅ STEP 4: Smart routing for PAYMENT_REMINDER
-      // If customer hasn't submitted proof → SUBMIT_PAYMENT
-      // If proof exists → PAYMENT_IN_REVIEW
-      if (notification.type === 'PAYMENT_REMINDER') {
-        // Check if order has payment proof
-        const orders = await appContext.loadOrders();
-        const order = orders.find((o: { id?: string }) => o.id === notification.orderId);
-        
-        const hasPaymentProof = !!(
-          order?.paymentProofUrl || 
-          notification.metadata?.paymentProofUrl ||
-          notification.metadata?.order?.paymentProofUrl
-        );
-        
-        if (hasPaymentProof) {
-          // Payment already submitted, show review status
-          modalType = 'PAYMENT_IN_REVIEW';
-        } else {
-          // No payment yet, prompt to submit
-          modalType = 'SUBMIT_PAYMENT';
-        }
+
+      const mapping = getModalForNotification(notification.type);
+
+      // Page-based notifications (e.g. a new registration → Registrations).
+      if (!modalTypeOverride && mapping.route) {
+        navigate(mapping.route);
+        return;
       }
-      
-      
- // Handle null modalType (e.g., cancelled orders use toast)
-      if (!modalType) {
-        
-        // Show toast for cancelled orders
-        if (notification.type === 'ORDER_CANCELLED') {
-          const reason = notification.metadata?.reason || notification.metadata?.cancellationReason || 'No reason provided';
-          const orderId = notification.orderId || 'Unknown order';
-          
-          toast.success(`Order ${orderId} has been cancelled`, {
-            description: `Reason: ${reason}`,
-            duration: 5000,
-          });
-          
-          // Mark as read
-          await markAsRead(notification.id);
-        } else {
-          // Generic toast for other notifications without modals
-          toast.info(notification.title || 'Notification', {
-            description: notification.message,
-            duration: 5000,
-          });
-          
-          await markAsRead(notification.id);
-        }
-        
-        return; // Exit early - no modal to open
+
+      let modalType: string = modalTypeOverride || mapping.modalType;
+
+      // Payment reminder: pay now, or show the payment already submitted.
+      // Loads only this order — customers may read their own order, not list all.
+      if (!modalTypeOverride && normalizeNotificationType(notification.type) === 'PAYMENT_REMINDER' && notification.orderId) {
+        const order = await getOrder(notification.orderId).catch(() => null);
+        modalType = order?.paymentSubmitted ? 'PAYMENT_IN_REVIEW' : 'SUBMIT_PAYMENT';
       }
-      
-      // Resolve modal props with full data hydration
-      const resolvedProps = await resolveModalProps(
-        modalType,
-        notification,
-        appContext
-      );
-      
-      
-      // Check for modal redirect flag (e.g., INVOICE_DETAIL → PAID_ORDER_DETAILS)
+
+      const resolvedProps = await resolveModalProps(modalType, notification, appContext);
       const finalModalType = resolvedProps._modalRedirect || modalType;
-      if (resolvedProps._modalRedirect) {
-        delete resolvedProps._modalRedirect;
-      }
-      
-      // Open modal with hydrated props
+      delete resolvedProps._modalRedirect;
+
       startTransition(() => {
         openModal(finalModalType as ModalType, resolvedProps as any);
       });
-      
     } catch (error) {
-      console.error('❌ [notificationActions] Error opening modal:', error);
+      console.error('❌ [notificationActions] Error opening notification:', error);
       openModal('NOTIFICATION_DETAILS' as ModalType, {
         notification,
-        error: error instanceof Error ? (error as any).message : 'Failed to load modal data',
+        error: error instanceof Error ? error.message : 'Failed to load details',
         onClose: () => {}
       });
     } finally {
-      // ✅ Always release the guard so future calls work
       isProcessingRef.current = false;
     }
-  }, [markAsRead, appContext, openModal, closeAllModals, modalStack]);
+  }, [markAsRead, appContext, openModal, closeAllModals, modalStack, navigate]);
   
   /**
    * ✅ SIMPLE HANDLER: Notification row click

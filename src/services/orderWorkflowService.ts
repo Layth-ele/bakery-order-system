@@ -34,7 +34,6 @@
 
 import { updateOrder, getOrder } from './data/ordersDataService';
 import { getSettings } from './data/settingsDataService';
-import { getAllCustomers } from './customersService';
 import { invalidateCache } from '../hooks/useCachedFirebase';
 import { getServerTimestamp } from '../utils/timestamps';
 import {
@@ -45,9 +44,8 @@ import {
   type OrderActionResult,
 } from './orderActionService';
 import type { Order } from '../types';
-import { toDate } from '../utils/timestampFormatting';
-import { displayOrderNumber } from '../utils/displayId';
 import { logger } from '../utils/logger';
+import { sendOrderUpdatedEmail, describeEmailResult } from './emailService';
 import {
   isDeliveryFeeRequired,
   qualifiesForFreeDelivery,
@@ -377,8 +375,8 @@ export async function editOrderItemsWorkflow(
       // delivery state.
       message: emailResult?.success
         ? 'Order updated and customer notified via email!'
-        : (emailResult?.error?.includes('No email provider')
-            ? 'Order updated. Email notification queued (no email provider configured).'
+        : (emailResult
+            ? `Order updated. Customer was NOT emailed — ${emailResult.error}`
             : 'Order updated successfully'),
       data: {
         subtotal,
@@ -532,120 +530,23 @@ export async function toggleServiceChargeWorkflow(
 // ═════════════════════════════════════════════════════════════════════════════
 
 /**
- * Send order update email notification
+ * Send the "your order was updated" email.
  *
- * FIX T2R5-C3 (CRITICAL — silent business-impact failure): This was a SECOND
- * copy of the silent-mock email service that T2R3-C5 fixed in
- * `services/emailService.ts`.  Both files claimed success without sending.
- * The caller `editOrderItemsWorkflow` then told the admin "Order updated and
- * customer notified via email!" — a lie.  Plus the customer lookup at line
- * 533 used `storeName` (collision-prone) rather than `customerId`.
- *
- * Fix: Mirror the T2R3-C5 fix exactly — return success: false with a clear
- * "no provider configured" reason, and persist the would-have-sent envelope
- * to localStorage for admin audit.  Caller's success message no longer
- * misrepresents what happened.
+ * Delivered by the sendOrderUpdatedEmail Cloud Function (Resend, branded
+ * template, audit-logged in /emailLog). Resolves the real delivery state so
+ * the caller never claims "customer notified" when nothing was sent.
  */
 async function sendOrderUpdateEmail(orderId: string): Promise<EmailResult> {
   try {
-    const order = await getOrder(orderId);
-    if (!order) {
-      throw new Error('Order not found');
-    }
-
-    // FIX T2R5-C3: customer lookup now uses customerId (the canonical key)
-    // rather than storeName (which collides for shared business names).
-    const customers = await getAllCustomers();
-    const customer =
-      (order.customerId && customers.find((c) => c.id === order.customerId)) ||
-      customers.find((c) => c.storeName === order.customerName);
-
-    if (!customer || !(customer.email ?? '')) {
-      throw new Error('Customer email not found');
-    }
-
-    // Build envelope for the audit log.  Body is computed but not delivered.
-    const itemsTable = order.items
-      .map(
-        (item) =>
-          `${item.productName}: Mon(${item.monday || 0}) Tue(${item.tuesday || 0}) Wed(${item.wednesday || 0}) Thu(${item.thursday || 0}) Fri(${item.friday || 0}) Sat(${item.saturday || 0}) Sun(${item.sunday || 0}) - Total: ${item.total} × $${item.price?.toFixed(2) || '0.00'} = $${((item.total * item.price) || 0).toFixed(2)}`
-      )
-      .join('\n');
-
-    // Resolve dynamic business name from settings (T2R3-C1 sibling).
-    let bizName = 'Your Bakery';
-    try {
-      const settings = await getSettings();
-      if (settings?.businessName) bizName = settings.businessName;
-    } catch { /* keep default */ }
-
-    const emailBody = `
-Dear ${customer.contactPerson || customer.storeName},
-
-Your order ${displayOrderNumber(order)} has been updated by the admin.
-
-ORDER DETAILS:
-Week: ${order.week} (${order.weekRange})
-Order Date: ${(toDate(order.createdAt) ?? new Date()).toLocaleDateString()}
-Last Updated: ${(toDate(order.updatedAt || order.createdAt) ?? new Date()).toLocaleDateString()}
-
-ITEMS:
-${itemsTable}
-
-PRICING:
-Subtotal: $${order.subtotal?.toFixed(2) || '0.00'}
-Delivery Fee: $${order.deliveryFee?.toFixed(2) || '0.00'}
-Service Charge: $${order.serviceChargeWaived ? '0.00 (waived)' : (order.serviceCharge?.toFixed(2) || '0.00')}
-GST (5%): $${order.gst?.toFixed(2) || '0.00'}
-TOTAL: $${order.total?.toFixed(2) || '0.00'}
-
-Delivery Address: ${order.customerAddress}
-
-${order.note ? `Customer Note: ${order.note}` : ''}
-
-Please review the updated order. If you have any questions, please contact us.
-
-Best regards,
-${bizName} Team
-    `;
-
-    // Persist to localStorage so admin can audit what would have been sent.
-    // Bounded at 200 entries to prevent unbounded growth.
-    try {
-      const raw = localStorage.getItem('bakery_sent_emails');
-      const log: any[] = raw ? JSON.parse(raw) : [];
-      log.push({
-        to: customer.email,
-        subject: `Order Update Notification - Order ${displayOrderNumber(order)}`,
-        body: emailBody,
-        sentAt: new Date().toISOString(),
-        orderId: order.id || '',
-        type: 'order-update-workflow',
-        delivered: false,
-      });
-      while (log.length > 200) log.shift();
-      localStorage.setItem('bakery_sent_emails', JSON.stringify(log));
-    } catch { /* localStorage unavailable */ }
-
-    // Dev-mode warning so the gap is visible during development.
-    if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
-      logger.warn(
-        '⚠️ [orderWorkflowService.sendOrderUpdateEmail] No email provider is ' +
-        'configured. Mail is NOT being sent. Wire up SendGrid/SES/Postmark ' +
-        'via a Cloud Function to enable real email delivery.'
-      );
-    }
-
-    // Honest result: NOT delivered. Caller will surface this to the admin.
-    return {
-      success: false,
-      error: 'No email provider configured — message queued for audit only',
-    };
+    const result = await sendOrderUpdatedEmail(orderId);
+    return result.state === 'sent'
+      ? { success: true }
+      : { success: false, error: describeEmailResult(result) };
   } catch (error) {
-    console.error('❌ Email sending error:', error);
+    logger.warn('[orderWorkflowService] order-updated email failed:', error);
     return {
       success: false,
-      error: error instanceof Error ? (error as any).message : 'Failed to send email',
+      error: error instanceof Error ? error.message : 'Failed to send email',
     };
   }
 }

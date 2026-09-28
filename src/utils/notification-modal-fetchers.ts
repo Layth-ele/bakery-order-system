@@ -1,4 +1,4 @@
-import type { NotificationItem } from '../types/notification-canonical';
+import type { NotificationItem } from '../types/notification-contract';
 import { safeParseJSON } from '../utils/safeLocalStorage';
 /**
  * Notification Modal Data Fetchers

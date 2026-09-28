@@ -131,8 +131,17 @@ describe('canonical order status transitions', () => {
   it('allows the documented forward progression', () => {
     expect(canTransitionOrderStatus('pending', 'approved')).toBe(true);
     expect(canTransitionOrderStatus('approved', 'in_process')).toBe(true);
-    expect(canTransitionOrderStatus('in_process', 'delivered')).toBe(true);
+    expect(canTransitionOrderStatus('in_process', 'completed')).toBe(true);
+    // Paid orders can be completed straight from approved (auto-complete).
+    expect(canTransitionOrderStatus('approved', 'completed')).toBe(true);
+  });
+
+  it('never moves an order INTO the legacy delivered state, but lets old ones finish', () => {
+    for (const from of ['pending', 'approved', 'in_process'] as const) {
+      expect(canTransitionOrderStatus(from, 'delivered')).toBe(false);
+    }
     expect(canTransitionOrderStatus('delivered', 'completed')).toBe(true);
+    expect(canTransitionOrderStatus('delivered', 'cancelled')).toBe(true);
   });
 
   it('allows terminal admin exits for rejected and cancelled flows', () => {
@@ -142,8 +151,9 @@ describe('canonical order status transitions', () => {
   });
 
   it('blocks non-sequential or terminal re-entry transitions', () => {
-    expect(canTransitionOrderStatus('approved', 'delivered')).toBe(false);
-    expect(canTransitionOrderStatus('in_process', 'completed')).toBe(false);
+    expect(canTransitionOrderStatus('pending', 'in_process')).toBe(false);
+    expect(canTransitionOrderStatus('pending', 'completed')).toBe(false);
+    expect(canTransitionOrderStatus('in_process', 'approved')).toBe(false);
     expect(canTransitionOrderStatus('completed', 'approved')).toBe(false);
     expect(canTransitionOrderStatus('cancelled', 'approved')).toBe(false);
     expect(canTransitionOrderStatus('rejected', 'approved')).toBe(false);

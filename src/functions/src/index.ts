@@ -64,3 +64,14 @@ export {
 // never overwrites an existing document.  Callable by any authenticated user
 // (used by getSettings() client fallback path).
 export { bootstrapSettings } from "./bootstrapSettings";
+
+// ─── Order lifecycle side effects: notifications + emails (single trigger) ──
+export { onOrderLifecycle } from "./orderLifecycleTrigger";
+
+// ─── Customer emails via Resend (see docs/email-system.md) ──────────────────
+export {
+  sendPaymentReminderEmail,
+  sendOrderUpdatedEmail,
+  sendPasswordResetEmail,
+  sendTestEmail,
+} from "./emails";

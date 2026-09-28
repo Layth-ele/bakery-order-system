@@ -7,14 +7,12 @@ import {
   Product, 
   Order,
   Settings,
-  NotificationData,
   subscribeToCustomer,
   subscribeToCustomers,
   subscribeToProducts,
   subscribeToOrders,
   subscribeToCustomerOrders,
   subscribeToSettings,
-  subscribeToNotifications,
 } from '../firebase/firestore';
 import {
   getCustomers as getAllCustomers,
@@ -75,7 +73,6 @@ export const CACHE_TIMES = {
     customers: 60 * 1000,         // 1 minute
     products: 5 * 60 * 1000,     // 5 minutes
     settings: 0,                  // 0ms — live listener handles freshness ✅ FIXED
-    notifications: 5 * 60 * 1000, // 5 minutes ✅ OPTIMIZED
   },
   
   // How long data stays in MEMORY (before garbage collection)
@@ -85,7 +82,6 @@ export const CACHE_TIMES = {
     customers: 60 * 60 * 1000,   // 1 hour (was 7 days) ✅ MEMORY FIX
     products: 2 * 60 * 60 * 1000, // 2 hours (was 7 days) ✅ MEMORY FIX
     settings: 2 * 60 * 60 * 1000, // 2 hours (was 7 days) ✅ MEMORY FIX
-    notifications: 30 * 60 * 1000, // 30 minutes (was 24h) ✅ MEMORY FIX
   }
 };
 
@@ -121,7 +117,6 @@ export const QUERY_KEYS = {
   customerOrders: (customerId: string) => ['orders', 'customer', customerId] as const,
   products: ['products'] as const,
   settings: ['settings'] as const,
-  notifications: (userId: string) => ['notifications', userId] as const,
   creditBalance: (customerId: string) => ['credit', 'balance', customerId] as const, // Credit balance
 };
 
@@ -310,47 +305,6 @@ export const useCachedProducts = (enabled: boolean = true) => {
 };
 
 /**
- * Cached hook for notifications
- * Short cache time for freshness
- *
- * ✅ PASS 9 FIX: Promise rejects on Firestore error so TanStack Query retries
- *    instead of hanging in `loading` state forever. Without this fix, a
- *    transient permission error or rules-deploy churn would freeze the
- *    notification bell indefinitely.
- */
-export const useCachedNotifications = (userId: string | null) => {
-  return useQuery<NotificationData[]>({
-    queryKey: userId ? QUERY_KEYS.notifications(userId) : ['notifications', 'null'],
-    queryFn: async () => {
-      if (!userId) return [];
-      
-      return new Promise<NotificationData[]>((resolve, reject) => {
-        const unsubscribe = subscribeToNotifications(
-          userId,
-          (notifications) => {
-            unsubscribe();
-            resolve(notifications);
-          },
-          'customer',
-          (error) => {
-            unsubscribe();
-            console.error(`❌ Error fetching notifications for ${userId}:`, error);
-            // Reject so TanStack Query retries instead of hanging
-            reject(error);
-          }
-        );
-      });
-    },
-    // ✅ initialData ensures data is always NotificationData[] (never undefined)
-    initialData: [] as NotificationData[],
-    staleTime: CACHE_TIMES.STALE_TIME.notifications,
-    gcTime: CACHE_TIMES.CACHE_TIME.notifications,
-    enabled: !!userId,
-    retry: 2,
-  });
-};
-
-/**
  * Cached hook for settings — LIVE Firestore listener
  *
  * ✅ FIXED: Previously unsubscribed immediately after first value,
@@ -471,7 +425,6 @@ export const invalidateCache = {
   customerOrders: (customerId: string) => queryClient.refetchQueries({ queryKey: QUERY_KEYS.customerOrders(customerId) }),
   products: () => queryClient.refetchQueries({ queryKey: QUERY_KEYS.products }),
   settings: () => queryClient.refetchQueries({ queryKey: QUERY_KEYS.settings }),
-  notifications: (userId: string) => queryClient.refetchQueries({ queryKey: QUERY_KEYS.notifications(userId) }),
  // Credit balance invalidation
   // Call after credit mutations (admin edit paid order, apply credit, create credit note)
   credit: async (customerId?: string) => {

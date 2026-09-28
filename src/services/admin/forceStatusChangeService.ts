@@ -16,9 +16,7 @@
 
 import { Order } from '../../types';
 import { updateOrder } from '../data/ordersDataService';
-import { createNotification } from '../../firebase/firestore/notifications';
 import { getServerTimestamp } from '../../utils/timestamps';
-import { toDate } from '../../utils/timestampFormatting';
 import { db } from '../../firebase/config';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
@@ -182,29 +180,11 @@ async function handleStatusChangeSideEffects(
   const sideEffects: string[] = [];
   
   try {
-    // Side effect: Customer notification for completed status
-    if (targetStatus === 'completed') {
-      // Notify customer that order is completed
-      await createNotification({
-        type: 'ORDER_COMPLETED',
-        customerId: order.customerId || "",
-        orderId: order.id || "",
-        title: 'Order Completed',
-        message: `Your order ${displayOrderNumber(order)} has been completed and is ready.`,
-        read: false,
-        // FIX R9-S5-F62 (HIGH): Was actions: [] — UI rendered the notification
-        // with no clickable buttons.  Customer saw "Order completed" with no
-        // way to view the order or its invoice.  Now provides a VIEW_ORDER
-        // action so the bell-menu modal renders a usable link.
-        actions: [{ type: 'VIEW_ORDER', label: 'View Order', payload: { orderId: order.id || '' } }],
-        data: {
-          orderId: order.id || "",
-          orderTotal: order.total,
-        },
-      });
-      sideEffects.push('customer_notified_completed');
-    }
-    
+    // Customer notifications + emails for the new status come from the
+    // onOrderLifecycle Cloud Function trigger (fires on the status change).
+    // Each status is announced once per order, so re-entering a status the
+    // customer was already told about doesn't repeat the message.
+
     // Side effect: Unlock order if rolling back from completed
     if (order.status === 'completed' && targetStatus !== 'completed') {
       sideEffects.push('order_unlocked');
@@ -217,29 +197,6 @@ async function handleStatusChangeSideEffects(
       // Payment confirmation might need to be re-done
     }
     
-    // Side effect: Approval notification if moving to approved
-    if (targetStatus === 'approved' && order.status !== 'approved') {
-      await createNotification({
-        type: 'ORDER_APPROVED_PAY_REQUIRED',
-        customerId: order.customerId || "",
-        orderId: order.id || "",
-        title: 'Order Approved',
-        message: `Your order ${displayOrderNumber(order)} has been approved.`,
-        read: false,
-        // FIX R9-S5-F62 (HIGH): Was actions: [] — customer saw "Order approved"
-        // with no link to pay.  Now includes PAY_NOW + VIEW_ORDER actions so
-        // the customer has a clear next step.
-        actions: [
-          { type: 'PAY_NOW', label: 'Pay Now', payload: { orderId: order.id || '' } },
-          { type: 'VIEW_ORDER', label: 'View Order', payload: { orderId: order.id || '' } },
-        ],
-        data: {
-          orderId: order.id || "",
-          orderTotal: order.total,
-        },
-      });
-      sideEffects.push('customer_notified_approved');
-    }
   } catch (error) {
     console.error('❌ Error handling side effects:', error);
     sideEffects.push('side_effects_error');

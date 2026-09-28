@@ -51,6 +51,7 @@ import type {
 } from '../../../hooks/admin/useSystemSettingsData';
 import type { SystemSettings } from '../../../services/data/settingsDataService';
 import { isFirebaseConfigured } from '../../../firebase/config';
+import { EmailTestButton } from './EmailTestButton';
 
 // ============================================================================
 // TYPES
@@ -695,14 +696,23 @@ export function SystemSettingsView({
             />
           </div>
           
+          <InputField
+            label="Email Logo URL (optional)"
+            value={settings.emailLogoUrl || ''}
+            onChange={(value) => updateField('emailLogoUrl', value)}
+            placeholder="https://yourdomain.com/logo-white.png"
+          />
+
           <div className="mt-4">
             <CheckboxField
-              label="Send Approval Emails"
-              checked={settings.sendApprovalEmails || false}
-              onChange={(checked) => updateField('sendApprovalEmails', checked)}
-              description="Automatically send email notifications when orders are approved"
+              label="Send Order Status Emails"
+              checked={settings.sendOrderStatusEmails !== false}
+              onChange={(checked) => updateField('sendOrderStatusEmails', checked)}
+              description="Email customers automatically when an order is received, approved, rejected, cancelled, paid, or delivered. Order CC Email gets a copy of each."
             />
           </div>
+
+          {isFirebaseConfigured && <EmailTestButton />}
         </FormSection>
 
         {/* Payment Methods */}

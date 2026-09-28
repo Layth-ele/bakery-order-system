@@ -29,7 +29,7 @@ import { updateOrder, bulkUpdateOrders } from '../../services/data/ordersDataSer
 import { cancelOrderAction } from '../../services/orderActionService'; // ✅ MAR 17: Fixed import (removed getAdminInfo)
 import { completeOrderNow } from '../../services/orderCompletion/completeOrderNow';
 import {notifyPaymentReminder} from '../../notifications'
-import { sendPaymentReminderEmail } from '../../services/emailService';
+import { sendPaymentReminderEmail, describeEmailResult } from '../../services/emailService';
 import { toast } from 'sonner';
 import { getServerTimestamp } from '../../utils/timestamps';
 import { debug } from '../../utils/debug';
@@ -59,7 +59,6 @@ interface UseOrderActionsReturn {
   editOrder: (order: Order, data: EditOrderData) => Promise<void>;
   sendPaymentReminder: (order: Order) => Promise<void>;
   approveOrder: (order: Order, adminUser: User) => Promise<void>;
-  rejectOrder: (order: Order, reason: string, adminUser: User) => Promise<void>;
   migrateOrders: (orders: Order[]) => Promise<void>;
 }
 
@@ -226,15 +225,16 @@ export function useOrderActions(): UseOrderActionsReturn {
       const currentReminderCount = order.paymentReminderCount || 0;
       const newReminderCount = currentReminderCount + 1;
       
-      // Send email — awaited so counter only increments on success
-      // ✅ PASS 6: customerEmail may be undefined on legacy orders.
-      if (!order.customerEmail) {
-        throw new Error('Order has no customer email; cannot send reminder.');
-      }
+      // Send email — awaited so counter only increments on success. The
+      // server resolves the customer's address (order → customer profile).
+      let emailResult;
       try {
-        await sendPaymentReminderEmail(order, order.customerEmail, newReminderCount);
+        emailResult = await sendPaymentReminderEmail(order.id, newReminderCount);
       } catch (emailError) {
-        throw new Error('Failed to send payment reminder email. Counter not updated.');
+        throw new Error(`Failed to send payment reminder email: ${(emailError as Error).message}`);
+      }
+      if (emailResult.state !== 'sent') {
+        throw new Error(describeEmailResult(emailResult));
       }
 
       // Update order (only reached if email succeeded)
@@ -250,7 +250,7 @@ export function useOrderActions(): UseOrderActionsReturn {
       
  // Replaced alert with toast notification
       toast.success('✅ Reminder Sent', {
-        description: `Payment reminder #${newReminderCount} sent to ${order.customerName}`,
+        description: `Payment reminder #${newReminderCount} emailed to ${order.customerName} (${emailResult.to})`,
         duration: 5000,
       });
       debug.log('✅ Payment reminder sent successfully');
@@ -309,36 +309,6 @@ export function useOrderActions(): UseOrderActionsReturn {
     }
   }, [showAlert]);
   
-  /**
-   * Reject an order (simple status update)
-   * Note: For complex rejection workflow, use orderWorkflowService
-   */
-  const rejectOrder = useCallback(async (
-    order: Order,
-    reason: string,
-    adminUser: User
-  ): Promise<void> => {
-    try {
-      debug.log('❌ Rejecting order:', order.id);
-      
-      await updateOrder(order.id, {
-        status: 'rejected',
-        rejectionReason: reason,
-        rejectedBy: (adminUser.email ?? ""),
-        rejectedAt: getServerTimestamp() as any,
-        updatedAt: getServerTimestamp() as any,
-      });
-      
-      await invalidateCache.orders();
-
-      toast.success(`Order ${displayOrderNumber(order)} rejected`, { duration: 4000 });
-      debug.log('✅ Order rejected successfully');
-    } catch (error) {
-      debug.error('❌ Failed to reject order:', error);
-      showAlert({ title: 'Alert', message: (error as any).message || 'Failed to reject order', icon: 'error' as const });
-      throw error;
-    }
-  }, [showAlert]);
   
   /**
    * Migrate orders (background task - add missing fields)
@@ -378,7 +348,6 @@ export function useOrderActions(): UseOrderActionsReturn {
     editOrder,
     sendPaymentReminder,
     approveOrder,
-    rejectOrder,
     migrateOrders,
   };
 }
