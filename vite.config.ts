@@ -18,9 +18,68 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
+import { VitePWA } from 'vite-plugin-pwa';
+
+/**
+ * Progressive Web App: installable on phones/desktops, app-shell cached by a
+ * Workbox service worker. Only same-origin app files are cached — Firestore,
+ * Auth and Cloud Function calls always go to the network, so data is never
+ * stale. New versions are announced in-app (PwaUpdatePrompt) instead of
+ * silently swapping code under a user mid-order.
+ * Icons: public/ (regenerate with `npm run generate:icons`).
+ */
+const BRAND = { theme: '#2c2416', background: '#fbf6ee' };
+
+const pwa = VitePWA({
+  registerType: 'prompt',
+  injectRegister: false, // registered by src/components/pwa/PwaUpdatePrompt.tsx
+  includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'app-icon.svg'],
+  manifest: {
+    id: '/',
+    name: 'Delight Bakehouse',
+    short_name: 'Delight',
+    description: 'Wholesale ordering, payments and invoices for Delight Bakehouse.',
+    lang: 'en',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    orientation: 'any',
+    theme_color: BRAND.theme,
+    background_color: BRAND.background,
+    categories: ['business', 'food', 'shopping'],
+    icons: [
+      { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+      { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+      { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  },
+  workbox: {
+    // App shell + shared chunks are precached for instant start-up.
+    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+    // Admin-only heavy chunks (Excel/PDF/charts ≈ 1.6 MB) are cached on first
+    // use instead, so customers' phones don't download them at install.
+    globIgnores: ['**/excel-*.js', '**/pdf-*.js', '**/charts-*.js'],
+    navigateFallback: '/index.html',
+    // Never hijack Firebase's reserved paths (auth handler, init.json).
+    navigateFallbackDenylist: [/^\/__\//],
+    cleanupOutdatedCaches: true,
+    runtimeCaching: [
+      {
+        // Hashed build files are immutable — safe to cache-first.
+        urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'app-assets',
+          expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 60 },
+        },
+      },
+    ],
+  },
+});
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), pwa],
 
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],

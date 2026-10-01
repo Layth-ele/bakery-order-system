@@ -26,6 +26,7 @@ import { CreditBalanceWidget } from '../CreditBalanceWidget'; // ✅ Credit bala
 import { BalanceWidget } from '../BalanceWidget'; // ✅ Outstanding balance widget
 import type { ModalType, ModalProps } from '../../../types/modals';
 import type { ModalSize, OverlayBlur } from '../../../ui/modals/BaseModal';
+import { InstallAppButton } from '../../pwa/InstallAppButton';
 
 export interface BadgeCounts {
   activeOrders: number;
@@ -97,6 +98,9 @@ export function DashboardHeaderWithNav({
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Install as an app (only shown when the browser supports it) */}
+                <InstallAppButton compact />
+
                 {/* Logout Button */}
                 <button
                   onClick={onSignOut}

@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/react" />
 
 // Google Maps Places API types (loaded dynamically via script tag)
 declare namespace google {

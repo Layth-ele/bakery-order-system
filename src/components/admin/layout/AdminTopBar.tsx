@@ -11,6 +11,7 @@
  */
 
 import { Package, LogOut, Menu } from 'lucide-react';
+import { InstallAppButton } from '../../pwa/InstallAppButton';
 import { User } from '../../../hooks/useAuth';
 import { AdminNotificationBell } from '../../../notifications';
 
@@ -45,6 +46,9 @@ export function AdminTopBar({
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Install as an app (only shown when the browser supports it) */}
+              <InstallAppButton compact />
+
               {/* Desktop: Logout Button */}
               <button
                 onClick={onLogout}

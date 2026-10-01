@@ -34,6 +34,21 @@
     ],
     "headers": [
       {
+        "//": "PWA: the service worker must always be re-fetched, or new app versions would never be detected.",
+        "source": "/sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      },
+      {
+        "//": "PWA: web app manifest — correct MIME type, short cache so name/icon changes reach installed apps.",
+        "source": "/manifest.webmanifest",
+        "headers": [
+          { "key": "Content-Type", "value": "application/manifest+json" },
+          { "key": "Cache-Control", "value": "public, max-age=3600" }
+        ]
+      },
+      {
         "//": "PASS 3: index.html must NEVER be cached. Without no-cache, browsers serve a stale shell that points to deleted hashed asset URLs after a deploy → blank page until manual refresh.",
         "source": "/index.html",
         "headers": [
