@@ -59,6 +59,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@tailwindcss/vite": "4.1.12",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -80,11 +81,12 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
-    "test:rules": "firebase emulators:exec --only firestore 'vitest run src/__tests__/rules/'",
+    "test:rules": "npx --yes firebase-tools@15.18.0 emulators:exec --only firestore --project demo-bakery-rules 'vitest run --config vitest.rules.config.ts'",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,md}\""
   },
   "overrides": {
-    "dompurify": ">=3.2.4"
+    "dompurify": ">=3.4.16",
+    "@grpc/grpc-js": "^1.14.5"
   }
 }
