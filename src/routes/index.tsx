@@ -53,20 +53,21 @@ import { RouteLoader } from './components/RouteLoader';
 import { RootLayout } from './layouts/RootLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { CustomerLayout } from './layouts/CustomerLayout';
+import { adminPageLoaders } from './adminPageLoaders';
 import { CustomerDashboardMain as CustomerDashboard } from '../components/customer/customer-dashboard/CustomerDashboardMain';
 
-// Admin pages
-const AdminAnalyticsDashboard = lazy(() => import('../pages/admin/AdminAnalyticsDashboard').then(m => ({ default: m.AdminAnalyticsDashboard })));
-const CustomersList = lazy(() => import('../pages/admin/CustomersList').then(m => ({ default: m.CustomersList })));
-const ManageProducts = lazy(() => import('../pages/admin/ManageProducts').then(m => ({ default: m.ManageProducts })));
-const SystemSettings = lazy(() => import('../pages/admin/SystemSettings').then(m => ({ default: m.SystemSettings })));
-const RegistrationRequests = lazy(() => import('../pages/admin/RegistrationRequests').then(m => ({ default: m.RegistrationRequests })));
-const PendingOrdersPage = lazy(() => import('../pages/admin/PendingOrdersPage').then(m => ({ default: m.PendingOrdersPage })));
-const AdminUnpaidOrdersPage = lazy(() => import('../pages/admin/AdminUnpaidOrdersPage'));
-const ApprovedOrdersPage = lazy(() => import('../pages/admin/ApprovedOrdersPage').then(m => ({ default: m.ApprovedOrdersPage })));
-const CompleteOrdersPage = lazy(() => import('../pages/admin/CompleteOrdersPage'));
-const InvoicesPage = lazy(() => import('../pages/admin/InvoicesPage'));
-const ProductionToDoPage = lazy(() => import('../pages/admin/ProductionToDoPage').then(m => ({ default: m.ProductionToDoPage })));
+// Admin pages (loaders shared with preloadAdminPages — see ./adminPageLoaders)
+const AdminAnalyticsDashboard = lazy(adminPageLoaders.analytics);
+const CustomersList = lazy(adminPageLoaders.customers);
+const ManageProducts = lazy(adminPageLoaders.products);
+const SystemSettings = lazy(adminPageLoaders.settings);
+const RegistrationRequests = lazy(adminPageLoaders.registrations);
+const PendingOrdersPage = lazy(adminPageLoaders.pending);
+const AdminUnpaidOrdersPage = lazy(adminPageLoaders.unpaid);
+const ApprovedOrdersPage = lazy(adminPageLoaders.approved);
+const CompleteOrdersPage = lazy(adminPageLoaders.history);
+const InvoicesPage = lazy(adminPageLoaders.invoices);
+const ProductionToDoPage = lazy(adminPageLoaders.production);
 
 // Customer pages
 // CustomerDashboard imported statically below to avoid Vite lazy-load resolution issues

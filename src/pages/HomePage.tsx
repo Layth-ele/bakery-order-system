@@ -28,9 +28,9 @@ import { getAndClearRedirectPath } from '../routes/guards/navigationGuards';
 // Figma-export residue that broke production builds when the asset wasn't
 // present. Logo now uses a normal asset import. Replace this placeholder
 // with the real logo by dropping a PNG at src/assets/delight-logo.png.
-import delightLogo from '../assets/logo-placeholder.png';
 import { RefreshCw, ChevronDown, ChevronUp, Copy, Bug } from 'lucide-react';
 import { isFirebaseConfigured } from '../firebase/config';
+import { BUSINESS_DEFAULTS } from '../constants/businessDefaults';
 
 // ============================================================================
 // TYPES
@@ -362,10 +362,13 @@ export function HomePage(): JSX.Element | null {
           {/* Logo */}
           <div className="mb-8 flex justify-center">
             <div className="relative">
+              {/* Same artwork as the installed-app icon (public/app-icon.svg). */}
               <img
-                src={delightLogo}
-                alt="Logo"
-                className="w-32 h-32 sm:w-48 sm:h-48 object-contain drop-shadow-2xl animate-fade-in"
+                src="/app-icon.svg"
+                alt="Delight Bakehouse"
+                width={192}
+                height={192}
+                className="w-32 h-32 sm:w-48 sm:h-48 rounded-[22%] object-contain drop-shadow-2xl animate-fade-in"
               />
             </div>
           </div>
@@ -382,7 +385,12 @@ export function HomePage(): JSX.Element | null {
           </h1>
 
           <p className="text-lg sm:text-xl md:text-2xl mb-10 text-neutral-300 max-w-2xl mx-auto leading-relaxed animate-fade-in">
-            Wholesale Bakery Excellence in {businessSettings.businessCity}
+            Wholesale Bakery Excellence
+            {/* Visitors who aren't signed in can't read settings, so the city
+                may be the placeholder default — only show a real one. */}
+            {businessSettings.businessCity && businessSettings.businessCity !== BUSINESS_DEFAULTS.CITY
+              ? ` in ${businessSettings.businessCity}`
+              : ''}
           </p>
 
           {/* CTA Button */}

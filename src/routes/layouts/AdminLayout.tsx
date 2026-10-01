@@ -30,6 +30,8 @@ import { useCachedOrders, useCachedCustomers } from '../../hooks/useCachedFireba
 import { getUnpaidRows } from '../../utils/payments/unpaidSelectors';
 import { RouteErrorBoundary } from '../components/ErrorBoundary';
 import { AdminRouteLoader } from '../components/RouteLoader';
+import { preloadAdminPages } from '../adminPageLoaders';
+import { prefersReducedMotion } from '../../pwa/viewTransition';
 
 interface AdminLoaderData {
   user: {
@@ -100,8 +102,22 @@ export function AdminLayout(): JSX.Element | null {
   
   // Handle page changes by navigating to new URL
   const handlePageChange = (page: AdminPage) => {
-    navigate(`/admin/${page}`);
+    // viewTransition: cross-fade between pages like a native app (no-op where
+    // unsupported or with Reduce motion on — see styles/app-feel.css).
+    navigate(`/admin/${page}`, { viewTransition: !prefersReducedMotion() });
   };
+
+  // Warm every admin page's code once the browser is idle, so later page
+  // switches never wait on a download.
+  useEffect(() => {
+    // requestIdleCallback is missing in older Safari — fall back to a timer.
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(preloadAdminPages);
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(preloadAdminPages, 2000);
+    return () => clearTimeout(id);
+  }, []);
   
   const handleLogout = async () => {
     try {

@@ -136,6 +136,7 @@ import { useOrderPricing } from "../../../hooks/customer/useOrderPricing";
 import { useHeaderHeight } from "../../../hooks/customer/useHeaderHeight";
 import { useCreditNotificationHandler } from "../../../hooks/customer/useCreditNotificationHandler";
 import { logger } from '../../../utils/logger';
+import { withViewTransition } from '../../../pwa/viewTransition';
 
 
 export function CustomerDashboardMain(): JSX.Element | null {
@@ -942,7 +943,7 @@ export function CustomerDashboardMain(): JSX.Element | null {
             user={user}
             currentUser={currentUser}
             pendingAdjustmentsCount={pendingAdjustmentsCount}
-            onTabChange={setActiveTab}
+            onTabChange={(tab) => withViewTransition(() => setActiveTab(tab))}
             onProfileUpdate={(updatedUser) =>
               setCurrentUser(updatedUser)
             }

@@ -31,7 +31,7 @@ export function AdminTopBar({
   onConfirmPayment,
 }: AdminTopBarProps): JSX.Element | null {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#3d3832]/95 to-[#2c2416]/95 backdrop-blur-sm shadow-lg border-b border-[#D4A574]">
+    <header className="app-header fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#3d3832]/95 to-[#2c2416]/95 backdrop-blur-sm shadow-lg border-b border-[#D4A574]">
       <div className="w-full px-4 py-4">
         {/* ✅ DESKTOP: 2 Rows Layout | MOBILE: Single consolidated row */}
         <div className="flex flex-col gap-3">
