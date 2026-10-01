@@ -50,6 +50,8 @@ export interface SystemSettings {
   deliveryFeeDowntown?: number;
   deliveryFeeEastVan?: number;
   businessCity?: string;
+  /** Business logo URL (branding/ in Firebase Storage). Empty = default artwork. */
+  logoUrl?: string;
   businessAddress?: string;
   businessProvince?: string;
   businessPostal?: string;

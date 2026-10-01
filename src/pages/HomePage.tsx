@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { LoginForm } from '../components/auth/LoginForm';
 import { RegistrationForm, RegistrationFormData } from '../components/auth/RegistrationForm';
 import { useAuth } from '../hooks/useAuth';
-import { useBusinessSettings } from '../hooks/useBusinessSettings';
+import { useBusinessSettings, DEFAULT_LOGO } from '../hooks/useBusinessSettings';
 import { useAlert } from '../contexts/AlertContext';
 import { useModal } from '../contexts/ModalContextNew';
 import { getAndClearRedirectPath } from '../routes/guards/navigationGuards';
@@ -30,7 +30,6 @@ import { getAndClearRedirectPath } from '../routes/guards/navigationGuards';
 // with the real logo by dropping a PNG at src/assets/delight-logo.png.
 import { RefreshCw, ChevronDown, ChevronUp, Copy, Bug } from 'lucide-react';
 import { isFirebaseConfigured } from '../firebase/config';
-import { BUSINESS_DEFAULTS } from '../constants/businessDefaults';
 
 // ============================================================================
 // TYPES
@@ -362,13 +361,15 @@ export function HomePage(): JSX.Element | null {
           {/* Logo */}
           <div className="mb-8 flex justify-center">
             <div className="relative">
-              {/* Same artwork as the installed-app icon (public/app-icon.svg). */}
+              {/* Logo from Admin → System Settings; default = the app icon. */}
               <img
-                src="/app-icon.svg"
-                alt="Delight Bakehouse"
+                src={businessSettings.logoUrl || DEFAULT_LOGO}
+                alt={businessSettings.businessName || 'Logo'}
                 width={192}
                 height={192}
-                className="w-32 h-32 sm:w-48 sm:h-48 rounded-[22%] object-contain drop-shadow-2xl animate-fade-in"
+                className={`w-32 h-32 sm:w-48 sm:h-48 object-contain drop-shadow-2xl animate-fade-in ${
+                  businessSettings.logoUrl ? '' : 'rounded-[22%]'
+                }`}
               />
             </div>
           </div>
@@ -381,16 +382,13 @@ export function HomePage(): JSX.Element | null {
               letterSpacing: '0.1em',
             }}
           >
-            DELIGHT BAKEHOUSE
+            {/* Business name from Settings ("Wholesale Portal" until one is set). */}
+            {(businessSettings.businessName || 'Wholesale Portal').toUpperCase()}
           </h1>
 
           <p className="text-lg sm:text-xl md:text-2xl mb-10 text-neutral-300 max-w-2xl mx-auto leading-relaxed animate-fade-in">
             Wholesale Bakery Excellence
-            {/* Visitors who aren't signed in can't read settings, so the city
-                may be the placeholder default — only show a real one. */}
-            {businessSettings.businessCity && businessSettings.businessCity !== BUSINESS_DEFAULTS.CITY
-              ? ` in ${businessSettings.businessCity}`
-              : ''}
+            {businessSettings.businessCity ? ` in ${businessSettings.businessCity}` : ''}
           </p>
 
           {/* CTA Button */}
@@ -615,9 +613,11 @@ export function HomePage(): JSX.Element | null {
               <p className="text-[9px] font-bold text-[#D4A574] uppercase tracking-[0.2em] mb-0.5">
                 Wholesale Portal
               </p>
-              <p className="text-sm font-semibold text-white" style={{ fontFamily: 'Georgia, serif' }}>
-                {businessSettings.businessName}
-              </p>
+              {businessSettings.businessName && (
+                <p className="text-sm font-semibold text-white" style={{ fontFamily: 'Georgia, serif' }}>
+                  {businessSettings.businessName}
+                </p>
+              )}
             </div>
 
             {/* Divider — desktop only */}
@@ -627,6 +627,7 @@ export function HomePage(): JSX.Element | null {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-full sm:w-auto">
 
               {/* Location */}
+              {businessSettings.businessAddress && (
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-full bg-[#D4A574]/10 border border-[#D4A574]/30 flex items-center justify-center flex-shrink-0">
                   <svg className="w-3.5 h-3.5 text-[#D4A574]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -635,11 +636,13 @@ export function HomePage(): JSX.Element | null {
                   </svg>
                 </div>
                 <p className="text-xs text-neutral-300 leading-snug">
-                  {businessSettings.businessLocation.split('\n')[0]}
+                  {businessSettings.businessAddress}
                 </p>
               </div>
+              )}
 
               {/* Phone */}
+              {businessSettings.businessPhone && (
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-full bg-[#D4A574]/10 border border-[#D4A574]/30 flex items-center justify-center flex-shrink-0">
                   <svg className="w-3.5 h-3.5 text-[#D4A574]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -653,8 +656,10 @@ export function HomePage(): JSX.Element | null {
                   {businessSettings.businessPhone}
                 </a>
               </div>
+              )}
 
               {/* Email */}
+              {businessSettings.businessEmail && (
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-full bg-[#D4A574]/10 border border-[#D4A574]/30 flex items-center justify-center flex-shrink-0">
                   <svg className="w-3.5 h-3.5 text-[#D4A574]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -668,16 +673,17 @@ export function HomePage(): JSX.Element | null {
                   {businessSettings.businessEmail}
                 </a>
               </div>
+              )}
             </div>
           </div>
 
           {/* Copyright bar */}
           <div className="border-t border-[#D4A574]/10 pt-4 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-center sm:text-left">
             <p className="text-xs text-neutral-400">
-              © {new Date().getFullYear()} {businessSettings.businessName}. All rights reserved.
+              © {new Date().getFullYear()}{businessSettings.businessName ? ` ${businessSettings.businessName}` : ''}. All rights reserved.
             </p>
             <p className="text-xs text-neutral-500 italic">
-              North Vancouver, BC · Wholesale only
+              {businessSettings.businessCity ? `${businessSettings.businessCity} · ` : ''}Wholesale only
             </p>
           </div>
         </div>

@@ -52,6 +52,7 @@ import type {
 import type { SystemSettings } from '../../../services/data/settingsDataService';
 import { isFirebaseConfigured } from '../../../firebase/config';
 import { EmailTestButton } from './EmailTestButton';
+import { BrandLogoField } from './BrandLogoField';
 
 // ============================================================================
 // TYPES
@@ -508,6 +509,10 @@ export function SystemSettingsView({
 
         {/* Business Information */}
         <FormSection icon={Building2} title="🏢 BUSINESS INFORMATION">
+          <BrandLogoField value={settings.logoUrl || ''} onChange={(url) => updateField('logoUrl', url)} />
+          <p className="mb-4 text-xs text-gray-500">
+            Name, location, city, phone and email below are also shown publicly on the login page.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <InputField
               label="Business Name"
@@ -697,7 +702,7 @@ export function SystemSettingsView({
           </div>
           
           <InputField
-            label="Email Logo URL (optional)"
+            label="Email Logo URL (optional — defaults to the Business Logo)"
             value={settings.emailLogoUrl || ''}
             onChange={(value) => updateField('emailLogoUrl', value)}
             placeholder="https://yourdomain.com/logo-white.png"

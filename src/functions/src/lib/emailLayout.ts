@@ -63,7 +63,8 @@ export function emailBrandFrom(
     phone: str(s.businessPhone),
     email: str(s.orderEmail) || str(s.businessEmail),
     website: httpsOnly(appUrl).replace(/\/+$/, ""),
-    logoUrl: httpsOnly(s.emailLogoUrl),
+    // Email-specific logo if set, else the business logo uploaded in Settings.
+    logoUrl: httpsOnly(s.emailLogoUrl) || httpsOnly(s.logoUrl),
     businessNumber: str(s.businessNumber),
   };
 }

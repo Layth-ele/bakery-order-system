@@ -862,6 +862,21 @@ service cloud.firestore {
     // emailQuota/{key}: rate-limit windows. Neither is client-writable.
     // ============================================================================
 
+    // ============================================================================
+    // PUBLIC BUSINESS CARD (publicProfile/business)
+    // ============================================================================
+    // Name, address, city, phone, contact email and logo URL for the public
+    // login page. Written ONLY by the onSettingsWritten Cloud Function from
+    // settings/general (an allow-list of public fields — never admin emails,
+    // payment details or prices). Readable by anyone, including signed-out
+    // visitors.
+    // ============================================================================
+
+    match /publicProfile/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /emailLog/{logId} {
       allow read: if isAnyAdmin();
       allow write: if false;
