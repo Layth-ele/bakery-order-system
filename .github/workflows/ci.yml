@@ -1,6 +1,8 @@
 # Pass 8: Continuous Integration
 #
-# Runs on every push to main and every PR. Pulls together the strictness
+# Runs on every push to main and every PR. Node 22 matches the Cloud
+# Functions runtime (firebase.json) — firebase-admin 14 requires it.
+# Pulls together the strictness
 # work from Passes 5–6 and the rules tightening from Passes 1–4 into
 # automated guardrails — code that doesn't typecheck, build, or pass
 # rules tests can't merge.
@@ -28,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -73,7 +75,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: 'src/functions/package-lock.json'
 
@@ -97,7 +99,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -107,12 +109,12 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21' # firebase-tools 14+ emulators require Java 21
 
       - name: Run rules tests
+        # Starts the Firestore emulator (demo project, never a real one) and
+        # runs src/__tests__/rules with vitest.rules.config.ts.
         run: npm run test:rules
-        env:
-          FIRESTORE_EMULATOR_HOST: localhost:8080
 
   # ─────────────────────────────────────────────────────────────────────────
   # Dependency audit — surface known CVEs in production deps
@@ -127,7 +129,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
-      - name: Audit production dependencies
+      - name: Audit production dependencies (web app)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit production dependencies (Cloud Functions)
+        working-directory: src/functions
         run: npm audit --omit=dev --audit-level=high

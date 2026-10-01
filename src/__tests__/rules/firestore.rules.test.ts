@@ -25,7 +25,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, beforeAll, afterAll, beforeEach, test } from 'vitest';
 
-const PROJECT_ID = 'delight-bakehouse-test';
+// "demo-" ids never reach a real Firebase project; must match test:rules --project.
+const PROJECT_ID = 'demo-bakery-rules';
 
 let testEnv: RulesTestEnvironment;
 
@@ -418,45 +419,108 @@ describe('Voided invoices create ownership (R10 lock-in for S2-F24)', () => {
   });
 });
 
-describe('Credit application history amount validation (R10 lock-in for S5-F54)', () => {
+describe('Credit application history (T2R7-C2: server-only writer)', () => {
   beforeEach(seedAdminAndCustomer);
 
-  test('customer CAN create history record with reasonable amount', async () => {
+  // The applyOrderCredit Cloud Function (Admin SDK) is the only legitimate
+  // writer. Customers must not be able to write ANY history entry — not even
+  // a "reasonable" one — or they could fake credit applications that don't
+  // reconcile against the credit notes.
+  for (const [label, data] of [
+    ['a reasonable amount', { customerId: 'cust-uid', amount: 50 }],
+    ['a $1M fake amount', { customerId: 'cust-uid', amount: 1000000 }],
+    ['a negative amount', { customerId: 'cust-uid', amount: -100 }],
+    ['no amount', { customerId: 'cust-uid' }],
+  ] as const) {
+    test(`customer CANNOT create a history record with ${label}`, async () => {
+      const cust = testEnv.authenticatedContext('cust-uid').firestore();
+      await assertFails(cust.collection('creditApplicationHistory').add(data));
+    });
+  }
+
+  test('admin CAN create a history record (manual correction)', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertSucceeds(admin.collection('creditApplicationHistory').add({ customerId: 'cust-uid', amount: 50 }));
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications + email audit (written only by Cloud Functions)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Notifications', () => {
+  beforeEach(seedAdminAndCustomer);
+
+  test('customer CANNOT post to the admin feed (no fake admin alerts)', async () => {
     const cust = testEnv.authenticatedContext('cust-uid').firestore();
-    await assertSucceeds(
-      cust.collection('creditApplicationHistory').add({
-        customerId: 'cust-uid',
-        amount: 50,
+    await assertFails(
+      cust.collection('notifications').doc('admin').collection('items').doc('x').set({
+        type: 'PAYMENT_SUBMITTED',
+        orderId: 'order-1',
+        title: 'Fake',
+        message: 'Fake',
       }),
     );
   });
 
-  test('customer CANNOT create history record with $1M fake amount (was S5-F54)', async () => {
+  test('customer CANNOT create notifications in their own feed', async () => {
     const cust = testEnv.authenticatedContext('cust-uid').firestore();
     await assertFails(
-      cust.collection('creditApplicationHistory').add({
-        customerId: 'cust-uid',
-        amount: 1000000, // exceeds 100000 cap
+      cust.collection('notifications').doc('user_cust-uid').collection('items').doc('x').set({
+        type: 'PAYMENT_CONFIRMED',
+        title: 'Fake',
       }),
     );
   });
 
-  test('customer CANNOT create history record with negative amount', async () => {
-    const cust = testEnv.authenticatedContext('cust-uid').firestore();
-    await assertFails(
-      cust.collection('creditApplicationHistory').add({
-        customerId: 'cust-uid',
-        amount: -100,
-      }),
-    );
+  test('customer CAN mark their own notification read, and nothing else', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('notifications').doc('user_cust-uid').collection('items').doc('n1').set({
+        type: 'ORDER_APPROVED_PAY_REQUIRED',
+        title: 'Approved',
+        read: false,
+      });
+    });
+    const ref = testEnv
+      .authenticatedContext('cust-uid')
+      .firestore()
+      .collection('notifications')
+      .doc('user_cust-uid')
+      .collection('items')
+      .doc('n1');
+    await assertSucceeds(ref.update({ read: true }));
+    await assertFails(ref.update({ title: 'Changed' }));
   });
 
-  test('customer CANNOT create history record without amount', async () => {
+  test("customer CANNOT read another customer's notifications", async () => {
     const cust = testEnv.authenticatedContext('cust-uid').firestore();
-    await assertFails(
-      cust.collection('creditApplicationHistory').add({
-        customerId: 'cust-uid',
-      }),
-    );
+    await assertFails(cust.collection('notifications').doc('user_someone-else').collection('items').get());
+  });
+
+  test('admin CAN read the admin feed', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertSucceeds(admin.collection('notifications').doc('admin').collection('items').get());
+  });
+});
+
+describe('Email audit log + quotas', () => {
+  beforeEach(seedAdminAndCustomer);
+
+  test('admin CAN read the email log; nobody can write it from a browser', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertSucceeds(admin.collection('emailLog').get());
+    await assertFails(admin.collection('emailLog').doc('x').set({ state: 'sent' }));
+  });
+
+  test('customers cannot read the email log', async () => {
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertFails(cust.collection('emailLog').get());
+  });
+
+  test('rate-limit quotas are server-only', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertFails(admin.collection('emailQuota').doc('x').get());
+    await assertFails(admin.collection('emailQuota').doc('x').set({ timestamps: [] }));
   });
 });

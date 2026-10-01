@@ -15,6 +15,7 @@ const { updateOrder, cf } = vi.hoisted(() => ({
     confirmOrderPaymentViaCloudFunction: vi.fn(),
     submitPaymentProofViaCloudFunction: vi.fn(),
     applyOrderCreditViaCloudFunction: vi.fn(),
+    completeOrderViaCloudFunction: vi.fn(),
   },
 }));
 
@@ -44,6 +45,7 @@ import { approveOrder, rejectOrder } from '../../services/ordersService';
 import { rejectOrderAction, cancelOrderAction } from '../../services/orderActionService';
 import { confirmPaymentAction, submitPaymentAction } from '../../services/orders/paymentActionService';
 import { applyCreditToOrder } from '../../services/creditService';
+import { completeOrderNow } from '../../services/orderCompletion/completeOrderNow';
 
 const order = { id: 'o1', customerId: 'c1', orderNumber: 'ORD-1', status: 'pending', subtotal: 100, total: 105 } as any;
 const admin = { email: 'admin@x.test', name: 'Admin', storeName: 'Admin' };
@@ -102,11 +104,20 @@ describe('no client-side fallback', () => {
     expect(updateOrder).not.toHaveBeenCalled();
   });
 
+  it('mark complete', async () => {
+    const r = await completeOrderNow({ ...order, status: 'in_process' }, { actor: admin.email });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/complete this order/);
+    expect(updateOrder).not.toHaveBeenCalled();
+  });
+
   it('success paths go through the Cloud Function only', async () => {
     cf.approveOrderViaCloudFunction.mockResolvedValue({ success: true, orderId: 'o1', total: 115, gst: 5, deliveryFee: 10 });
     cf.cancelOrderViaCloudFunction.mockResolvedValue({ success: true, orderId: 'o1' });
     expect((await approveOrder('o1', order, 10, { email: admin.email })).total).toBe(115);
     expect((await cancelOrderAction(order, admin, 'closed')).success).toBe(true);
+    cf.completeOrderViaCloudFunction.mockResolvedValue({ status: 'completed', orderId: 'o1', invoiceId: 'o1', invoiceNumber: 'DBH-1' });
+    expect(await completeOrderNow(order)).toEqual({ success: true, invoiceId: 'o1', invoiceNumber: 'DBH-1' });
     expect(cf.approveOrderViaCloudFunction).toHaveBeenCalledWith({ orderId: 'o1', deliveryFee: 10 });
     expect(updateOrder).not.toHaveBeenCalled();
   });

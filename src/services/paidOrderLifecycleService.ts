@@ -1,15 +1,16 @@
 /**
- * 🔄 PAID ORDER LIFECYCLE SERVICE
- * 
- * - checkAndCompleteExpiredOrders() now uses getOrders() from data service
- * - completeOrder() now uses getOrder() from data service
+ * Paid order lifecycle — the countdown shown on paid orders.
+ *
+ * Display only: completion itself runs on the server (completeOrder callable
+ * and the Friday autoCompleteOrders schedule). The due time comes from the
+ * shared rule in src/functions/src/lib/orderCompletion.ts, so the timer and
+ * the scheduler always agree.
  */
 
 import { Order } from '../types';
 import { toDate } from '../utils/timestampFormatting';
 import { getNowInVancouver } from '../utils/timezone';
-import { completeOrderNow } from './orderCompletion/completeOrderNow';
-import { getOrders, getOrder } from './data/ordersDataService';
+import { deliveryWeekCloseAt } from '../functions/src/lib/orderCompletion';
 import { logger } from '../utils/logger';
  // ✅ MAR 17: Use data service
 
@@ -41,7 +42,9 @@ export function getOrderLifecycleStatus(order: Order): OrderLifecycleStatus | nu
   }
 
   // Calculate delivery end date: Next Friday at 12:00 PM Vancouver time
-  const deliveryEndDate = getNextFridayNoonVancouver(order);
+  // Friday 12:00 Vancouver of the order's delivery week — the same rule the
+  // server's weekly autoCompleteOrders uses (shared lib/orderCompletion.ts).
+  const deliveryEndDate = deliveryWeekCloseAt(order.year, order.week);
   
   if (!deliveryEndDate) {
     if (DEBUG) logger.warn('⚠️ Could not calculate delivery end date for order:', order.id);
@@ -119,175 +122,6 @@ export function getOrderLifecycleStatus(order: Order): OrderLifecycleStatus | nu
     deliveryEndDate,
     completionMessage
   };
-}
-
-/**
- * Calculate the next Friday at 12:00 PM Vancouver time
- * ✅ Uses getNowInVancouver() — canonical Vancouver time source
- */
-function getNextFridayNoonVancouver(_order: Order): Date | null {
-  try {
-    const now = getNowInVancouver();
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Vancouver',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', hour12: false,
-    }).formatToParts(now);
-    const yr  = Number(parts.find(p => p.type === 'year')?.value);
-    const mo  = Number(parts.find(p => p.type === 'month')?.value) - 1;
-    const dy  = Number(parts.find(p => p.type === 'day')?.value);
-    const hr  = Number(parts.find(p => p.type === 'hour')?.value);
-    const dow = now.getDay(); // getDay() on Vancouver date object gives Vancouver day
-
-    let daysUntilFriday = (5 - dow + 7) % 7;
-    if (daysUntilFriday === 0 && hr >= 12) daysUntilFriday = 7; // past Friday noon
-
-    // Build Vancouver-local Friday noon as a UTC Date
-    const fridayLocal = new Date(yr, mo, dy + daysUntilFriday, 12, 0, 0, 0);
-    const offset = now.getTimezoneOffset(); // device offset (minutes)
-    const vancOffset = -420; // PDT = UTC-7; adjust to -480 in winter if needed
-    return new Date(fridayLocal.getTime() + (offset - vancOffset) * 60000);
-  } catch (error) {
-    if (DEBUG) console.error('Error calculating Friday noon Vancouver:', error);
-    return null;
-  }
-}
-
-/**
- * Check all paid orders and auto-complete those whose delivery week has ended
- */
-export async function checkAndCompleteExpiredOrders(): Promise<{
-  completedCount: number;
-  completedOrders: Order[];
-  errors: string[];
-}> {
-  if (DEBUG) logger.log('🔄 [PaidOrderLifecycle] Checking for expired paid orders...');
-
-  const errors: string[] = [];
-  const completedOrders: Order[] = [];
-
-  try {
-    // ✅ PASS 4: Was `getOrders()` (unbounded fetch + client-side filter)
-    // — now uses a status-filtered query so Firestore returns only the
-    // active orders we actually iterate. Reduces billed reads from
-    // O(all orders) to O(active orders), which is typically 10–50x smaller.
-    const allOrders = await getOrders({
-      status: ['pending', 'approved', 'in_process'],
-      limit: 1000, // explicit ceiling — we don't expect 1000+ active orders
-    });
-
-    // Find paid orders that are ready to complete
-    const paidOrders = allOrders.filter(
-      (o: Order) => o.paymentReceived && o.status !== 'completed' && o.status !== 'cancelled'
-    );
-
-    if (DEBUG) logger.log(`📋 Found ${paidOrders.length} paid orders to check`);
-
-    for (const order of paidOrders) {
-      const lifecycle = getOrderLifecycleStatus(order);
-      
-      if (lifecycle && lifecycle.canAutoComplete) {
-        if (DEBUG) logger.log(`✅ Order ${order.id} is ready to auto-complete`);
-        
-        try {
-          const result = await completeOrder(order.id, 'system', true);
-          
-          if (result.success) {
-            completedOrders.push(result.order!);
-          } else {
-            errors.push(`Failed to complete order ${order.id}: ${result.error}`);
-          }
-        } catch (error) {
-          errors.push(`Error completing order ${order.id}: ${(error as any).message}`);
-          if (DEBUG) console.error(`❌ Error completing order ${order.id}:`, error);
-        }
-      }
-    }
-
-    return {
-      completedCount: completedOrders.length,
-      completedOrders,
-      errors
-    };
-
-  } catch (error) {
-    const errorMsg = `Fatal error in checkAndCompleteExpiredOrders: ${(error as any).message}`;
-    if (DEBUG) console.error('❌', errorMsg, error);
-    return {
-      completedCount: 0,
-      completedOrders: [],
-      errors: [errorMsg]
-    };
-  }
-}
-
-/**
- * ✅ REFACTORED: Feb 13, 2026 - Now delegates to completeOrderNow()
- * 
- * Complete a paid order (manual or automatic)
- * This is now a thin wrapper around the canonical completeOrderNow() service.
- */
-export async function completeOrder(
-  orderId: string,
-  completedBy: string = 'system',
-  isAutomatic: boolean = false
-): Promise<{
-  success: boolean;
-  order?: Order;
-  invoiceNumber?: string;
-  error?: string;
-}> {
-
-
-  try {
-    const order = await getOrder(orderId);
-
-    if (!order) {
-      return { success: false, error: `Order ${orderId} not found` };
-    }
-
-    // Validate order is paid
-    if (!order.paymentReceived) {
-      return { success: false, error: 'Order payment not confirmed' };
-    }
-
-    // ✅ DELEGATE to canonical completion service
-    const result = await completeOrderNow(order, {
-      actor: completedBy
-    });
-
-    if (!result.success) {
-      return {
-        success: false,
-        error: result.error || 'Failed to complete order'
-      };
-    }
-
-    // ✅ MAR 17: Re-fetch the completed order from data service
-    const completedOrder = await getOrder(orderId);
-    
-    if (completedOrder) {
-
-
-      return {
-        success: true,
-        order: completedOrder,
-        invoiceNumber: result.invoiceId ? result.invoiceId : undefined
-      };
-    }
-    return {
-      success: true,
-      invoiceNumber: result.invoiceId ? result.invoiceId : undefined
-    };
-
-  } catch (error) {
-    const errorMsg = `Failed to complete order: ${(error as any).message}`;
-    if (DEBUG) console.error('❌', errorMsg, error);
-    return {
-      success: false,
-      error: errorMsg
-    };
-  }
 }
 
 /**

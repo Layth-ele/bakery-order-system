@@ -31,7 +31,6 @@ import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useModal } from '../../contexts/ModalContextNew';
 import { useRenderTracking } from '../../hooks/useRenderTracking';
-import { useAutoCompleteOrders } from '../../hooks/useAutoCompleteOrders';
 import { useOrderActions } from '../../hooks/orders/useOrderActions';
 import { useUnpaidOrderActions } from '../../hooks/orders/useUnpaidOrderActions';
 import { useApprovedOrders, useInvalidateOrders } from '../../hooks/useOptimizedQueries'; // Optimized query
@@ -79,7 +78,6 @@ function ApprovedOrdersPageComponent({
   useRenderTracking('ApprovedOrdersPage', isActive, 75, 100, 100); // render: 75ms, mount: 100ms, excessive: 100 renders
   
   // ✅ Auto-complete orders when processing time expires
-  useAutoCompleteOrders((isActive ?? false));
   
  // OPTIMIZED - Use server-side filtered query with caching
   const { data: inProcessOrders = [], isLoading: ordersLoading, refetch: refetchOrders, error: ordersError } = useApprovedOrders();

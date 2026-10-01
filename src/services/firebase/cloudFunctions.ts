@@ -276,6 +276,24 @@ export async function cancelOrderViaCloudFunction(
   return result.data;
 }
 
+export interface CompleteOrderPayload { orderId: string; }
+export interface CompleteOrderResult {
+  status: 'completed' | 'already_completed';
+  orderId: string;
+  invoiceId: string;
+  invoiceNumber: string;
+}
+
+/**
+ * Admin: complete an order on the server (status + invoice number + invoice
+ * + snapshot in one transaction). Idempotent.
+ */
+export async function completeOrderViaCloudFunction(payload: CompleteOrderPayload): Promise<CompleteOrderResult> {
+  const fn = httpsCallable<CompleteOrderPayload, CompleteOrderResult>(functions, "completeOrder");
+  const result = await fn(payload);
+  return result.data;
+}
+
 // ============================================
 // PASS 2 — PAYMENT FUNCTIONS
 // ============================================

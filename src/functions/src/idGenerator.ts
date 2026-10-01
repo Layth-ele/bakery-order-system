@@ -67,19 +67,24 @@ export function verifyId(fullId: string): boolean {
  * @example await getNextDailyId("DBH") => "DBH-2026-03-26-002-55"  (next call)
  */
 export async function getNextDailyId(prefix: Prefix): Promise<string> {
+  return db.runTransaction((tx) => reserveDailyId(tx, prefix));
+}
+
+/**
+ * Reserve the next sequential id for `prefix` inside an existing transaction.
+ *
+ * Reads then writes the daily counter, so call it after the transaction's
+ * other reads and before its other writes (Firestore requires all reads
+ * first). Because the counter write commits with the caller's writes, a
+ * failed transaction never consumes a number — no gaps in sequential
+ * invoice numbers.
+ */
+export async function reserveDailyId(tx: FirebaseFirestore.Transaction, prefix: Prefix): Promise<string> {
   const { year, month, day } = getDailyKey();
-  const counterKey  = `${prefix}-${year}-${month}-${day}`;
-  const counterRef  = db.collection("idCounters").doc(counterKey);
-
-  const seq = await db.runTransaction(async (tx) => {
-    const snap = await tx.get(counterRef);
-    const last = snap.exists ? (snap.data()?.lastNumber ?? 0) : 0;
-    const next = last + 1;
-    tx.set(counterRef, { prefix, year, month, day, lastNumber: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    return next;
-  });
-
-  const base  = `${prefix}-${year}-${month}-${day}-${formatSeq(seq)}`;
-  const check = computeCheckDigit(base);
-  return `${base}-${check}`;
+  const counterRef = db.collection("idCounters").doc(`${prefix}-${year}-${month}-${day}`);
+  const snap = await tx.get(counterRef);
+  const next = (snap.exists ? (snap.data()?.lastNumber ?? 0) : 0) + 1;
+  tx.set(counterRef, { prefix, year, month, day, lastNumber: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  const base = `${prefix}-${year}-${month}-${day}-${formatSeq(next)}`;
+  return `${base}-${computeCheckDigit(base)}`;
 }
