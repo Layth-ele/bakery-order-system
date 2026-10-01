@@ -65,6 +65,9 @@ export {
 // (used by getSettings() client fallback path).
 export { bootstrapSettings } from "./bootstrapSettings";
 
+// ─── Public business card for the login page (synced from settings) ───────
+export { onSettingsWritten } from "./publicProfileTrigger";
+
 // ─── Order completion: manual + weekly schedule (single writer of "completed")
 export { completeOrder, autoCompleteOrders } from "./orderCompletion";
 

@@ -1,50 +1,90 @@
 /**
- * useBusinessSettings Hook
+ * Public business identity — name, address, city, phone, email, logo.
  *
- * Reads business contact info from the TanStack Query settings cache.
- * ✅ LIVE: When admin updates settings and saves, this hook auto-refreshes
- *    because useCachedSettings is invalidated by useSettingsActions → invalidateAll().
- *
- * Used by: HomePage footer, hero section, etc.
+ * Reads publicProfile/business, which anyone (including signed-out visitors)
+ * may read. The onSettingsWritten Cloud Function keeps it in sync with
+ * Admin → System Settings, so changes there appear live on the login page,
+ * headers and browser tab. Private settings (admin emails, payment details,
+ * prices) are never exposed through it.
  */
-
-import { useCachedSettings } from './useCachedFirebase';
+import { useEffect, useState } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { logger } from '../utils/logger';
 
 export interface BusinessSettings {
   businessName: string;
-  businessLocation: string;
+  /** First line of the business address. */
+  businessAddress: string;
+  businessCity: string;
   businessPhone: string;
   businessEmail: string;
-  businessCity: string;
+  /** Uploaded logo URL, or '' to use the default artwork. */
+  logoUrl: string;
 }
 
-const DEFAULT_SETTINGS: BusinessSettings = {
-  businessName: 'Your Bakery Name',
-  businessLocation: '123 Example St, City, BC V0V 0V0',
-  businessPhone: '(555) 555-0100',
-  businessEmail: 'orders@example.com',
-  businessCity: 'City',
+const EMPTY: BusinessSettings = {
+  businessName: '',
+  businessAddress: '',
+  businessCity: '',
+  businessPhone: '',
+  businessEmail: '',
+  logoUrl: '',
 };
 
-export function useBusinessSettings() {
-  const { data: settings, isLoading: loading, error } = useCachedSettings();
+/** Logo to display: the uploaded one, or the app's default artwork. */
+export const DEFAULT_LOGO = '/app-icon.svg';
 
-  const businessSettings: BusinessSettings = {
-    businessName:
-      settings?.businessName || DEFAULT_SETTINGS.businessName,
-    businessLocation:
-      settings?.businessLocation || DEFAULT_SETTINGS.businessLocation,
-    businessPhone:
-      settings?.businessPhone || DEFAULT_SETTINGS.businessPhone,
-    businessEmail:
-      settings?.businessEmail || DEFAULT_SETTINGS.businessEmail,
-    businessCity:
-      settings?.businessCity || DEFAULT_SETTINGS.businessCity,
-  };
+const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
+export function toBusinessSettings(data: Record<string, unknown> | undefined): BusinessSettings {
+  if (!data) return EMPTY;
   return {
-    businessSettings,
-    loading,
-    error: error ?? null,
+    businessName: str(data.businessName),
+    businessAddress: str(data.businessAddress),
+    businessCity: str(data.businessCity),
+    businessPhone: str(data.businessPhone),
+    businessEmail: str(data.businessEmail),
+    logoUrl: /^https:\/\//i.test(str(data.logoUrl)) ? str(data.logoUrl) : '',
   };
+}
+
+// One shared listener for every component that shows business details.
+let cache: BusinessSettings | null = null;
+const subscribers = new Set<(s: BusinessSettings) => void>();
+let unsubscribe: (() => void) | null = null;
+
+function subscribe(cb: (s: BusinessSettings) => void): () => void {
+  subscribers.add(cb);
+  if (!unsubscribe) {
+    unsubscribe = onSnapshot(
+      doc(db, 'publicProfile', 'business'),
+      (snap) => {
+        cache = toBusinessSettings(snap.data());
+        subscribers.forEach((s) => s(cache!));
+      },
+      (error) => {
+        logger.warn('[useBusinessSettings] public profile unavailable:', error.code);
+        cache = EMPTY;
+        subscribers.forEach((s) => s(EMPTY));
+      }
+    );
+  }
+  return () => {
+    subscribers.delete(cb);
+    if (subscribers.size === 0 && unsubscribe) {
+      unsubscribe();
+      unsubscribe = null;
+    }
+  };
+}
+
+/**
+ * Empty strings mean "not set in Settings yet" — callers hide those parts
+ * instead of showing placeholder text. `loading` is true until the first read.
+ */
+export function useBusinessSettings(): { businessSettings: BusinessSettings; loading: boolean } {
+  const [state, setState] = useState<BusinessSettings | null>(cache);
+  useEffect(() => subscribe(setState), []);
+  return { businessSettings: state ?? EMPTY, loading: state === null };
 }

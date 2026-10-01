@@ -513,3 +513,47 @@ export async function deleteImage(urlOrPath: string): Promise<void> {
     await storageService.deleteImage(urlOrPath);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUSINESS LOGO (Admin → System Settings)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Logo formats every browser AND email client can show (no SVG/GIF). */
+export const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Human-readable reason a file can't be used as the logo, or null if OK. */
+export function logoFileProblem(file: Pick<File, 'type' | 'size'>): string | null {
+  if (!(LOGO_TYPES as readonly string[]).includes(file.type)) return 'Please choose a PNG, JPG or WebP image.';
+  if (file.size > LOGO_MAX_BYTES) return 'The logo must be smaller than 2 MB.';
+  return null;
+}
+
+/**
+ * Upload the business logo to branding/ and return its public URL.
+ * Uploaded as-is (no re-compression) so transparent backgrounds survive.
+ * A new file name per upload means browsers and installed apps never show a
+ * cached old logo. Storage rules: public read, admin-only write.
+ */
+export async function uploadBrandLogo(
+  file: File,
+  onProgress?: (percentage: number) => void
+): Promise<string> {
+  const problem = logoFileProblem(file);
+  if (problem) throw new Error(problem);
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+  const storageRef = ref(storage, `branding/logo-${Date.now()}.${ext}`);
+  const task = uploadBytesResumable(storageRef, file, {
+    contentType: file.type,
+    cacheControl: 'public, max-age=31536000, immutable',
+  });
+  await new Promise<void>((resolve, reject) => {
+    task.on(
+      'state_changed',
+      (s) => onProgress?.(Math.round((s.bytesTransferred / s.totalBytes) * 100)),
+      reject,
+      () => resolve()
+    );
+  });
+  return getDownloadURL(task.snapshot.ref);
+}

@@ -70,6 +70,8 @@ export const settingsSchema = z.object({
   businessPhone: optionalPhoneSchema,
   businessEmail: z.union([z.string().email(), z.string().max(0), z.literal(null)]).optional().nullable(),
   businessCity: optionalNonEmptyStringSchema,
+  /** Business logo (Firebase Storage URL, uploaded in System Settings). Empty = default artwork. */
+  logoUrl: z.union([z.string().url().startsWith('https://'), z.string().max(0), z.literal(null)]).optional().nullable(),
   businessNumber: optionalNonEmptyStringSchema, // Tax/Business registration number
   
   // Email settings

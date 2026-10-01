@@ -524,3 +524,25 @@ describe('Email audit log + quotas', () => {
     await assertFails(admin.collection('emailQuota').doc('x').set({ timestamps: [] }));
   });
 });
+
+describe('Public business card (publicProfile)', () => {
+  beforeEach(seedAdminAndCustomer);
+
+  test('anyone — even signed out — can read it', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('publicProfile/business').set({ businessName: 'Test Bakery' });
+    });
+    await assertSucceeds(testEnv.unauthenticatedContext().firestore().doc('publicProfile/business').get());
+  });
+
+  test('nobody can write it from a browser (server sync only)', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertFails(admin.doc('publicProfile/business').set({ businessName: 'Hacked' }));
+    const anon = testEnv.unauthenticatedContext().firestore();
+    await assertFails(anon.doc('publicProfile/business').set({ businessName: 'Hacked' }));
+  });
+
+  test('private settings stay private to signed-out visitors', async () => {
+    await assertFails(testEnv.unauthenticatedContext().firestore().doc('settings/general').get());
+  });
+});

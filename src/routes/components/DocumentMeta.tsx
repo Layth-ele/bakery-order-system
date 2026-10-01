@@ -11,6 +11,17 @@
 
 import { useEffect } from 'react';
 import { useMatches } from 'react-router';
+import { useBusinessSettings } from '../../hooks/useBusinessSettings';
+
+/** Brand shown after the page name in the browser tab / app window. */
+const FALLBACK_BRAND = 'Order Management';
+
+/** "Pending Orders | Maple Crumb Bakery" — or just the brand for the default page. */
+export function formatDocumentTitle(pageTitle: string | undefined, brand: string): string {
+  const b = brand || FALLBACK_BRAND;
+  if (!pageTitle || pageTitle === DEFAULT_META.title) return b;
+  return `${pageTitle} | ${b}`;
+}
 
 interface MetaConfig {
   title?: string;
@@ -72,6 +83,7 @@ function removeMetaTag(name: string, useProperty = false) {
  */
 export function DocumentMeta(): JSX.Element | null {
   const matches = useMatches() as RouteMatch[];
+  const brand = useBusinessSettings().businessSettings.businessName;
   
   useEffect(() => {
     // Find the deepest route with meta configuration
@@ -88,11 +100,7 @@ export function DocumentMeta(): JSX.Element | null {
     }
     
     // Set document title
-    if (meta.title) {
-      document.title = meta.title.includes('Bakery Order Management')
-        ? meta.title
-        : `${meta.title} | Bakery Order Management`;
-    }
+    document.title = formatDocumentTitle(meta.title, brand);
     
     // Set meta description
     if (meta.description) {
@@ -129,9 +137,9 @@ export function DocumentMeta(): JSX.Element | null {
     // Cleanup function
     return () => {
       // Reset to defaults on unmount
-      document.title = DEFAULT_META.title || 'Bakery Order Management';
+      document.title = formatDocumentTitle(undefined, brand);
     };
-  }, [matches]);
+  }, [matches, brand]);
   
   return null;
 }
@@ -140,15 +148,12 @@ export function DocumentMeta(): JSX.Element | null {
  * Hook version for components that need to set metadata imperatively
  */
 export function useDocumentMeta(meta: MetaConfig) {
+  const brand = useBusinessSettings().businessSettings.businessName;
   useEffect(() => {
     const previousTitle = document.title;
     
     // Set document title
-    if (meta.title) {
-      document.title = meta.title.includes('Bakery Order Management')
-        ? meta.title
-        : `${meta.title} | Bakery Order Management`;
-    }
+    document.title = formatDocumentTitle(meta.title, brand);
     
     // Set meta description
     if (meta.description) {
@@ -186,7 +191,7 @@ export function useDocumentMeta(meta: MetaConfig) {
     return () => {
       document.title = previousTitle;
     };
-  }, [meta]);
+  }, [meta, brand]);
 }
 
 /**

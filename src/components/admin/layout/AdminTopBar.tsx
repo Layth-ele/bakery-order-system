@@ -10,8 +10,9 @@
  * - Menu toggle
  */
 
-import { Package, LogOut, Menu } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import { InstallAppButton } from '../../pwa/InstallAppButton';
+import { BrandMark } from '../../brand/BrandMark';
 import { User } from '../../../hooks/useAuth';
 import { AdminNotificationBell } from '../../../notifications';
 
@@ -39,7 +40,7 @@ export function AdminTopBar({
           {/* Row 1: Admin Dashboard Title + Actions (Desktop & Mobile) */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Package className="w-6 h-6 md:w-8 md:h-8 text-[#e8dcc8]" />
+              <BrandMark />
               <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl text-[#e8dcc8] font-bold">
                 Admin Dashboard
               </h1>
