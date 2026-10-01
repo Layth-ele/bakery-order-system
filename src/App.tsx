@@ -11,6 +11,7 @@ import { useButtonKeyboardBinding } from './hooks/useButtonKeyboardBinding';
 import { setupReporter } from './utils/errorReporterInit';
 import { logger } from './utils/logger';
 import { PwaUpdatePrompt } from './components/pwa/PwaUpdatePrompt';
+import { InstallAppCard } from './components/pwa/InstallAppCard';
 
 // Set up error reporter immediately at module load — before any React tree
 // renders — so any logger.event/exception calls during initial app boot are
@@ -51,6 +52,7 @@ function App() {
         <RouterProvider router={router} />
       </Suspense>
       <PwaUpdatePrompt />
+      <InstallAppCard />
     </ErrorBoundary>
   );
 }

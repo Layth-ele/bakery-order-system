@@ -2,7 +2,15 @@
  * PWA install logic: device detection and which install UI to show.
  */
 import { describe, it, expect } from 'vitest';
-import { isIOSDevice, isStandaloneDisplay, resolveInstallMode } from '../../pwa/installPrompt';
+import {
+  isIOSDevice,
+  isAndroidDevice,
+  isStandaloneDisplay,
+  resolveInstallMode,
+  isInstallCardSnoozed,
+  snoozeInstallCard,
+  INSTALL_CARD_SNOOZE_DAYS,
+} from '../../pwa/installPrompt';
 
 describe('isIOSDevice', () => {
   it('detects iPhone and iPad', () => {
@@ -50,7 +58,33 @@ describe('resolveInstallMode', () => {
     expect(resolveInstallMode({ standalone: false, hasPrompt: false, ios: true })).toBe('ios');
   });
 
+  it('Android before Chrome allows the dialog: menu instructions', () => {
+    expect(resolveInstallMode({ standalone: false, hasPrompt: false, ios: false, android: true })).toBe('android');
+    // once Chrome fires the event, the one-tap dialog wins
+    expect(resolveInstallMode({ standalone: false, hasPrompt: true, ios: false, android: true })).toBe('prompt');
+  });
+
   it('shows nothing where installing is not possible', () => {
     expect(resolveInstallMode({ standalone: false, hasPrompt: false, ios: false })).toBe('unavailable');
+  });
+});
+
+describe('isAndroidDevice', () => {
+  it('detects Android phones and tablets only', () => {
+    expect(isAndroidDevice('Mozilla/5.0 (Linux; Android 15; Pixel 9) Mobile')).toBe(true);
+    expect(isAndroidDevice('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)')).toBe(false);
+    expect(isAndroidDevice('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')).toBe(false);
+  });
+});
+
+describe('install card snooze ("Not now")', () => {
+  it(`hides the card for ${INSTALL_CARD_SNOOZE_DAYS} days`, () => {
+    localStorage.clear();
+    const now = Date.UTC(2026, 9, 1);
+    expect(isInstallCardSnoozed(now)).toBe(false);
+    snoozeInstallCard(now);
+    expect(isInstallCardSnoozed(now + 1)).toBe(true);
+    expect(isInstallCardSnoozed(now + (INSTALL_CARD_SNOOZE_DAYS - 1) * 86_400_000)).toBe(true);
+    expect(isInstallCardSnoozed(now + (INSTALL_CARD_SNOOZE_DAYS + 1) * 86_400_000)).toBe(false);
   });
 });
