@@ -10,6 +10,7 @@ import { useButtonKeyboardBinding } from './hooks/useButtonKeyboardBinding';
 // the 5-line change that activates Sentry once the DSN is configured.
 import { setupReporter } from './utils/errorReporterInit';
 import { logger } from './utils/logger';
+import { PwaUpdatePrompt } from './components/pwa/PwaUpdatePrompt';
 
 // Set up error reporter immediately at module load — before any React tree
 // renders — so any logger.event/exception calls during initial app boot are
@@ -49,6 +50,7 @@ function App() {
       <Suspense fallback={<RouteLoader variant="fullscreen" message="Loading application..." />}>
         <RouterProvider router={router} />
       </Suspense>
+      <PwaUpdatePrompt />
     </ErrorBoundary>
   );
 }

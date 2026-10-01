@@ -10,6 +10,8 @@ export default defineConfig({
       '@': srcPath,
       'sonner@2.0.3': 'sonner',
       'react-hook-form@7.55.0': 'react-hook-form',
+      // PWA plugin virtual module (only exists in Vite builds)
+      'virtual:pwa-register/react': path.resolve(__dirname, './src/tests/mocks/pwaRegister.ts'),
     },
   },
   test: {

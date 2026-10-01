@@ -26,6 +26,7 @@ import { CreditBalanceWidget } from '../CreditBalanceWidget'; // ✅ Credit bala
 import { BalanceWidget } from '../BalanceWidget'; // ✅ Outstanding balance widget
 import type { ModalType, ModalProps } from '../../../types/modals';
 import type { ModalSize, OverlayBlur } from '../../../ui/modals/BaseModal';
+import { InstallAppButton } from '../../pwa/InstallAppButton';
 
 export interface BadgeCounts {
   activeOrders: number;
@@ -82,7 +83,7 @@ export function DashboardHeaderWithNav({
       {/* ========================================
           HEADER SECTION - Matches Admin Dashboard Layout
       ======================================== */}
-      <header className="bg-gradient-to-r from-[#3d3832]/95 to-[#2c2416]/95 backdrop-blur-sm shadow-lg border-b border-[#D4A574]">
+      <header className="app-header bg-gradient-to-r from-[#3d3832]/95 to-[#2c2416]/95 backdrop-blur-sm shadow-lg border-b border-[#D4A574]">
         <div className="w-full px-4 pt-4 pb-0">
           {/* ✅ DESKTOP: 2 Rows Layout | MOBILE: 2 Rows Layout */}
           <div className="flex flex-col gap-3">
@@ -97,6 +98,9 @@ export function DashboardHeaderWithNav({
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Install as an app (only shown when the browser supports it) */}
+                <InstallAppButton compact />
+
                 {/* Logout Button */}
                 <button
                   onClick={onSignOut}

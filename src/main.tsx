@@ -1,6 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+// Start listening for the browser's install prompt before any screen mounts.
+import './pwa/installPrompt';
+// After a deploy, switch an open app to the new version if an old code file is gone.
+import './pwa/recoverFromStaleChunks';
 
 /* ✅ LOAD STYLES */
 import './styles/index.css';

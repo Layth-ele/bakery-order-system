@@ -20,6 +20,9 @@
 
 @import './globals.css';
 
+/* Installed-app behaviour: selection, iOS input zoom, overscroll, transitions */
+@import './app-feel.css';
+
 /* ───────────────────────────────────────────────────────────────
    UNIQUE ANIMATIONS (not in animations.css)
    ─────────────────────────────────────────────────────────────── */

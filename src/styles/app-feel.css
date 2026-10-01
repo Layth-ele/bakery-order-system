@@ -1,0 +1,99 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * APP FEEL — make the web app behave like an installed app
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Already global (globals.css): no grey tap flash and no double-tap zoom
+ * (`touch-action: manipulation` on every element).
+ *
+ * Deliberately NOT done: blocking pinch-zoom. It fails accessibility
+ * (WCAG 1.4.4 — people with low vision must be able to zoom) and iOS
+ * Safari ignores `user-scalable=no` anyway. Instead we remove the zooms
+ * that feel broken: double-tap zoom (above) and iOS auto-zoom on inputs.
+ */
+
+/* ── 1. Text selection: controls aren't text ──────────────────────────────
+   Long-pressing a button or tab shouldn't highlight its label or pop the
+   iOS copy menu. Real content (order/invoice numbers — including in popup
+   headers — emails, tables, notes) stays selectable; admins copy those. */
+button,
+[role='button'],
+[role='tab'],
+[role='menuitem'],
+[role='switch'],
+nav,
+.app-header,
+label,
+summary,
+svg,
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* no iOS long-press "Copy / Look Up" menu */
+}
+
+/* Anything the user types into, or that's marked for copying, stays selectable
+   even inside a header or button group. */
+input,
+textarea,
+select,
+[contenteditable='true'],
+.selectable,
+.selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Images and icons: no drag-ghost or "Save image" sheet on long press. */
+img,
+svg {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+
+/* ── 2. No surprise zoom when tapping a field (iPhone) ─────────────────────
+   iOS zooms the page when a focused input's text is under 16px. Phones only;
+   desktop keeps the designed sizes. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* ── 3. Installed app: no browser rubber-band / pull-to-refresh ────────────
+   Only when launched from the home screen — in a normal browser tab,
+   pull-to-refresh stays available. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* ── 4. Screen transitions (View Transitions API) ──────────────────────────
+   Admin page changes and customer tab changes cross-fade quickly. The
+   header is pinned (its own transition name) so it never flickers. */
+.app-header {
+  view-transition-name: app-header;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 160ms;
+  animation-timing-function: ease-out;
+}
+
+::view-transition-group(app-header) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
