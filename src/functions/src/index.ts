@@ -65,6 +65,9 @@ export {
 // (used by getSettings() client fallback path).
 export { bootstrapSettings } from "./bootstrapSettings";
 
+// ─── Order completion: manual + weekly schedule (single writer of "completed")
+export { completeOrder, autoCompleteOrders } from "./orderCompletion";
+
 // ─── Order lifecycle side effects: notifications + emails (single trigger) ──
 export { onOrderLifecycle } from "./orderLifecycleTrigger";
 
