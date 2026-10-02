@@ -262,7 +262,7 @@ export function CustomerProfileModal({
               ? { label: "Add Credit", onClick: () => openModal('ADD_CREDIT', { customer, onClose: closeModal, onSuccess: loadCustomerData }), variant: "ghost", icon: <Wallet className="w-4 h-4" /> }
               : undefined
           }
-          confirmButton={{ label: "Close", onClick: onClose, variant: "primary", keyboardShortcut: "Escape" }}
+          cancelButton={{ label: "Close", onClick: onClose, variant: "secondary", keyboardShortcut: "Escape" }}
         />
       }
     >

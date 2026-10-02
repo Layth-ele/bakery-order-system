@@ -100,20 +100,20 @@ export function CompletedOrderInvoiceModal({
       footer={
         <ModalFooterButtons
           leftAction={onDownloadExcel ? {
-            label: "Excel",
+            label: "Download Excel",
             onClick: () => onDownloadExcel(order),
             variant: "ghost",
             icon: <Download className="w-4 h-4" />,
           } : undefined}
-          cancelButton={{
+          confirmButton={{
             label: fetchingData ? "Generating..." : "Download PDF",
             onClick: handlePDF,
-            variant: "ghost",
+            variant: "primary",
             disabled: fetchingData,
             loading: fetchingData,
             icon: <Download className="w-4 h-4" />,
           }}
-          confirmButton={{ label: "Close", onClick: onClose, variant: "primary" }}
+          cancelButton={{ label: "Close", onClick: onClose, variant: "secondary", keyboardShortcut: "Escape" }}
         />
       }
     >
