@@ -9,6 +9,7 @@
  * ✅ MAR 13, 2026: Fixed to use Firebase layer directly
  */
 
+import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
 import { useEffect, useState } from "react";
 import { formatTimestamp, toDate } from '../../../utils/timestampFormatting';
 import {
@@ -103,13 +104,19 @@ export function PaymentReceivedSuccessModal({
       onClose={onClose}
       title="PAYMENT CONFIRMED"
       subtitle="Order payment received and confirmed"
+      footer={
+        <ModalFooterButtons
+          leftAction={order ? { label: "Download Invoice", onClick: handleDownloadInvoice, variant: "ghost", icon: <Download className="w-4 h-4" /> } : undefined}
+          confirmButton={{ label: "Close", onClick: onClose, variant: "primary", keyboardShortcut: "Escape" }}
+        />
+      }
       headerLeft={
         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#D4A574] flex items-center justify-center shadow-lg">
           <Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
       }
       headerRight={
-        <div className="flex items-center bg-black/20 rounded px-2 py-1 gap-2">
+        <div className="hidden sm:flex items-center bg-black/20 rounded px-2 py-1 gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500 text-white text-xs font-bold uppercase shadow-md">
             <CheckCircle className="w-3 h-3" />
             Paid

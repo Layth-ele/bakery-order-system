@@ -4,6 +4,7 @@
  * ✅ MAR 4, 2026: Created for customer credit celebration experience
  */
 
+import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
 import { useEffect, useState } from "react";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { Gift, Sparkles, PartyPopper, CreditCard } from "lucide-react";
@@ -56,7 +57,10 @@ export function CreditReceivedCelebrationModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      footer={
+        <ModalFooterButtons confirmButton={{ label: "Awesome! 🎉", onClick: onClose, variant: "primary", keyboardShortcut: "Enter" }} />
+      }
+      width="md"
       skinType="success"
       onClose={onClose}
       title="🎉 YOU RECEIVED CREDIT!"
@@ -181,28 +185,14 @@ export function CreditReceivedCelebrationModal({
                   How to use your credit
                 </div>
                 <div className="text-blue-800 text-sm">
-                  Your credit will automatically apply to your next order during checkout.
-                  You can view your credit balance anytime in your account dashboard.
+                  Turn on “Apply credit” in the order summary when you place your next
+                  order. Your balance is always in Credit History.
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div
-            className={`flex gap-3 transform transition-all duration-700 delay-500 ${
-              isAnimating
-                ? "translate-y-0 opacity-100"
-                : "translate-y-4 opacity-0"
-            }`}
-          >
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-4 bg-gradient-to-r from-[#D4A574] to-[#C5A028] text-white rounded-lg hover:from-[#C5A028] hover:to-[#B59020] transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              Awesome! 🎉
-            </button>
-          </div>
+
         </div>
       </div>
     </StyleModalShell>

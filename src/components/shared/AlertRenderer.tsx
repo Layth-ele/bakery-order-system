@@ -110,11 +110,11 @@ function getIconConfig(icon: string): IconConfig {
 function getButtonClass(variant: string = 'primary', iconConfig: IconConfig): string {
   switch (variant) {
     case 'danger':
-      return 'px-6 py-3 bg-gradient-to-r from-[#F44336] to-[#E57373] text-white rounded-lg hover:from-[#E57373] hover:to-[#F44336] transition-all shadow-md font-semibold';
+      return 'px-6 py-3 bg-gradient-to-r from-[#F44336] to-[#E57373] text-white rounded-xl min-h-[44px] hover:from-[#E57373] hover:to-[#F44336] transition-all shadow-md font-semibold';
     case 'secondary':
-      return 'px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 rounded-lg transition-all font-semibold';
+      return 'px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 rounded-xl min-h-[44px] transition-all font-semibold';
     default:
-      return 'px-6 py-3 bg-gradient-to-r from-[#D4A574] to-[#E8C4A2] hover:from-[#C49564] hover:to-[#D4A574] text-[#333333] rounded-lg transition-all shadow-md font-semibold';
+      return 'px-6 py-3 bg-gradient-to-r from-[#D4A574] to-[#E8C4A2] hover:from-[#C49564] hover:to-[#D4A574] text-[#333333] rounded-xl min-h-[44px] transition-all shadow-md font-semibold';
   }
 }
 
@@ -192,18 +192,20 @@ export function AlertRenderer({ config, onClose }: AlertRendererProps): JSX.Elem
       />
       
       {/* MODAL CONTAINER - Centered on screen */}
-      <div className="fixed inset-0 z-alert-content flex items-center justify-center p-4 pointer-events-none">
+      {/* Phones: bottom sheet like every modal; sm and up: centred */}
+      <div className="fixed inset-0 z-alert-content flex items-end justify-center p-0 pt-[env(safe-area-inset-top)] sm:items-center sm:p-4 pointer-events-none">
         <div 
           className="pointer-events-auto w-full max-w-md animate-scale-in"
           style={{
             animation: 'scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
           }}
         >
-          <div className="bg-gray-50 rounded-xl shadow-2xl w-full overflow-hidden border-2 border-[#D4A574]/30">
+          <div className="bg-gray-50 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col max-h-[calc(100dvh_-_0.75rem)] sm:max-h-[90dvh]" role="alertdialog" aria-modal="true" aria-label={config.title}>
             {/* Header - Premium Black & Gold Style */}
-            <div className="bg-gradient-to-r from-[#D4A574] to-[#8B6F47] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-full flex items-center justify-center">
+            <div className="relative flex-shrink-0 bg-gradient-to-r from-[#D4A574] to-[#8B6F47] px-4 sm:px-6 pt-4 pb-3 sm:py-4 flex items-center justify-between gap-3">
+              <span aria-hidden="true" className="sm:hidden absolute top-1.5 left-1/2 -translate-x-1/2 h-1 w-10 rounded-full bg-black/15" />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
                   <svg
                     className="w-6 h-6 sm:w-7 sm:h-7 text-white"
                     fill="none"
@@ -218,7 +220,7 @@ export function AlertRenderer({ config, onClose }: AlertRendererProps): JSX.Elem
                     />
                   </svg>
                 </div>
-                <h2 className="text-lg sm:text-xl text-white font-bold uppercase tracking-wide">
+                <h2 className="text-base sm:text-xl text-white font-bold uppercase tracking-wide leading-tight truncate">
                   {config.title}
                 </h2>
               </div>
@@ -226,7 +228,7 @@ export function AlertRenderer({ config, onClose }: AlertRendererProps): JSX.Elem
               <button
                 type="button"
                 onClick={onClose}
-                className="text-white hover:bg-white/20 active:bg-white/30 transition-colors rounded-lg p-2 flex-shrink-0"
+                className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/20 active:bg-white/30 transition-colors flex-shrink-0"
                 aria-label="Close alert"
               >
                 <X className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -234,7 +236,7 @@ export function AlertRenderer({ config, onClose }: AlertRendererProps): JSX.Elem
             </div>
 
             {/* Body - White background with premium styling */}
-            <div className="p-4 sm:p-6 bg-white rounded-b-xl">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-white p-4 sm:p-6">
               {/* Icon Section - Large centered icon */}
               <div className="flex justify-center mb-4">
                 <div 
@@ -246,14 +248,17 @@ export function AlertRenderer({ config, onClose }: AlertRendererProps): JSX.Elem
               </div>
 
               {/* Message */}
-              <div className="mb-6">
+              <div>
                 <p className="text-neutral-700 text-sm sm:text-base leading-relaxed whitespace-pre-line text-center">
                   {formatMessage(config.message)}
                 </p>
               </div>
 
-              {/* Buttons */}
-              <div className="space-y-3">
+            </div>
+
+            {/* Buttons — pinned; clear the iPhone home bar */}
+            <div className="flex-shrink-0 border-t border-neutral-200 bg-white px-4 sm:px-6 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] sm:py-4">
+              <div className="space-y-2.5">
                 {config.buttons ? (
                   config.buttons.map((button, index) => (
                     <button
@@ -270,7 +275,7 @@ export function AlertRenderer({ config, onClose }: AlertRendererProps): JSX.Elem
                   <button
                     type="button"
                     onClick={onClose}
-                    className="w-full px-6 py-3 bg-gradient-to-r from-[#D4A574] to-[#8B6F47] text-white rounded-lg hover:shadow-lg hover:brightness-105 active:scale-[0.98] transition-all font-bold uppercase tracking-wide"
+                    className="w-full min-h-[44px] px-6 py-3 bg-gradient-to-r from-[#D4A574] to-[#E8C4A2] text-[#333333] rounded-xl shadow-md transition-all font-semibold active:scale-[0.98]"
                   >
                     OK
                   </button>

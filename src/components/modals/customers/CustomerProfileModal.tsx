@@ -6,6 +6,7 @@
  * - Customer: shows full stats, orders, credits as before
  */
 
+import { ModalFooterButtons, CloseFooter } from "../../../ui/modals/ModalFooterButtons";
 import { useEffect, useState } from "react";
 import type { ModalType } from '../../../types/modals';
 import { toDate } from '../../../utils/timestampFormatting';
@@ -82,7 +83,7 @@ export function CustomerProfileModal({
 
   if (loading) {
     return (
-      <StyleModalShell width="4xl" skinType="default" onClose={onClose} title="PROFILE">
+      <StyleModalShell width="xl" skinType="default" onClose={onClose} title="PROFILE">
         <ModalLoading message="Loading profile..." />
       </StyleModalShell>
     );
@@ -90,7 +91,7 @@ export function CustomerProfileModal({
 
   if (!customer) {
     return (
-      <StyleModalShell width="4xl" skinType="default" onClose={onClose} title="PROFILE"
+      <StyleModalShell width="xl" skinType="default" onClose={onClose} title="PROFILE"
         subtitle="Not found" icon={<User className="w-5 h-5 sm:w-6 sm:h-6" />}>
         <div className="text-center py-12">
           <p className="text-gray-500 mb-4">Customer not found.</p>
@@ -117,7 +118,7 @@ export function CustomerProfileModal({
 
     return (
       <StyleModalShell
-        width="4xl"
+        width="xl"
         skinType="default"
         onClose={onClose}
         title="ADMIN PROFILE"
@@ -127,12 +128,7 @@ export function CustomerProfileModal({
             <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
         }
-        footer={
-          <button onClick={onClose}
-            className="w-full px-4 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium">
-            Close
-          </button>
-        }
+        footer={<CloseFooter onClose={onClose} />}
       >
         <div className="space-y-5">
 
@@ -175,7 +171,7 @@ export function CustomerProfileModal({
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-800">{label}</p>
-                    <p className="text-[10px] text-gray-500">{desc}</p>
+                    <p className="text-[11px] text-gray-500">{desc}</p>
                   </div>
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-500 ml-auto flex-shrink-0 mt-0.5" />
                 </div>
@@ -190,7 +186,7 @@ export function CustomerProfileModal({
               <div className="flex items-center gap-2.5 bg-white border border-gray-200 rounded-lg p-3">
                 <Calendar className="w-4 h-4 text-[#D4A574] flex-shrink-0" />
                 <div>
-                  <p className="text-[10px] text-gray-500">Member Since</p>
+                  <p className="text-[11px] text-gray-500">Member Since</p>
                   <p className="text-xs font-semibold text-gray-800">{memberSince}</p>
                 </div>
               </div>
@@ -198,7 +194,7 @@ export function CustomerProfileModal({
                 <div className="flex items-center gap-2.5 bg-white border border-gray-200 rounded-lg p-3">
                   <Clock className="w-4 h-4 text-[#D4A574] flex-shrink-0" />
                   <div>
-                    <p className="text-[10px] text-gray-500">Last Login</p>
+                    <p className="text-[11px] text-gray-500">Last Login</p>
                     <p className="text-xs font-semibold text-gray-800">{lastLogin}</p>
                   </div>
                 </div>
@@ -206,14 +202,14 @@ export function CustomerProfileModal({
               <div className="flex items-center gap-2.5 bg-white border border-gray-200 rounded-lg p-3">
                 <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                 <div>
-                  <p className="text-[10px] text-gray-500">Status</p>
+                  <p className="text-[11px] text-gray-500">Status</p>
                   <p className="text-xs font-semibold text-emerald-700">Active</p>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 bg-white border border-gray-200 rounded-lg p-3">
                 <KeyRound className="w-4 h-4 text-[#D4A574] flex-shrink-0" />
                 <div>
-                  <p className="text-[10px] text-gray-500">Auth Method</p>
+                  <p className="text-[11px] text-gray-500">Auth Method</p>
                   <p className="text-xs font-semibold text-gray-800">Email / Password</p>
                 </div>
               </div>
@@ -248,7 +244,7 @@ export function CustomerProfileModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="xl"
       skinType="default"
       onClose={onClose}
       title="CUSTOMER PROFILE"
@@ -260,23 +256,14 @@ export function CustomerProfileModal({
         </div>
       }
       footer={
-        <div className="flex w-full gap-3">
-          {isAdmin && openModal && (
-            <button
-              onClick={() => openModal('ADD_CREDIT', {
-                customer, onClose: closeModal, onSuccess: loadCustomerData,
-              })}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#D4A574] text-white rounded-lg hover:bg-[#B8935F] transition-colors font-medium"
-            >
-              <Wallet className="w-5 h-5" />
-              Add Credit
-            </button>
-          )}
-          <button onClick={onClose}
-            className="flex-1 px-4 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium">
-            Close
-          </button>
-        </div>
+        <ModalFooterButtons
+          leftAction={
+            isAdmin && openModal
+              ? { label: "Add Credit", onClick: () => openModal('ADD_CREDIT', { customer, onClose: closeModal, onSuccess: loadCustomerData }), variant: "ghost", icon: <Wallet className="w-4 h-4" /> }
+              : undefined
+          }
+          confirmButton={{ label: "Close", onClick: onClose, variant: "primary", keyboardShortcut: "Escape" }}
+        />
       }
     >
       <div className="space-y-5">

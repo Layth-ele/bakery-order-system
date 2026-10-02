@@ -1,6 +1,7 @@
 /**
  * ModalFooterButtons - Standardized footer button layout for all modals
- * Mobile-first: buttons stack vertically on mobile, side-by-side on sm+
+ * Mobile-first: buttons stack vertically on phones (44 px tall, main action
+ * on top), side-by-side on sm+.
  */
 
 import { ReactNode } from "react";
@@ -78,7 +79,7 @@ export function ModalFooterButtons({
         onClick={onClick}
         disabled={disabled || loading}
         data-keyboard-shortcut={keyboardShortcut || defaultShortcut}
-        className={`flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${BUTTON_STYLES[variant]} ${customClassName}`}
+        className={`flex-1 min-h-[44px] px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${BUTTON_STYLES[variant]} ${customClassName}`}
       >
         {loading && <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />}
         {!loading && icon}
@@ -94,13 +95,23 @@ export function ModalFooterButtons({
           {renderButton(leftAction, "left-action")}
         </div>
       )}
-      <div className={`flex flex-col sm:flex-row gap-2.5 ${leftAction ? "" : "w-full"}`}>
+      {/* Phones: stacked, main action on top (Cancel underneath, like iOS). */}
+      <div className={`flex flex-col-reverse sm:flex-row gap-2.5 ${leftAction ? "" : "w-full"}`}>
         {cancelButton && renderButton(cancelButton, "cancel", "Escape")}
         {extraButtons?.map((btn, i) => renderButton(btn, `extra-${i}`))}
         {confirmButton && renderButton(confirmButton, "confirm", "Enter")}
       </div>
     </div>
   );
+}
+
+/**
+ * Submit a modal's <form> from its footer button (the footer sits outside
+ * the form so it stays visible while the body scrolls). requestSubmit runs
+ * the browser's validation and the form's onSubmit, exactly like Enter.
+ */
+export function submitForm(formId: string): void {
+  (document.getElementById(formId) as HTMLFormElement | null)?.requestSubmit();
 }
 
 export function CloseFooter({ onClose }: { onClose: () => void }) {

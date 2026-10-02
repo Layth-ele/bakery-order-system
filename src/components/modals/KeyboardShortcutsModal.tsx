@@ -67,7 +67,8 @@ export function KeyboardShortcutsModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      footer={<CloseFooter onClose={onClose} />}
+      width="xl"
       skinType="info"
       isOpen={isOpen}
       onClose={onClose}
@@ -168,7 +169,6 @@ export function KeyboardShortcutsModal({
           </div>
         </div>
       </div>
-      <CloseFooter onClose={onClose} />
     </StyleModalShell>
   );
 }

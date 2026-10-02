@@ -60,7 +60,7 @@ export function AdminOrderViewModal({
     console.error('❌ [AdminOrderViewModal] Order is null or undefined');
     return (
       <StyleModalShell
-        width="4xl"
+        width="md"
         skinType="info"
         title="Error"
         onClose={onClose}

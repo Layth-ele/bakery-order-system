@@ -8,6 +8,7 @@
  * ✅ MAR 28, 2026: ADDED - Allergens, dietary labels, nutrition info (all optional)
  */
 
+import { SaveFooter, submitForm } from '../../../ui/modals/ModalFooterButtons';
 import type { UploadProgress } from '../../../services/firebase/storageService';
 import React, { useState, useRef } from 'react';
 import { DollarSign, Tag, Edit, Plus, Upload, X, AlertCircle, Leaf, Flame } from 'lucide-react';
@@ -256,8 +257,16 @@ export function EditProductModal({
       title={isEditing ? 'EDIT PRODUCT' : 'ADD NEW PRODUCT'}
       subtitle={isEditing ? (product?.name || '') : 'Create a new product'}
       icon={isEditing ? <Edit className="w-5 h-5 sm:w-6 sm:h-6" /> : <Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
+      footer={
+        <SaveFooter
+          onCancel={onCancel}
+          onSave={() => submitForm("product-form")}
+          isSaving={isUploading}
+          saveLabel={isUploading ? 'Uploading…' : isEditing ? 'Save Changes' : 'Create Product'}
+        />
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form id="product-form" onSubmit={handleSubmit} className="space-y-5">
 
         {/* ── Product Name ──────────────────────────────────── */}
         <div>
@@ -393,7 +402,7 @@ export function EditProductModal({
         <div className="border border-[#D4A574]/30 rounded-xl overflow-hidden">
           <div className="bg-gradient-to-r from-[#f5f1eb] to-[#ede5d8] px-4 py-2.5 border-b border-[#D4A574]/20">
             <p className="text-xs font-bold text-[#8B6F47] uppercase tracking-widest">Optional Details</p>
-            <p className="text-[10px] text-[#8B6F47]/60 mt-0.5">Ingredients · Storage · Allergens · Nutrition — none required</p>
+            <p className="text-[11px] text-[#8B6F47]/60 mt-0.5">Ingredients · Storage · Allergens · Nutrition — none required</p>
           </div>
           <div className="p-4 space-y-4">
 
@@ -509,7 +518,7 @@ export function EditProductModal({
                           onChange={e => setNut(key, e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#D4A574] focus:border-transparent"
                           placeholder="0" disabled={isUploading} />
-                        <p className="text-[9px] text-gray-400 mt-0.5 text-center">{key === 'calories' ? 'kcal' : 'g'}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5 text-center">{key === 'calories' ? 'kcal' : 'g'}</p>
                       </div>
                     ))}
                   </div>
@@ -523,7 +532,7 @@ export function EditProductModal({
                           onChange={e => setNut(key, e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#D4A574] focus:border-transparent"
                           placeholder="0" disabled={isUploading} />
-                        <p className="text-[9px] text-gray-400 mt-0.5 text-center">{key === 'sodium' ? 'mg' : 'g'}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5 text-center">{key === 'sodium' ? 'mg' : 'g'}</p>
                       </div>
                     ))}
                   </div>
@@ -534,20 +543,7 @@ export function EditProductModal({
           </div>
         </div>
 
-        {/* ── Action Buttons ──────────────────────────────── */}
-        <div className="flex gap-3 pt-2 border-t border-gray-100">
-          <button type="button" onClick={onCancel} disabled={isUploading}
-            className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors disabled:opacity-50">
-            Cancel
-          </button>
-          <button type="submit" disabled={isUploading}
-            className="flex-1 px-4 py-3 bg-gradient-to-r from-[#D4A574] to-[#C5A028] text-white rounded-xl hover:from-[#C5A028] hover:to-[#B39120] shadow-md hover:shadow-lg font-medium transition-all disabled:opacity-50">
-            {isUploading
-              ? <span className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />Uploading…</span>
-              : (isEditing ? 'Save Changes' : 'Create Product')}
-          </button>
-        </div>
-
+        <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
       </form>
     </StyleModalShell>
   );

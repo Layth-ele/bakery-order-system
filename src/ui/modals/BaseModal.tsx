@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { ModalFrameContext } from "./modalFrame";
 
 /**
  * BaseModal - Core Modal Infrastructure with Motion Animations
@@ -241,9 +242,9 @@ export function BaseModal({
   };
 
   const modalVariants = {
-    hidden: { scale: 0.95, opacity: 0, y: 16 },
+    hidden: { scale: 0.98, opacity: 0, y: 32 },
     visible: { scale: 1,    opacity: 1, y: 0  },
-    exit:    { scale: 0.95, opacity: 0, y: 8  },
+    exit:    { scale: 0.98, opacity: 0, y: 24 },
   };
 
   // ============================================
@@ -255,13 +256,15 @@ export function BaseModal({
         <motion.div
           data-backdrop="true"
           onClick={handleBackdropClick}
-          className={`fixed inset-0 bg-black/50 ${BLUR_CLASSES[overlayBlur]} flex items-center justify-center p-4`}
+          // Phones: a bottom sheet (full width, flush with the bottom edge).
+          // sm and up: centred with breathing room. The panel scrolls its own
+          // body, so the backdrop never scrolls.
+          className={`fixed inset-0 bg-black/50 ${BLUR_CLASSES[overlayBlur]} flex items-end justify-center p-0 pt-[env(safe-area-inset-top)] sm:items-center sm:p-4`}
           style={{
             margin: 0,
-            overflowY: "auto",
-            overflowX: "hidden",
+            overflow: "hidden",
+            overscrollBehavior: "contain",
             zIndex: zIndex ?? 20000,
-            minHeight: "100vh",
           }}
           variants={backdropVariants}
           initial="hidden"
@@ -274,7 +277,7 @@ export function BaseModal({
             aria-modal="true"
             aria-label={ariaLabel}
             aria-labelledby={ariaLabelledBy}
-            className={`relative w-full mx-auto ${SIZE_CLASSES[resolvedSize]} my-8`}
+            className={`relative w-full mx-auto flex justify-center ${SIZE_CLASSES[resolvedSize]}`}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
             variants={modalVariants}
             initial="hidden"
@@ -284,7 +287,7 @@ export function BaseModal({
           >
             {/* Plain div carries the ref for focus management — avoids motion/react v12 ref warning */}
             <div ref={dialogRef} style={{ display: 'contents' }}>
-              {children}
+              <ModalFrameContext.Provider value={true}>{children}</ModalFrameContext.Provider>
             </div>
           </motion.div>
         </motion.div>

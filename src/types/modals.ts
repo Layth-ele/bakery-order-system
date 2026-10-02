@@ -117,27 +117,6 @@ export type ModalConfig =
       };
     }
   | {
-      type: 'ADD_CUSTOMER'; // Admin modal to add new customers or admin accounts
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        isAddingAdmin: boolean;
-        newCustomer: {
-          storeName: string;
-          email: string;
-          storeAddress: string;
-          contactPerson: string;
-          phone: string;
-          password: string;
-          customerType: 'commercial' | 'individual' | 'admin';
-        };
-        onCustomerChange: (customer: any) => void;
-        onAddCustomer: () => void;
-        onShowAdminSecurity: () => void;
-        onSetIsAddingAdmin: (value: boolean) => void;
-      };
-    }
-  | {
       type: 'ADMIN_PASSWORD_CONFIRM'; // Legacy alias → routes to AUTH_GUARD
       size?: ModalSize;
       overlayBlur?: OverlayBlur;

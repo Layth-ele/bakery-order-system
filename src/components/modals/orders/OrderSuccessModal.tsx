@@ -15,10 +15,11 @@ interface OrderSuccessModalProps {
 
 export function OrderSuccessModal({ week, year, onClose }: OrderSuccessModalProps): JSX.Element | null {
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl bg-white w-full mx-auto" style={{ maxWidth: 440 }}>
+    // Same frame rules as StyleModalShell: phone bottom sheet, card on sm+.
+    <div className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl sm:rounded-2xl bg-white w-full mx-auto max-h-[calc(100dvh_-_0.75rem)] sm:max-h-[90dvh]" style={{ maxWidth: 448 }}>
       {/* Header band */}
       <div
-        className="flex flex-col items-center pt-10 pb-8 px-8"
+        className="flex flex-col items-center pt-8 pb-6 px-6 sm:pt-10 sm:pb-8 sm:px-8"
         style={{ background: 'linear-gradient(135deg, #8B6F47 0%, #D4A574 100%)' }}
       >
         <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mb-4">
@@ -56,7 +57,7 @@ export function OrderSuccessModal({ week, year, onClose }: OrderSuccessModalProp
       </div>
 
       {/* Footer */}
-      <div className="px-6 pb-6">
+      <div className="px-6 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] sm:pb-6">
         <button
           onClick={onClose}
           className="w-full flex items-center justify-center gap-2 font-semibold py-3.5 rounded-xl text-white transition-all active:scale-[0.98] hover:opacity-90"

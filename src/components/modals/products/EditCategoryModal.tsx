@@ -9,6 +9,7 @@
  * - Setting category display order
  */
 
+import { SaveFooter, submitForm } from '../../../ui/modals/ModalFooterButtons';
 import React, { useState } from 'react';
 import {Folder, Hash} from 'lucide-react'
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell'; // Fixed broken import path
@@ -80,15 +81,22 @@ export function EditCategoryModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="xl"
       skinType="default"
  
       onClose={handleCancel} 
       title={isEditing ? "EDIT CATEGORY" : "ADD NEW CATEGORY"}
       subtitle={isEditing && category ? category.name : "Manage product categories"}
       icon={<Folder className="w-5 h-5 sm:w-6 sm:h-6" />}
+      footer={
+        <SaveFooter
+          onCancel={handleCancel}
+          onSave={() => submitForm("category-form")}
+          saveLabel={isEditing ? 'Save Changes' : 'Create Category'}
+        />
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form id="category-form" onSubmit={handleSubmit} className="space-y-6">
         {/* Category Name */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -153,22 +161,7 @@ export function EditCategoryModal({
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="flex-1 px-4 py-3 bg-gradient-to-r from-[#D4A574] to-[#C5A028] text-white rounded-lg hover:from-[#C5A028] hover:to-[#B39120] transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
-          >
-            {isEditing ? 'Save Changes' : 'Create Category'}
-          </button>
-        </div>
+        <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
       </form>
     </StyleModalShell>
   );

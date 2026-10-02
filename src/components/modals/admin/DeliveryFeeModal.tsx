@@ -9,6 +9,7 @@
  * Used during order approval flow when subtotal doesn't meet the threshold.
  */
 
+import { CancelConfirmFooter } from '../../../ui/modals/ModalFooterButtons';
 import { useState } from "react";
 import { DollarSign } from "lucide-react";
 import { useModal } from "../../../contexts/ModalContextNew";
@@ -58,26 +59,18 @@ export function DeliveryFeeModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="md"
       skinType="default"
       onClose={handleCancel}
       title="SET DELIVERY FEE"
       icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />}
       footer={
-        <div className="flex gap-3 w-full">
-          <button
-            onClick={handleCancel}
-            className="flex-1 px-4 py-3 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 rounded-lg transition-colors font-semibold"
-          >
-            CANCEL
-          </button>
-          <button
-            onClick={handleConfirm}
-            className="flex-1 px-4 py-3 bg-[#4CAF50] text-white rounded-lg hover:bg-[#45a049] transition-colors font-semibold"
-          >
-            APPROVE ORDER
-          </button>
-        </div>
+        <CancelConfirmFooter
+          onCancel={handleCancel}
+          onConfirm={handleConfirm}
+          confirmLabel="Approve Order"
+          confirmVariant="success"
+        />
       }
     >
       <div className="space-y-4">

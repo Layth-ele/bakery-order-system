@@ -83,7 +83,7 @@ export function CustomerCancelOrderModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="md"
       skinType="danger"
       onClose={onClose}
       title="Cancel Order"

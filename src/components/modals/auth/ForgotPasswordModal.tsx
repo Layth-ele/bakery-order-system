@@ -5,6 +5,7 @@
  *   success → confirmation with next-steps guidance
  */
 
+import { ModalFooterButtons, submitForm } from '../../../ui/modals/ModalFooterButtons';
 import { useState } from 'react';
 import { Mail, KeyRound, ArrowLeft, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
@@ -62,6 +63,23 @@ export function ForgotPasswordModal({
       icon={step === 'success'
         ? <CheckCircle className="w-5 h-5 text-emerald-600" />
         : <KeyRound className="w-5 h-5" />}
+      footer={
+        step === 'success' ? (
+          <ModalFooterButtons confirmButton={{ label: 'Done', onClick: onClose, variant: 'primary', keyboardShortcut: 'Enter' }} />
+        ) : (
+          <ModalFooterButtons
+            cancelButton={{ label: 'Back', onClick: onClose, variant: 'ghost', disabled: step === 'loading', icon: <ArrowLeft className="w-4 h-4" /> }}
+            confirmButton={{
+              label: step === 'loading' ? 'Sending…' : 'Send Reset Link',
+              onClick: () => submitForm('forgot-password-form'),
+              variant: 'primary',
+              loading: step === 'loading',
+              disabled: !email.trim(),
+              icon: <Mail className="w-4 h-4" />,
+            }}
+          />
+        )
+      }
     >
       {step === 'success' ? (
         <div className="py-2">
@@ -98,13 +116,9 @@ export function ForgotPasswordModal({
               try again
             </button>.
           </p>
-          <button type="button" onClick={onClose}
-            className="w-full py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-[#8B6F47] to-[#D4A574] text-white hover:from-[#7A5F3C] hover:to-[#C49564] transition-all shadow-md">
-            Done
-          </button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="py-2 space-y-5">
+        <form id="forgot-password-form" onSubmit={handleSubmit} className="py-2 space-y-5">
           <div className="bg-[#faf8f5] border border-[#D4A574]/25 rounded-xl p-4">
             <div className="flex items-start gap-3">
               <KeyRound className="w-4 h-4 text-[#D4A574] flex-shrink-0 mt-0.5" />
@@ -174,19 +188,7 @@ export function ForgotPasswordModal({
               </div>
             )}
           </div>
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} disabled={step === 'loading'}
-              className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Back
-            </button>
-            <button type="submit" disabled={step === 'loading' || !email.trim()}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-[#8B6F47] to-[#D4A574] text-white hover:from-[#7A5F3C] hover:to-[#C49564] transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-              {step === 'loading'
-                ? <><Loader2 className="w-4 h-4 animate-spin" />Sending…</>
-                : <><Mail className="w-4 h-4" />Send Reset Link</>}
-            </button>
-          </div>
+          <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
         </form>
       )}
     </StyleModalShell>

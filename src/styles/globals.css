@@ -161,10 +161,16 @@ img[width][height] {
 
 /* ✅ Prevent iOS zoom on input focus (requires 16px minimum font size) */
 @media (max-width: 768px) {
+  input:not([type]),
   input[type="number"],
   input[type="text"],
   input[type="email"],
   input[type="tel"],
+  input[type="password"],
+  input[type="search"],
+  input[type="url"],
+  input[type="date"],
+  input[type="time"],
   textarea,
   select {
     font-size: 16px !important;

@@ -40,6 +40,7 @@
  * - Mark as read/delete operations are immediately visible
  */
 
+import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
 import { toDate, formatTimestamp } from '../../../utils/timestampFormatting';
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { Bell, Trash2, Check, Eye } from "lucide-react";
@@ -150,7 +151,7 @@ export function AdminNotificationsModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="xl"
       skinType="default"
       onClose={onClose}
       title="Admin Notifications"
@@ -159,15 +160,14 @@ export function AdminNotificationsModal({
       }
       icon={<Bell className="w-6 h-6" />}
       footer={
-        notifications.length > 0 && unreadCount > 0 ? (
-          <button
-            onClick={markAllAsRead}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-[#D4A574] to-[#D4A574] hover:from-[#D4A574] hover:to-[#D4A574] text-white rounded-lg transition-all duration-200 font-medium"
-          >
-            <Check className="w-4 h-4" />
-            <span>Mark All as Read</span>
-          </button>
-        ) : undefined
+        <ModalFooterButtons
+          cancelButton={{ label: "Close", onClick: onClose, variant: "secondary", keyboardShortcut: "Escape" }}
+          confirmButton={
+            notifications.length > 0 && unreadCount > 0
+              ? { label: "Mark All as Read", onClick: markAllAsRead, variant: "primary", icon: <Check className="w-4 h-4" /> }
+              : undefined
+          }
+        />
       }
     >
       {/* Notifications List */}

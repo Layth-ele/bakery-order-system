@@ -11,6 +11,7 @@ import { Customer } from "../../../types";
 import { formatCreditAmount } from "../../../services/creditService";
 import { issueStoreCreditViaCloudFunction, callableErrorMessage } from "../../../services/firebase/cloudFunctions";
 import { invalidateCache } from "../../../hooks/useCachedFirebase";
+import { SaveFooter, submitForm } from "../../../ui/modals/ModalFooterButtons";
 
 
 interface AddCreditModalProps {
@@ -100,12 +101,23 @@ export function AddCreditModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="xl"
       skinType="default"
       onClose={onClose}
       title="ADD CREDIT"
       subtitle={`Add credit to ${customer.storeName || customer.contactPerson || customer.email}`}
       icon={<Wallet className="w-5 h-5 sm:w-6 sm:h-6" />}
+      footer={
+        success ? undefined : (
+          <SaveFooter
+            onCancel={onClose}
+            onSave={() => submitForm("add-credit-form")}
+            isSaving={loading}
+            saveDisabled={!amount || !reason.trim()}
+            saveLabel={`Add ${amount ? formatCreditAmount(parseFloat(amount)) : "Credit"}`}
+          />
+        )
+      }
     >
       {success ? (
         // Success State
@@ -123,7 +135,7 @@ export function AddCreditModal({
         </div>
       ) : (
         // Form
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="add-credit-form" onSubmit={handleSubmit} className="space-y-5">
           {/* Customer Info */}
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-sm text-gray-600 mb-1">Customer</div>
@@ -208,24 +220,7 @@ export function AddCreditModal({
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-[#D4A574] to-[#C5A028] text-white rounded-lg hover:from-[#C5A028] hover:to-[#B59020] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading || !amount || !reason.trim()}
-            >
-              {loading ? "Adding Credit..." : `Add ${amount ? formatCreditAmount(parseFloat(amount)) : "Credit"}`}
-            </button>
-          </div>
+          <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
         </form>
       )}
     </StyleModalShell>
