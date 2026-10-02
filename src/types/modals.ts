@@ -31,6 +31,7 @@ export type ModalConfig =
       size?: ModalSize;
       overlayBlur?: OverlayBlur;
       props: {
+        customerType?: string;
         product: Product;
         products?: Product[];
         onAddToCart?: (productId: string, dayKey: string, quantity: number) => void;

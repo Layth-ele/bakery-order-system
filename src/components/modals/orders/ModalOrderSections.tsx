@@ -1,3 +1,5 @@
+import { discountOn } from '../../../functions/src/lib/orderRevision';
+import { gstLabel } from '../../../utils/orderMoney';
 import React from 'react';
 /**
  * ModalOrderSections — Shared 3-section layout for all order modals.
@@ -256,7 +258,8 @@ export function OrderFinancialSummary({
   const gst         = order.gst ?? 0;
   const deliveryFee = order.deliveryFee ?? 0;
   const service     = (!order.serviceChargeWaived && order.serviceCharge) ? order.serviceCharge : 0;
-  const discount    = order.discount ?? 0;
+  // Flat + percentage discount, exactly as the server applies it.
+  const discount    = discountOn(order.subtotal ?? 0, order as any);
   const credit      = order.creditApplied ?? 0;
   const total       = order.total ?? 0;
 
@@ -273,7 +276,7 @@ export function OrderFinancialSummary({
       {service > 0    && <Row lbl="Service Charge"  val={`$${service.toFixed(2)}`} />}
       {deliveryFee > 0 && <Row lbl="Delivery Fee"   val={`$${deliveryFee.toFixed(2)}`} />}
       {discount > 0   && <Row lbl="Discount"        val={`-$${discount.toFixed(2)}`} green />}
-      {gst > 0        && <Row lbl="GST (5%)"        val={`$${gst.toFixed(2)}`} />}
+      {gst > 0        && <Row lbl={gstLabel(gst, (order.subtotal ?? 0) - discount)} val={`$${gst.toFixed(2)}`} />}
       {credit > 0     && <Row lbl="💳 Credit Applied" val={`-$${credit.toFixed(2)}`} green />}
       <div className="h-px bg-[#E8C4A2] my-1" />
       {credit > 0 ? (

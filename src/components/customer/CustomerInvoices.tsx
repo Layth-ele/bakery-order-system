@@ -5,7 +5,7 @@ import { FileText, XCircle, DollarSign, Download, Eye, CheckCircle2 } from "luci
 import { SearchBar } from "../ui/SearchBar";
 // ✅ STEP 6: Use modal registry for all modals (eliminates duplicate systems)
 import { useModal } from "../../contexts/ModalContextNew";
-import { useCachedOrders } from "../../hooks/useCachedFirebase";
+import { useCachedCustomerOrders } from "../../hooks/useCachedFirebase";
 import { useCachedProducts } from "../../hooks/useCachedProducts";
 import { useCachedCategories } from "../../hooks/useCachedCategories";
 import { CustomerPageLayout, StatCard } from "./CustomerPageLayout";
@@ -34,7 +34,7 @@ export function CustomerInvoices({
   isActive,
 }: CustomerInvoicesProps): JSX.Element | null {
   const { openModal } = useModal();
-  const { data: allOrders = [] } = useCachedOrders(isActive);
+  const { data: allOrders = [], refetch } = useCachedCustomerOrders(isActive ? user.id : null);
   
   // ✅ P1 OPTIMIZATION: Use TanStack Query cache instead of local state (eliminates duplicate data)
   const { data: products = [], isLoading: productsLoading } = useCachedProducts();
@@ -102,11 +102,7 @@ export function CustomerInvoices({
   const handleViewInvoice = (order: Order) => {
     // ✅ STEP 6: Use modal registry to open modals
     if (order.status === 'cancelled') {
- // Show toast notification instead of modal for cancelled orders
-      toast.success(`Order ${displayOrderNumber(order)} has been cancelled`, {
-        description: order.cancellationReason ? `Reason: ${order.cancellationReason}` : undefined,
-        duration: 5000,
-      });
+      openModal('CANCELLED_ORDER_DETAILS', { order, products, categories } as any);
     } else if (order.status === 'rejected') {
       // ✅ Rejected orders have their own modal
       openModal('REJECTED_ORDER_DETAILS', {
@@ -136,17 +132,25 @@ export function CustomerInvoices({
     if (csv) { downloadCSV(csv, invoiceFilename(order, order.customerName, 'csv')); }
   };
 
-  const handleRefresh = () => {
-    // Note: Products and categories are automatically managed by TanStack Query cache
-    // This refresh is mainly for user feedback
-    toast.success("Invoices refreshed", { duration: 3000 });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+      toast.success("Invoices refreshed", { duration: 3000 });
+    } catch {
+      toast.error("Failed to refresh invoices", { duration: 3000 });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Calculate stats
-  const totalInvoices = sortedOrders.length;
-  const totalCompleted = sortedOrders.filter(o => o.status === 'completed').length; // ✅ Removed legacy 'complete' check
-  const totalCancelled = sortedOrders.filter(o => o.status === 'cancelled').length;
-  const totalAmount = sortedOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+  // Only completed orders have a final invoice; cancelled/rejected are listed for reference.
+  const completed = sortedOrders.filter(o => o.status === 'completed');
+  const totalCompleted = completed.length;
+  const totalCancelled = sortedOrders.filter(o => o.status === 'cancelled' || o.status === 'rejected').length;
+  const totalAmount = completed.reduce((sum, order) => sum + (order.total || 0), 0);
 
   // Action buttons for invoices
   const actionButtonSections: ActionButtonSection[] = [
@@ -163,6 +167,7 @@ export function CustomerInvoices({
           icon: Download,
           onClick: handleDownloadOrder,
           variant: 'download',
+          show: (order) => canExportInvoiceDocument(order),
         },
       ],
       layout: 'spread' as const,
@@ -176,13 +181,13 @@ export function CustomerInvoices({
       subtitle="View completed orders and final invoices"
       sectionTitle="Invoice Overview"
       onRefresh={handleRefresh}
+      isRefreshing={isRefreshing}
     >
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
-        <StatCard icon={FileText} label="Total Invoices" value={totalInvoices} color="tan" />
-        <StatCard icon={CheckCircle2} label="Completed" value={totalCompleted} color="green" />
-        <StatCard icon={XCircle} label="Cancelled" value={totalCancelled} color="red" />
-        <StatCard icon={DollarSign} label="Total Value" value={`$${totalAmount.toFixed(0)}`} color="blue" />
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5">
+        <StatCard icon={CheckCircle2} label="Invoices" value={totalCompleted} color="green" />
+        <StatCard icon={DollarSign} label="Invoiced" value={`$${totalAmount.toFixed(2)}`} color="tan" />
+        <StatCard icon={XCircle} label="Cancelled / rejected" value={totalCancelled} color="red" />
       </div>
 
       {/* Info Box */}

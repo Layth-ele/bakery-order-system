@@ -14,8 +14,9 @@
  * 6. ✅ Balance timing fix - Shows ALL approved orders until admin confirms payment
  */
 
+import { orderAmountDue } from '../../utils/orderMoney';
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { CreditCard, AlertTriangle, FileText, Eye } from 'lucide-react';
+import { CreditCard, AlertTriangle, FileText, Eye, Clock } from 'lucide-react';
 import { User } from '../../hooks/useAuth';
 import { Order } from '../../types';
 import { useModal } from '../../contexts/ModalContextNew';
@@ -24,7 +25,7 @@ import { useCachedSettings } from '../../hooks/useCachedFirebase';
 import { toast } from 'sonner';
 import { UnifiedOrderList, ActionButtonSection } from '../order/UnifiedOrderList';
 import { CustomerPageLayout, StatCard } from './CustomerPageLayout';
-import { useCachedOrders } from '../../hooks/useCachedFirebase';
+import { useCachedCustomerOrders } from '../../hooks/useCachedFirebase';
 import { useCachedProducts } from '../../hooks/useCachedProducts';
 import { useCachedCategories } from '../../hooks/useCachedCategories';
 import { toDate } from '../../utils/timestampFormatting';
@@ -44,7 +45,7 @@ export function CustomerUnpaidOrders({ user, onNavigateBack }: CustomerUnpaidOrd
   // ============================================
   // STEP 2: Performance - Load data
   // ============================================
-  const { data: allOrders = [], isLoading: ordersLoading, refetch } = useCachedOrders(true);
+  const { data: allOrders = [], isLoading: ordersLoading, refetch } = useCachedCustomerOrders(user.id);
   
   // ✅ P1 OPTIMIZATION: Use TanStack Query cache instead of local state (eliminates duplicate data)
   const { data: products = [], isLoading: productsLoading } = useCachedProducts();
@@ -54,7 +55,7 @@ export function CustomerUnpaidOrders({ user, onNavigateBack }: CustomerUnpaidOrd
   
  // Load bakery email from settings
   const { data: cachedSettings } = useCachedSettings();
-  const bakeryEmail = cachedSettings?.businessEmail || 'orders@example.com';
+  const bakeryEmail = (cachedSettings?.businessEmail || '').trim();
 
   // ✅ Manual refresh handler
   const handleRefresh = async () => {
@@ -257,23 +258,29 @@ export function CustomerUnpaidOrders({ user, onNavigateBack }: CustomerUnpaidOrd
     <CustomerPageLayout
       icon={CreditCard}
       title="Outstanding (Unpaid)"
-      subtitle="Shows approved orders awaiting payment submission (WAITING PAYMENT badge)"
+      subtitle="Approved orders waiting for your payment"
       sectionTitle="Outstanding Orders Overview"
       onRefresh={handleRefresh}
       isRefreshing={isRefreshing}
     >
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5">
         <StatCard
           icon={CreditCard}
-          label="Unpaid"
-          value={unpaidOrders.length}
+          label="To pay"
+          value={unpaidOrders.filter((o) => !o.paymentSubmitted).length}
           color="red"
         />
         <StatCard
+          icon={Clock}
+          label="Payment in review"
+          value={unpaidOrders.filter((o) => o.paymentSubmitted).length}
+          color="orange"
+        />
+        <StatCard
           icon={AlertTriangle}
-          label="Total Orders"
-          value={unpaidOrders.length}
+          label="Owed"
+          value={`$${unpaidOrders.reduce((s, o) => s + orderAmountDue(o as any), 0).toFixed(2)}`}
           color="tan"
         />
       </div>
@@ -288,20 +295,22 @@ export function CustomerUnpaidOrders({ user, onNavigateBack }: CustomerUnpaidOrd
             </h3>
             <div className="text-neutral-700 space-y-1.5 sm:space-y-2.5">
               <p className="text-xs sm:text-sm leading-relaxed">
-                <strong className="text-[#F57C00]">📋 Pending:</strong> Awaiting admin approval — payment not available yet.
+                <strong className="text-[#388E3C]">1. Pay by e-transfer</strong> to the address shown when you tap
+                “Submit Payment”, with your order number in the message.
               </p>
               <p className="text-xs sm:text-sm leading-relaxed">
-                <strong className="text-[#388E3C]">✅ Approved:</strong> Use "SUBMIT PAYMENT" button. To edit, go to the Active tab (48h rule applies).
+                <strong className="text-[#F57C00]">2. Submit Payment</strong> with the transfer's security answer so
+                the bakery can accept it.
               </p>
               <p className="text-xs sm:text-sm leading-relaxed">
-                <strong className="text-[#333333]">💳 Payment:</strong> E-transfer or credit card.
+                <strong className="text-[#333333]">3. Confirmation:</strong> once the bakery confirms it, the order
+                goes into production and leaves this list.
               </p>
-              <p className="text-xs sm:text-sm text-[#D32F2F] font-semibold leading-relaxed">
-                ⚠️ After confirmation, order moves to production.{' '}
-                <a href={`mailto:${bakeryEmail}`} className="underline hover:text-[#B71C1C] break-all">
-                  {bakeryEmail}
-                </a>
-              </p>
+              {bakeryEmail && (
+                <p className="text-xs sm:text-sm leading-relaxed">
+                  Questions? <span className="font-semibold break-all">{bakeryEmail}</span>
+                </p>
+              )}
             </div>
           </div>
         </div>

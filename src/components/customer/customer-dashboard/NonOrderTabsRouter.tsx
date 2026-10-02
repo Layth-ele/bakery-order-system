@@ -5,7 +5,7 @@
  * ✅ Single source of truth for all non-order tab content
  */
 
-import { ProductsCatalog } from "../../../pages/admin/ProductsCatalog";
+import { ProductsCatalog } from "../ProductsCatalog";
 import { ActiveOrders } from "../../order/ActiveOrders";
 import { OutstandingTab } from "../OutstandingTab";
 import { CustomerInvoices } from "../CustomerInvoices";
@@ -50,12 +50,7 @@ export function NonOrderTabsRouter({
       <ProductsCatalog
         products={products}
         categories={categories}
-        onNavigateBack={() => {
-          onTabChange(DashboardTab.PLACE_ORDER);
-          const anchor = document.querySelector('[data-scroll-anchor]');
-          if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          else scrollToTop({ behavior: 'smooth' });
-        }}
+        customerType={currentUser?.customerType}
         onNavigateToOrder={(productId) => {
           // ✅ Navigate with query param instead of state
           const newUrl = `${window.location.pathname}?focus=${productId}`;

@@ -71,13 +71,15 @@ export function useCustomerActions({ user }: UseCustomerActionsProps): CustomerA
       onCancel: closeModal,
       onSave: async (edited: Customer) => {
         try {
-          // Only the fields the form edits — status, type and code have their own actions.
+          // Only the fields the form edits — status, type and code have their
+          // own actions. Blank name/address fields are left unchanged.
+          const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
           await updateCustomer({
             id: customer.id,
-            storeName: edited.storeName ?? '',
-            contactPerson: edited.contactPerson ?? '',
-            phone: edited.phone ?? '',
-            storeAddress: edited.storeAddress ?? '',
+            ...(text(edited.storeName) ? { storeName: text(edited.storeName) } : {}),
+            ...(text(edited.contactPerson) ? { contactPerson: text(edited.contactPerson) } : {}),
+            ...(text(edited.storeAddress) ? { storeAddress: text(edited.storeAddress) } : {}),
+            phone: text(edited.phone),
           } as any);
           await invalidateCache.customers();
           closeModal();

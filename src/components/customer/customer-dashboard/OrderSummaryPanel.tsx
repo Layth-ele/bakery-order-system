@@ -266,7 +266,7 @@ export function OrderSummaryPanel({
                   serviceCharge={serviceCharge}
                   creditApplied={applyCreditEnabled && creditToApply > 0 ? creditToApply : 0}
                   total={total}
-                  label="Order Total"
+                  label={applyCreditEnabled && creditToApply > 0 ? "Amount Due" : "Order Total"}
                   variant="default"
                 />
 

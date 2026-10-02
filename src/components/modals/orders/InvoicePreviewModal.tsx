@@ -9,6 +9,9 @@
  * - Category/items table: clean, readable with proper column widths
  */
 
+import { discountOn } from '../../../functions/src/lib/orderRevision';
+import { gstLabel } from '../../../utils/orderMoney';
+import { orderAmountDue } from '../../../utils/orderMoney';
 import React from 'react';
 import { useCachedSettings } from '../../../hooks/useCachedFirebase';
 import {
@@ -123,13 +126,13 @@ export function InvoicePreviewModal({
   })();
   const deliveryFee   = order.deliveryFee   || 0;
   const serviceCharge = order.serviceCharge || 0;
-  const discount      = order.discount      || 0;
+  const discount      = discountOn(order.subtotal ?? 0, order as any); // flat + percentage
   const creditApplied = order.creditApplied || 0;
   // ✅ FIX: GST on (subtotal - discount), not raw subtotal
   const discountedBase = Math.max(0, subtotal - discount);
   const gst = order.gst || Math.round((discountedBase * 0.05 + Number.EPSILON) * 100) / 100;
   // ✅ FIX: amountDue = total - credit (what customer actually pays)
-  const amountDue = order.amountDue || Math.max(0, (order.total || 0) - creditApplied);
+  const amountDue = orderAmountDue(order as any);
   const grandTotal = order.total || (discountedBase + gst + deliveryFee + serviceCharge);
 
   // ── Dates ─────────────────────────────────────────────────────────────────
@@ -508,7 +511,7 @@ export function InvoicePreviewModal({
                 </div>
               )}
               <div className="flex justify-between text-sm text-gray-600">
-                <span>GST (5%)</span>
+                <span>{gstLabel(order.gst, (order.subtotal ?? 0) - discount)}</span>
                 <span className="font-semibold text-gray-900">{formatCurrency(gst)}</span>
               </div>
               {creditApplied > 0 && (

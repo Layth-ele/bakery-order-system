@@ -700,10 +700,10 @@ export function OrderRow({
                 <span>UPDATED - REPRINT REQUIRED</span>
               </span>
             )}
-            {order.discount && order.discount > 0 && (
+            {((order.discount ?? 0) > 0 || (order.discountPercentage ?? 0) > 0) && (
               <span className="px-3 py-1 rounded-full bg-gradient-to-r from-green-500 to-green-600 text-white text-xs font-bold uppercase flex items-center gap-1">
                 <span>🏷️</span>
-                <span>{formatDiscountPercentage(order.discountPercentage)}</span>
+                <span>{(order.discountPercentage ?? 0) > 0 ? formatDiscountPercentage(order.discountPercentage) : `$${(order.discount ?? 0).toFixed(2)} off`}</span>
               </span>
             )}
             {order.status === "approved" && (
@@ -789,10 +789,10 @@ export function OrderRow({
                   <span>UPDATED - REPRINT REQUIRED</span>
                 </span>
               )}
-              {order.discount && order.discount > 0 && (
+              {((order.discount ?? 0) > 0 || (order.discountPercentage ?? 0) > 0) && (
                 <span className="px-3 py-1 rounded-full bg-gradient-to-r from-green-500 to-green-600 text-white text-xs font-bold uppercase flex items-center gap-1">
                   <span>🏷️</span>
-                  <span>{formatDiscountPercentage(order.discountPercentage)}</span>
+                  <span>{(order.discountPercentage ?? 0) > 0 ? formatDiscountPercentage(order.discountPercentage) : `$${(order.discount ?? 0).toFixed(2)} off`}</span>
                 </span>
               )}
               {order.status === "approved" && (

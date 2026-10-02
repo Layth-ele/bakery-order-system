@@ -292,6 +292,7 @@ export function OrderPageLayout({
                                     lockedDaysForWeek,
                                     selectedWeek,
                                     selectedYear,
+                                    customerType: user.customerType,
                                   })
                                 }
                                 className="lg:hidden flex-shrink-0 p-0.5 text-[#D4A574] hover:text-[#8B6F47] transition-colors mt-0.5"
@@ -368,6 +369,7 @@ export function OrderPageLayout({
                               lockedDaysForWeek,
                               selectedWeek,
                               selectedYear,
+                              customerType: user.customerType,
                             })
                           }
                           className="p-2 text-[#D4A574] hover:bg-[#f5f1eb] rounded transition-colors"

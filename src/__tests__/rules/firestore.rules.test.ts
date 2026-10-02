@@ -654,3 +654,33 @@ describe('Customer accounts', () => {
     await assertFails(cust.collection('customers').doc('other-uid').get());
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Customers list their OWN orders, invoices and credit (dashboard tabs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Customer dashboard queries', () => {
+  beforeEach(async () => {
+    await seedAdminAndCustomer();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await db.collection('orders').doc('mine').set({ customerId: 'cust-uid', status: 'approved', total: 10 });
+      await db.collection('orders').doc('theirs').set({ customerId: 'other-uid', status: 'approved', total: 99 });
+      await db.collection('invoices').doc('inv-mine').set({ customerId: 'cust-uid', finalTotal: 10 });
+      await db.collection('creditNotes').doc('cn-mine').set({ customerId: 'cust-uid', amount: 5, status: 'available' });
+    });
+  });
+
+  test('customer CAN list their own orders, invoices and credit notes', async () => {
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertSucceeds(cust.collection('orders').where('customerId', '==', 'cust-uid').get());
+    await assertSucceeds(cust.collection('invoices').where('customerId', '==', 'cust-uid').get());
+    await assertSucceeds(cust.collection('creditNotes').where('customerId', '==', 'cust-uid').get());
+  });
+
+  test('customer CANNOT list all orders or someone else\'s', async () => {
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertFails(cust.collection('orders').get());
+    await assertFails(cust.collection('orders').where('customerId', '==', 'other-uid').get());
+  });
+});

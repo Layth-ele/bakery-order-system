@@ -55,7 +55,8 @@ export async function getAllCreditNotes(customerId: string): Promise<CreditNote[
 export async function getAvailableCredit(customerId: string): Promise<number> {
   const creditNotes = await getAllCreditNotes(customerId);
   return creditNotes
-    .filter((note: CreditNote) => note.status === 'available' || note.status === 'partially_used')
+    // Spendable credit only — a note with a payout requested is reserved (same rule as placeOrder).
+    .filter((note: CreditNote) => (note.status === 'available' || note.status === 'partially_used') && !note.payoutRequested)
     .reduce((total: number, note: CreditNote) => {
       // ✅ FIX: Backward compatibility - use remainingBalance if available, otherwise fall back to amount
       const balance = note.remainingBalance ?? note.amount ?? 0;

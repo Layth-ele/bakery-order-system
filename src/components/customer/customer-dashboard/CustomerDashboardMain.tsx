@@ -20,6 +20,7 @@
  * ✅ MAR 13, 2026: Fixed to use Firebase layer directly (via cache hooks)
  */
 
+import { DAYS, dayCutoff, unitPriceFor } from '../../../functions/src/lib/orderPlacement';
 import {
   useEffect,
   useMemo,
@@ -484,6 +485,8 @@ export function CustomerDashboardMain(): JSX.Element | null {
   // ----------------------------
   const filteredProducts = useMemo(() => {
     return products
+      // The server refuses unavailable products, so don't offer them.
+      .filter((p) => p.available !== false)
       .filter((p) => {
         // Discounted category — show all products with discount > 0
         if (selectedCategory === "__discounted__") {
@@ -552,12 +555,8 @@ export function CustomerDashboardMain(): JSX.Element | null {
     // Precompute all 7 days: [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
     const locked: boolean[] = [];
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-      const deliveryDate = getWeekDayDate(
-        selectedWeek,
-        dayIndex,
-        yearForWeek,
-      );
-      locked.push(isDayLocked(deliveryDate));
+      // Exactly the server's cutoff (placeOrder): noon Vancouver − 48 h.
+      locked.push(Date.now() >= dayCutoff(yearForWeek, selectedWeek, DAYS[dayIndex]).getTime());
     }
 
     return locked;
@@ -566,17 +565,9 @@ export function CustomerDashboardMain(): JSX.Element | null {
   const calculatePrice = useCallback(
     // ✅ PASS 6: customerType optional to match the useCartSummary signature
     // it gets passed into. Falls back to retail pricing if missing.
-    (product: Product, customerType?: string): number => {
-      const base: number =
-        customerType === CustomerType.COMMERCIAL
-          ? (product.wholesale ?? product.price ?? 0)
-          : (product.retail ?? product.price ?? 0);
-      const discount =
-        product.discount && product.discount > 0
-          ? product.discount
-          : 0;
-      return discount > 0 ? (base ?? 0) * (1 - discount / 100) : (base ?? 0);
-    },
+    // The server's own price rule (placeOrder), so the cart matches the charge.
+    (product: Product, customerType?: string): number =>
+      unitPriceFor(product as any, customerType === CustomerType.COMMERCIAL ? 'commercial' : 'individual'),
     [],
   );
 
@@ -591,12 +582,7 @@ export function CustomerDashboardMain(): JSX.Element | null {
         currentYear,
       );
       for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-        const deliveryDate = getWeekDayDate(
-          week,
-          dayIndex,
-          yearForWeek,
-        );
-        if (!isDayLocked(deliveryDate)) return false;
+        if (Date.now() < dayCutoff(yearForWeek, week, DAYS[dayIndex]).getTime()) return false;
       }
       return true;
     },
