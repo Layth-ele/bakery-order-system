@@ -8,6 +8,7 @@
  * ✅ NOW SUPPORTS: Regular order payments AND adjustment payments
  */
 
+import { displayOrderNumber } from '../../../utils/displayId';
 import { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
 import type { Order, Product, Category, OrderAdjustment } from "../../../types"; // Import proper types
@@ -62,7 +63,7 @@ export function PaymentInReviewModal({
       skinType="info"
       onClose={onClose || (() => {})}
       title="PAYMENT IN REVIEW"
-      subtitle="Your payment is being processed"
+      subtitle={`${displayOrderNumber(order)} · Payment being reviewed`}
       headerLeft={
         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
           <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-[#333333] animate-pulse" />

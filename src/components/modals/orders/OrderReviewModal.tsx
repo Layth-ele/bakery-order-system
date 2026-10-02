@@ -64,6 +64,10 @@ export function OrderReviewModal({
   const safeCartItems = Array.isArray(cartItems)
     ? cartItems.filter((item): item is typeof item => !!item && !!item.product && typeof item.total === 'number')
     : [];
+
+  // Only the days something was ordered for (all seven if every day has items).
+  const activeDays = days.filter((d) => safeCartItems.some((it) => (it.quantities[d.key] || 0) > 0));
+  const shownDays = activeDays.length > 0 ? activeDays : days;
   
  // Add defensive logging and handler wrapper with double-submit protection
   const handleConfirmClick = async () => {
@@ -166,10 +170,10 @@ export function OrderReviewModal({
                     <th className="px-4 py-3 text-left text-[#8B6F47] text-sm font-bold uppercase tracking-wide">
                       Product
                     </th>
-                    {days.map((day, dayIndex) => {
+                    {shownDays.map((day) => {
                       const dayDate = getWeekDayDate(
                         selectedWeek,
-                        dayIndex,
+                        days.indexOf(day),
                         selectedYear,
                       );
                       return (
@@ -217,7 +221,7 @@ export function OrderReviewModal({
                           </span>
                         </div>
                       </td>
-                      {days.map((day) => {
+                      {shownDays.map((day) => {
                         const qty = item.quantities[day.key];
                         return (
                           <td
@@ -261,8 +265,9 @@ export function OrderReviewModal({
                   </p>
 
                   {/* Days Grid */}
-                  <div className="grid grid-cols-7 gap-2">
-                    {days.map((day, dayIndex) => {
+                  <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${shownDays.length}, minmax(0, 1fr))` }}>
+                    {shownDays.map((day) => {
+                      const dayIndex = days.indexOf(day);
                       const qty = item.quantities[day.key];
                       const dayDate = getWeekDayDate(
                         selectedWeek,

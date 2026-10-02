@@ -13,6 +13,7 @@
  * 4. User can track status in dashboard
  */
 
+import { displayOrderNumber } from '../../../utils/displayId';
 import {
   CheckCircle,
   Clock,
@@ -43,7 +44,7 @@ export function PaymentSubmittedModal({
       skinType="success"
       onClose={onClose || (() => {})}
       title="PAYMENT SUBMITTED"
-      subtitle="Thank you for your payment!"
+      subtitle={`${displayOrderNumber(order)} · Thank you for your payment`}
       headerLeft={
         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
           <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />

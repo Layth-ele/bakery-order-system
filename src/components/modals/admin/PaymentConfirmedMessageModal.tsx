@@ -42,7 +42,7 @@ export function PaymentConfirmedMessageModal({
       skinType="success"
       onClose={onClose}
       title="Payment Confirmed"
-      subtitle="Order in production"
+      subtitle={invoiceNumber ? `${invoiceNumber} · In production` : 'Order in production'}
       icon={CheckCircle}
       footer={<CloseFooter onClose={onClose} />}
     >

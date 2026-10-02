@@ -9,9 +9,10 @@
  */
 
  // 🚀 PERFORMANCE: Memoize expensive computations
+import { CopyButton } from '../../shared/CopyButton';
 import { formatTimestamp, toDate } from '../../../utils/timestampFormatting';
 import { ModalThreeSections } from './ModalOrderSections';
-import { Clock, DollarSign, AlertCircle, CheckCircle2 as CheckCircle, XCircle, FileText, Copy } from "lucide-react";
+import { Clock, DollarSign, AlertCircle, CheckCircle2 as CheckCircle, XCircle, FileText } from "lucide-react";
 import type { Order, Product, Category } from "../../../types";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from '../../../ui/modals/ModalFooterButtons';
@@ -178,49 +179,10 @@ export function AdminOrderViewModal({
                     <p className="caption-text uppercase">Order Number</p>
                   </div>
                   <div className="flex items-center gap-2 justify-between">
-                    <p className="heading-5 text-neutral-900 font-bold break-all">
+                    <p className="heading-5 text-neutral-900 font-bold font-mono tracking-tight whitespace-nowrap">
                       {displayInvoiceNumber(order)}
                     </p>
-                    <button
-                      onClick={() => {
-                        const orderNumber = displayInvoiceNumber(order);
-                        const copyToClipboard = (text: string) => {
-                          // Try modern Clipboard API first
-                          if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(text)
-                              .catch(() => {
-                                fallbackCopy(text);
-                              });
-                          } else {
-                            // Use fallback immediately
-                            fallbackCopy(text);
-                          }
-                        };
-                        
-                        const fallbackCopy = (text: string) => {
-                          const textArea = document.createElement('textarea');
-                          textArea.value = text;
-                          textArea.style.position = 'fixed';
-                          textArea.style.left = '-999999px';
-                          textArea.style.top = '-999999px';
-                          document.body.appendChild(textArea);
-                          textArea.focus();
-                          textArea.select();
-                          try {
-                            document.execCommand('copy');
-                          } catch (err) {
-                            console.error('Failed to copy:', err);
-                          }
-                          document.body.removeChild(textArea);
-                        };
-                        
-                        copyToClipboard(orderNumber);
-                      }}
-                      className="p-2 hover:bg-neutral-100 rounded-lg transition-colors flex-shrink-0"
-                      title="Copy order number"
-                    >
-                      <Copy className="w-5 h-5 text-neutral-600 hover:text-neutral-900" />
-                    </button>
+                    <CopyButton text={displayInvoiceNumber(order)} label="Order number" className="text-neutral-600 hover:bg-neutral-100" />
                   </div>
                 </div>
                 

@@ -1,3 +1,4 @@
+import { displayOrderNumber } from '../../../utils/displayId';
 import { CreditCard } from 'lucide-react';
 /**
  * CustomerUnpaidOrderDetailsModal - Customer view of their unpaid (APPROVED) order details
@@ -51,7 +52,7 @@ export function CustomerUnpaidOrderDetailsModal({
       skinType="warning"
       onClose={onClose}
       title="PAYMENT REQUIRED"
-      subtitle="Order approved • Payment pending"
+      subtitle={`${displayOrderNumber(order)} · Payment pending`}
       icon={
         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500 rounded-full flex items-center justify-center">
           <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-white" />

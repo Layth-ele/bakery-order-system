@@ -31,6 +31,7 @@ import { ReactNode, isValidElement, useEffect, useRef } from "react";
 import { X, LucideIcon } from "lucide-react";
 import { logger } from '../../utils/logger';
 import { useInModalFrame } from './modalFrame';
+import { CopyButton } from '../../components/shared/CopyButton';
 
 
 type ModalWidth =
@@ -243,6 +244,10 @@ export function StyleModalShell({
 
   if (!isOpen) return null;
 
+  // Order (ORD-…) or invoice (DBH-…) number shown in the subtitle, if any.
+  const subtitleId =
+    typeof subtitle === "string" ? subtitle.match(/\b(?:ORD|DBH)-[0-9A-Z-]+\b/)?.[0] ?? null : null;
+
   // Use `width` if provided, otherwise fallback to deprecated `size`
   const effectiveWidth = width || size || "4xl";
 
@@ -285,10 +290,18 @@ export function StyleModalShell({
                 {title}
               </h2>
               {subtitle ? (
-                <div
-                  className={`text-xs sm:text-sm ${SKIN_COLORS[skinType].text} opacity-80 break-words leading-snug mt-0.5`}
-                >
-                  {subtitle}
+                <div className={`mt-0.5 flex min-w-0 items-center gap-1 ${SKIN_COLORS[skinType].text}`}>
+                  <div className="min-w-0 truncate text-xs sm:text-sm opacity-80 leading-snug">
+                    {subtitle}
+                  </div>
+                  {/* An order / invoice number in the subtitle gets a copy button. */}
+                  {subtitleId && (
+                    <CopyButton
+                      text={subtitleId}
+                      label={subtitleId.startsWith('DBH') ? 'Invoice number' : 'Order number'}
+                      className="-my-1.5 opacity-80 hover:opacity-100 hover:bg-black/10"
+                    />
+                  )}
                 </div>
               ) : null}
             </div>
