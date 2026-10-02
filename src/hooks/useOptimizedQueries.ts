@@ -13,7 +13,7 @@
  * @created March 6, 2026
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getOrdersWithProducts,
   getPendingOrders,
@@ -235,27 +235,4 @@ export function useInvalidateCustomers() {
     
     logger.cache('Invalidated customer queries');
   };
-}
-
-
-// ============================================
-// MUTATION HELPERS
-// ============================================
-
-/**
- * Approve customer mutation with automatic cache invalidation
- */
-export function useApproveCustomer() {
-  const invalidateCustomers = useInvalidateCustomers();
-  
-  return useMutation<any, Error, string>({
-    mutationFn: async (customerId: string) => {
-      const { updateCustomer } = await import('../services/customersService');
-      return updateCustomer({ id: customerId, ...{ status: 'approved' } } as any);
-    },
-    onSuccess: () => {
-      // Invalidate customer caches
-      invalidateCustomers();
-    },
-  });
 }

@@ -611,3 +611,46 @@ describe('Server-only order lifecycle', () => {
     await assertSucceeds(cust.doc('notifications/user_cust-uid/items/n1').update({ read: true }));
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Accounts: status, type, ID and email change only in Cloud Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Customer accounts', () => {
+  beforeEach(seedAdminAndCustomer);
+
+  test('customer CAN edit their own profile details', async () => {
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertSucceeds(cust.collection('customers').doc('cust-uid').update({ phone: '604-555-0199', storeName: 'New Name' }));
+  });
+
+  test('customer CANNOT approve themselves, change type, or change email', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('customers').doc('pend-uid').set({ email: 'p@x.com', customerType: 'individual', status: 'pending' });
+    });
+    const pending = testEnv.authenticatedContext('pend-uid').firestore();
+    await assertFails(pending.collection('customers').doc('pend-uid').update({ status: 'approved' }));
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertFails(cust.collection('customers').doc('cust-uid').update({ customerType: 'admin' }));
+    await assertFails(cust.collection('customers').doc('cust-uid').update({ email: 'other@x.com' }));
+  });
+
+  test('admin CAN edit profile details but NOT status/type/code (server actions)', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertSucceeds(admin.collection('customers').doc('cust-uid').update({ contactPerson: 'Sam', storeAddress: '1 Main St' }));
+    await assertFails(admin.collection('customers').doc('cust-uid').update({ status: 'suspended' }));
+    await assertFails(admin.collection('customers').doc('cust-uid').update({ customerType: 'admin' }));
+    await assertFails(admin.collection('customers').doc('cust-uid').update({ customerCode: 'CUST-FAKE' }));
+  });
+
+  test('nobody creates or deletes account profiles from the browser', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertFails(admin.collection('customers').doc('x-uid').set({ email: 'x@x.com', status: 'approved' }));
+    await assertFails(admin.collection('customers').doc('cust-uid').delete());
+  });
+
+  test('customer CANNOT read another customer\'s profile', async () => {
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertFails(cust.collection('customers').doc('other-uid').get());
+  });
+});

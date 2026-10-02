@@ -41,6 +41,7 @@ import {
   buildOrderUpdatedEmail,
   buildPasswordResetEmail,
   buildTestEmail,
+  buildAccountApprovedEmail,
 } from "./lib/emailContent";
 import { orderStatusEmailLogId } from "./lib/orderSideEffects";
 
@@ -248,3 +249,29 @@ export const sendTestEmail = onCall<{ to?: string }>(
     return { ...toCallResult(to, result), config: emailConfigStatus() };
   }
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Account approved — sent by approveCustomer (accountAdmin.ts). Never throws.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function emailAccountApproved(
+  uid: string,
+  profile: { email: string; storeName: string; contactPerson: string },
+  triggeredBy: string
+): Promise<EmailCallResult> {
+  const to = isEmail(profile.email) ? profile.email.trim() : "";
+  if (!to) return { state: "failed", to: "", reason: "This account has no valid email address." };
+  try {
+    const ctx = await loadEmailContext();
+    const email = buildAccountApprovedEmail(profile, ctx.brand);
+    const result = await sendLoggedOnce(
+      `account_approved_${uid}`,
+      { kind: "account_approved", to, subject: email.subject, triggeredBy },
+      { to, ...email, replyTo: ctx.brand.email, category: "account_approved" }
+    );
+    return toCallResult(to, result);
+  } catch (err) {
+    console.error(`[emailAccountApproved] ${uid}:`, err);
+    return { state: "failed", to, reason: "The email could not be sent." };
+  }
+}

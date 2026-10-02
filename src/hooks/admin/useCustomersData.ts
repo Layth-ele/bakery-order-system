@@ -21,6 +21,7 @@ import { useCachedCustomers } from '../useCachedFirebase';
 import {
   type Customer,
   type CustomerFilters,
+  type CustomerStats,
   deduplicateCustomers,
   filterCustomers,
   sortCustomers,
@@ -31,7 +32,7 @@ interface UseCustomersDataProps {
   isActive: boolean;
   searchTerm: string;
   filterType: 'all' | 'commercial' | 'individual' | 'admin';
-  filterStatus: 'all' | 'approved' | 'suspended' | 'active';  // ✅ Added 'active'
+  filterStatus: 'all' | 'suspended' | 'active' | 'archived';
 }
 
 interface CustomersData {
@@ -45,15 +46,8 @@ interface CustomersData {
   processedCustomers: Customer[];
   
   // Statistics
-  stats: {
-    total: number;
-    active: number;  // ✅ Added: active = total - suspended
-    commercial: number;
-    individual: number;
-    admin: number;
-    suspended: number;
-    thisMonth: number;
-  };
+  /** See calculateCustomerStats (customersService) for what each count means. */
+  stats: CustomerStats;
 }
 
 /**
@@ -123,14 +117,6 @@ export function useCustomersData({
     allCustomers,
     customersLoading,
     processedCustomers,
-    stats: {
-      total: stats?.total ?? 0,
-      active: stats?.active ?? 0,
-      commercial: stats?.commercial ?? 0,
-      individual: stats?.individual ?? 0,
-      admin: stats?.admin ?? 0,
-      suspended: stats?.suspended ?? 0,
-      thisMonth: stats?.thisMonth ?? 0,
-    },
+    stats,
   };
 }

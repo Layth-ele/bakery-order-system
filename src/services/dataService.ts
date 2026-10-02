@@ -18,7 +18,6 @@
 
 import { isFirebaseConfigured } from '../firebase/config';
 import { 
-  createUserProfile as fbCreateUserProfile,
   Product,
   Order,
   Settings,
@@ -54,19 +53,6 @@ export interface Week {
 // ============================================================================
 // LOCAL STORAGE HELPERS
 // ============================================================================
-
-/**
- * Generate customer code — delegates to Firestore atomic counter.
- * Format: CUST-YYYY-MM-DD-NNN (grows: 001→999→1000→…)
- * @deprecated params kept for backward-compat but are unused
- */
-const generateCustomerId = (_contactPerson?: string, _phone?: string): string => {
-  // Sync shim — callers in demo/localStorage mode get a timestamp-based fallback.
-  // In Firebase mode useCustomerAccountActions uses the async generateCustomerId() directly.
-  const d = new Date().toISOString().slice(0, 10);
-  const seq = String(Date.now()).slice(-3).padStart(3, '0');
-  return `CUST-${d}-${seq}`;
-};
 
 const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -108,28 +94,6 @@ export const getCustomerForAuth = async (email: string): Promise<Customer | null
 // - Eliminates ~23 lines of duplicate logic
 // ============================================================================
 
-export const createCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
-  // ✅ CANONICAL: Full delegation - customersService handles all mode logic internally
-  const input = {
-    email: (customer.email ?? ""),
-    password: customer.password || 'temp123', // Default password if not provided
-    storeName: customer.storeName || '',
-    storeAddress: customer.storeAddress || '',
-    contactPerson: customer.contactPerson || '',
-    phone: customer.phone || '',
-    customerType: customer.customerType || 'individual',
-    role: customer.role || 'customer',
-    status: customer.status || 'pending',
-  };
-  
-  const newCustomer = await customersService.createCustomer(input);
-  
-  // Invalidate cache after creating customer
-  await invalidateCache.customers();
-  
-  return newCustomer;
-};
-
 // Create user profile with specific UID (for Firebase Auth registration)
 //
 // FIX T2R8-H4 (HIGH — schema split): `source` parameter forwarded to the
@@ -137,21 +101,6 @@ export const createCustomer = async (customer: Omit<Customer, 'id'>): Promise<Cu
 // input. Default 'self-registration' chooses the restricted schema; admin
 // callers must pass 'admin-on-behalf' explicitly. See customer.schema.ts
 // FIX T2R8-H4 for full rationale.
-export const createUserProfile = async (
-  uid: string,
-  userData: Omit<Customer, 'id'>,
-  source: 'self-registration' | 'admin-on-behalf' = 'self-registration'
-): Promise<Customer> => {
-  if (isFirebaseConfigured) {
-    const newUser = await fbCreateUserProfile(uid, userData, source);
-    // Invalidate cache after creating user profile
-    await invalidateCache.customers();
-    return newUser;
-  }
-  
-  return createCustomer(userData);
-};
-
 // ============================================================================
 // ✅ STEP 3/4: Simplified updateCustomer() delegation
 // - Eliminates ~35 lines of duplicate logic
@@ -173,14 +122,6 @@ export const updateCustomer = async (id: string, data: Partial<Customer>): Promi
 // - Eliminates ~18 lines of duplicate logic
 // - TOTAL CUSTOMER OPERATIONS ELIMINATION: ~63 lines of duplicate code
 // ============================================================================
-
-export const deleteCustomer = async (id: string): Promise<void> => {
-  // ✅ CANONICAL: Full delegation - customersService handles all mode logic internally
-  await customersService.deleteCustomer(id);
-  
-  // Invalidate cache after deleting customer
-  await invalidateCache.customers();
-};
 
 // ============================================================================
 // PRODUCT OPERATIONS

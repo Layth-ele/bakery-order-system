@@ -85,7 +85,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
     "test:rules": "npx --yes firebase-tools@15.18.0 emulators:exec --only firestore --project demo-bakery-rules 'vitest run --config vitest.rules.config.ts'",
-    "test:e2e": "npm --prefix src/functions run build && npx --yes firebase-tools@15.18.0 emulators:exec --only auth,firestore,functions --project demo-bakery-e2e 'node scripts/e2e/orderLifecycle.e2e.mjs'",
+    "test:e2e": "npm --prefix src/functions run build && npx --yes firebase-tools@15.18.0 emulators:exec --only auth,firestore,functions,storage --project demo-bakery-e2e 'node scripts/e2e/orderLifecycle.e2e.mjs'",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,md}\"",
     "generate:icons": "pwa-assets-generator"

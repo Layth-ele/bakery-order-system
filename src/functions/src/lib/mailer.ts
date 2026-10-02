@@ -170,7 +170,7 @@ export async function sendEmail(input: SendInput): Promise<SendResult> {
 // ── Audit log (/emailLog) ───────────────────────────────────────────────────
 
 export interface EmailLogMeta {
-  kind: "order_status" | "payment_reminder" | "order_updated" | "password_reset" | "test";
+  kind: "order_status" | "payment_reminder" | "order_updated" | "password_reset" | "account_approved" | "test";
   to: string;
   subject: string;
   orderId?: string;

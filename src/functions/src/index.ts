@@ -14,11 +14,13 @@
  *   Payments     submitPaymentProof · confirmOrderPayment
  *   Credit       applyOrderCredit · issueStoreCredit · requestCreditPayout
  *   Reminders    sendPaymentReminder
- *   Customers    createCustomerWithCode · deleteCustomerAccount
+ *   Accounts     createCustomerWithCode (self-registration) · approveCustomer ·
+ *                rejectCustomer · setCustomerSuspended · adminCreateAccount ·
+ *                deleteCustomerAccount (archive or permanent)
  *   Emails       sendPasswordResetEmail · sendTestEmail (see emails.ts)
  *   Triggers     onOrderLifecycle · onSettingsWritten ·
  *                snapshot/event customerId denormalization
- *   Maintenance  generateId · cleanupOldCounters · bootstrapSettings ·
+ *   Maintenance  cleanupOldCounters · bootstrapSettings ·
  *                backfillSnapshotCustomerId
  */
 
@@ -32,7 +34,6 @@ export { placeOrder } from "./orders";
 export { createCustomerWithCode, deleteCustomerAccount } from "./customers";
 
 // ─── ID generation & maintenance ─────────────────────────────────────────────
-export { generateId } from "./generateId";
 export { cleanupOldCounters } from "./counterCleanup";
 
 // ─── Pass 2: Order action functions ─────────────────────────────────────────
@@ -76,3 +77,6 @@ export { editOrder, editPaidOrder } from "./orderRevisions";
 
 // ─── Reminders and store credit (notification written in the same tx) ──────
 export { sendPaymentReminder, issueStoreCredit, requestCreditPayout } from "./accountActions";
+
+// ─── Account administration (status + sign-in kept in sync) ─────────────────
+export { approveCustomer, rejectCustomer, setCustomerSuspended, adminCreateAccount } from "./accountAdmin";

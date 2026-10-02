@@ -81,19 +81,20 @@ service cloud.firestore {
       //  - cannot include any role-elevation fields (role, isAdmin, etc.)
       // Admin-on-behalf creation (isAnyAdmin path) is not restricted because
       // the admin is intentionally setting these fields.
-      // Self-registration runs in the createCustomerWithCode Cloud Function
-      // (profile + customer code + admin notification, atomically); only
-      // admins create profiles from the browser.
-      allow create: if isAnyAdmin();
-      
-      // Users can update their own profile (limited fields only)
-      allow update: if (isOwner(customerId) && 
+      // Accounts are created only by Cloud Functions: createCustomerWithCode
+      // (self-registration) and adminCreateAccount (admin "Add account").
+      allow create: if false;
+
+      // Profile details only — from the customer (My Profile) or an admin
+      // (Edit customer). Status, type, customer ID and email change only in
+      // Cloud Functions (approve / reject / suspend / archive), which also
+      // keep the Firebase sign-in in step.
+      allow update: if (isOwner(customerId) || isAnyAdmin()) &&
                        request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['storeName', 'contactPerson', 'storeAddress', 'phone', 'fcmTokens', 'updatedAt'])) ||
-                       isAnyAdmin();  // Admins can update any field
-      
-      // Only admins can delete customer profiles
-      allow delete: if isAnyAdmin();
+                         .hasOnly(['storeName', 'contactPerson', 'storeAddress', 'phone', 'fcmTokens', 'updatedAt']);
+
+      // Archiving / deleting: deleteCustomerAccount Cloud Function only.
+      allow delete: if false;
     }
     
     // ============================================================================

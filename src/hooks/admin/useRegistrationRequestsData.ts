@@ -19,7 +19,8 @@
  */
 
 import { useState, useMemo } from 'react';
-import { useCachedCustomers, useCachedOrders } from '../useCachedFirebase';
+import { useCachedCustomers } from '../useCachedFirebase';
+import { calculateCustomerStats } from '../../services/customersService';
 
 // ============================================================================
 // TYPES
@@ -48,170 +49,75 @@ export interface NewCustomer {
   customerType: 'commercial' | 'individual' | 'admin';
 }
 
+/** Counts shown on the Accounts page (same definitions as Customer Management). */
 export interface AccountStats {
-  pendingCount: number;
-  updateCount: number;
-  rejectedCount: number;
-  registrationsCount: number;
-  commercialCount: number;
-  individualCount: number;
-  adminCount: number;
+  pending: number;
+  active: number;
+  admins: number;
+  rejected: number;
 }
 
 export interface RegistrationRequestsData {
-  // Data
   allCustomers: any[];
-  allOrders: any[];
   pendingRegistrations: PendingRegistration[];
+  rejectedRegistrations: PendingRegistration[];
   stats: AccountStats;
-  
-  // Loading states
   customersLoading: boolean;
-  ordersLoading: boolean;
-  
-  // UI state
-  notification: string;
   showAddCustomer: boolean;
   isAddingAdmin: boolean;
   newCustomer: NewCustomer;
-  addModalKey: number;
-  adminPasswordVerification: string;
   showAdminPassword: boolean;
-  
-  // Actions
-  setNotification: (message: string) => void;
   setShowAddCustomer: (show: boolean) => void;
   setIsAddingAdmin: (isAdmin: boolean) => void;
   setNewCustomer: (customer: NewCustomer) => void;
-  setAddModalKey: (key: number) => void;
-  setAdminPasswordVerification: (password: string) => void;
   setShowAdminPassword: (show: boolean) => void;
 }
 
-// ============================================================================
-// HOOK
-// ============================================================================
+export const EMPTY_NEW_CUSTOMER: NewCustomer = {
+  email: '',
+  password: '',
+  storeName: '',
+  storeAddress: '',
+  contactPerson: '',
+  phone: '',
+  customerType: 'commercial',
+};
+
+const asRequest = (c: any): PendingRegistration => ({ ...c, storeName: c.storeName || c.email || 'Unknown' });
 
 export function useRegistrationRequestsData(): RegistrationRequestsData {
-  // ============================================================================
-  // DATA FETCHING - TanStack Query cache
-  // ============================================================================
-  
-  const {
-    data: allCustomers = [],
-    isLoading: customersLoading,
-  } = useCachedCustomers(true);
-  
-  const {
-    data: allOrders = [],
-    isLoading: ordersLoading,
-  } = useCachedOrders(true);
-  
-  // ============================================================================
-  // LOCAL STATE - UI only
-  // ============================================================================
-  
-  const [notification, setNotification] = useState<string>('');
+  const { data: allCustomers = [], isLoading: customersLoading } = useCachedCustomers(true);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
-  const [addModalKey, setAddModalKey] = useState(0);
-  const [adminPasswordVerification, setAdminPasswordVerification] = useState('');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
-  const [newCustomer, setNewCustomer] = useState<NewCustomer>({
-    email: '',
-    password: '',
-    storeName: '',
-    storeAddress: '',
-    contactPerson: '',
-    phone: '',
-    customerType: 'commercial',
-  });
-  
-  // ============================================================================
-  // COMPUTED DATA - Memoized for performance
-  // ============================================================================
-  
-  // Filter pending registrations
-  const pendingRegistrations = useMemo<PendingRegistration[]>(
-    () => allCustomers
-      .filter((c) => c.status === 'pending')
-      .map((c) => ({ ...c, storeName: c.storeName || c.email || 'Unknown' })) as PendingRegistration[],
+  const [newCustomer, setNewCustomer] = useState<NewCustomer>(EMPTY_NEW_CUSTOMER);
+
+  const pendingRegistrations = useMemo(
+    () => allCustomers.filter((c: any) => c.status === 'pending').map(asRequest),
     [allCustomers]
   );
-  
-  // Calculate statistics
+  const rejectedRegistrations = useMemo(
+    () => allCustomers.filter((c: any) => c.status === 'rejected').map(asRequest),
+    [allCustomers]
+  );
   const stats = useMemo<AccountStats>(() => {
-    const pendingOrders = allOrders.filter(
-      (o: any) => o.status === 'pending' && !o.updateRequested
-    ).length;
-    
-    const updateRequestedOrders = allOrders.filter(
-      (o: any) => o.updateRequested === true
-    ).length;
-    
-    const rejectedOrders = allOrders.filter(
-      (o: any) => o.status === 'rejected'
-    ).length;
-    
-    // Count commercial customers (pending commercial accounts)
-    const commercialCount = allCustomers.filter(
-      (c: any) => c.status === 'pending' && c.customerType === 'commercial'
-    ).length;
-    
-    // Count individual customers (approved individual accounts)
-    const individualCount = allCustomers.filter(
-      (c: any) => c.status === 'approved' && c.customerType === 'individual'
-    ).length;
-    
-    // Count admins (all approved admin accounts)
-    const adminCount = allCustomers.filter(
-      (c: any) =>
-        c.status === 'approved' &&
-        (c.customerType === 'admin' || c.role === 'admin')
-    ).length;
-    
-    return {
-      pendingCount: pendingOrders,
-      updateCount: updateRequestedOrders,
-      rejectedCount: rejectedOrders,
-      registrationsCount: pendingRegistrations.length,
-      commercialCount,
-      individualCount,
-      adminCount,
-    };
-  }, [allOrders, allCustomers, pendingRegistrations.length]);
-  
-  // ============================================================================
-  // RETURN
-  // ============================================================================
-  
+    const s = calculateCustomerStats(allCustomers as any);
+    return { pending: s.pending, active: s.active, admins: s.admin, rejected: s.rejected };
+  }, [allCustomers]);
+
   return {
-    // Data
     allCustomers,
-    allOrders,
     pendingRegistrations,
+    rejectedRegistrations,
     stats,
-    
-    // Loading states
     customersLoading,
-    ordersLoading,
-    
-    // UI state
-    notification,
     showAddCustomer,
     isAddingAdmin,
     newCustomer,
-    addModalKey,
-    adminPasswordVerification,
     showAdminPassword,
-    
-    // Actions
-    setNotification,
     setShowAddCustomer,
     setIsAddingAdmin,
     setNewCustomer,
-    setAddModalKey,
-    setAdminPasswordVerification,
     setShowAdminPassword,
   };
 }

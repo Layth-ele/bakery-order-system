@@ -141,8 +141,8 @@ export function DeleteCustomerModal({
       {
         title: archiveInstead ? 'Archive Customer' : 'Permanently Delete Customer',
         description: archiveInstead
-          ? `Archive ${customer.storeName || customer.contactPerson}? They will no longer be able to log in.`
-          : `Permanently delete ${customer.storeName || customer.contactPerson}? This cannot be undone.`,
+          ? `Archive ${customer.storeName || customer.contactPerson}? Sign-in is disabled and personal details are erased; orders and invoices are kept.`
+          : `Permanently delete ${customer.storeName || customer.contactPerson} and their orders? This cannot be undone.`,
         actionLabel: archiveInstead ? 'Archive Customer' : 'Delete Permanently',
         danger: true,
         onConfirm: async () => {
@@ -382,27 +382,26 @@ export function DeleteCustomerModal({
                     Archive (Recommended)
                   </span>
                   <span className="px-2 py-0.5 bg-green-500 text-white text-[11px] font-bold rounded">
-                    SAFE
+                    RECOMMENDED
                   </span>
                 </div>
                 <p className="text-neutral-600 text-xs leading-relaxed">
-                  Hide customer from active lists while
-                  preserving all data. They won't be able to
-                  login, but all orders and history remain
-                  intact.{" "}
+                  Closes the account: sign-in is disabled and their
+                  personal details (email, phone, contact, address) are
+                  erased. Orders and invoices are kept for tax records.{" "}
                   <strong className="text-neutral-800">
-                    Can be restored later.
+                    Can't be undone — use Suspend instead if they may come back.
                   </strong>
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="px-2 py-1 bg-green-50 text-green-700 text-[11px] rounded border border-green-200">
-                    ✓ Reversible
+                    ✓ Orders &amp; invoices kept
+                  </span>
+                  <span className="px-2 py-1 bg-amber-50 text-amber-700 text-[11px] rounded border border-amber-200">
+                    ✗ Personal details erased
                   </span>
                   <span className="px-2 py-1 bg-green-50 text-green-700 text-[11px] rounded border border-green-200">
-                    ✓ Data Preserved
-                  </span>
-                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[11px] rounded border border-green-200">
-                    ✓ Login Disabled
+                    ✓ Sign-in disabled
                   </span>
                 </div>
               </div>
@@ -433,23 +432,21 @@ export function DeleteCustomerModal({
                   </span>
                 </div>
                 <p className="text-neutral-600 text-xs leading-relaxed">
-                  Completely remove customer account and
-                  credentials.{" "}
+                  Removes the account and everything linked to it,
+                  including its orders.{" "}
                   <strong className="text-red-600">
-                    CANNOT BE UNDONE.
+                    Cannot be undone.
                   </strong>{" "}
-                  Orders will remain for historical records, but
-                  login access is permanently revoked.
+                  Only allowed for accounts with no approved, paid or
+                  invoiced orders (e.g. test or duplicate accounts) —
+                  otherwise choose Archive.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="px-2 py-1 bg-red-50 text-red-700 text-[11px] rounded border border-red-200">
                     ✗ Irreversible
                   </span>
                   <span className="px-2 py-1 bg-red-50 text-red-700 text-[11px] rounded border border-red-200">
-                    ✗ No Restore
-                  </span>
-                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[11px] rounded border border-green-200">
-                    ✓ Orders Kept
+                    ✗ Orders deleted too
                   </span>
                 </div>
               </div>

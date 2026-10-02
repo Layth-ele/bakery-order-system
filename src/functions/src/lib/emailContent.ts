@@ -429,3 +429,31 @@ export function buildTestEmail(brand: EmailBrand, sentBy: string): BuiltEmail {
     })
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Account approved (sent by approveCustomer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildAccountApprovedEmail(
+  input: { storeName: string; contactPerson: string; email: string },
+  brand: EmailBrand
+): BuiltEmail {
+  const first = (input.contactPerson || "").split(" ")[0];
+  const signIn = brand.website || "";
+  return built(
+    `Your account is approved · ${brand.name}`,
+    renderEmail({
+      brand,
+      preheader: "You can now sign in and place wholesale orders.",
+      eyebrow: "Account approved",
+      title: "Welcome — your account is ready",
+      body: [
+        p(first ? `Hi ${esc(first)},` : input.storeName ? `Hi ${esc(input.storeName)} team,` : "Hello,"),
+        p(`Your ${esc(brand.name)} wholesale account${input.storeName ? ` for ${strong(esc(input.storeName))}` : ""} has been approved.`),
+        p(`Sign in with ${strong(esc(input.email))} and the password you chose when you registered.`),
+        ...(signIn ? [button("Sign in and order", signIn), linkFallback(signIn)] : []),
+        note("Forgot your password?", "Use “Forgot password” on the sign-in page."),
+      ],
+    })
+  );
+}

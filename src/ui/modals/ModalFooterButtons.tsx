@@ -1,7 +1,7 @@
 /**
  * ModalFooterButtons - Standardized footer button layout for all modals
- * Mobile-first: buttons stack vertically on phones (44 px tall, main action
- * on top), side-by-side on sm+.
+ * Mobile-first: on phones every button is full width and 44 px tall, main
+ * action on top and Cancel/Close last; on sm+ one row.
  */
 
 import { ReactNode } from "react";
@@ -60,7 +60,7 @@ export function ModalFooterButtons({
   fullWidth = false,
   className = "",
 }: ModalFooterButtonsProps): JSX.Element | null {
-  const renderButton = (config: ButtonConfig, key: string, defaultShortcut?: string) => {
+  const renderButton = (config: ButtonConfig, key: string, defaultShortcut?: string, order = "") => {
     const {
       label,
       onClick,
@@ -79,7 +79,7 @@ export function ModalFooterButtons({
         onClick={onClick}
         disabled={disabled || loading}
         data-keyboard-shortcut={keyboardShortcut || defaultShortcut}
-        className={`flex-1 min-h-[44px] px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${BUTTON_STYLES[variant]} ${customClassName}`}
+        className={`${order} w-full sm:w-auto sm:flex-1 min-h-[44px] px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${BUTTON_STYLES[variant]} ${customClassName}`}
       >
         {loading && <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />}
         {!loading && icon}
@@ -88,19 +88,17 @@ export function ModalFooterButtons({
     );
   };
 
+  // One container; CSS order sets the sequence per screen size.
+  //   Phones (stacked, full width): main action → extras → side action →
+  //     Cancel/Close last (closest to the thumb, like iOS sheets).
+  //   sm and up (one row): side action on the left; Cancel/Close, extras,
+  //     main action on the right.
   return (
-    <div className={`flex flex-col sm:flex-row gap-2.5 w-full ${className}`}>
-      {leftAction && (
-        <div className="w-full sm:w-auto sm:mr-auto">
-          {renderButton(leftAction, "left-action")}
-        </div>
-      )}
-      {/* Phones: stacked, main action on top (Cancel underneath, like iOS). */}
-      <div className={`flex flex-col-reverse sm:flex-row gap-2.5 ${leftAction ? "" : "w-full"}`}>
-        {cancelButton && renderButton(cancelButton, "cancel", "Escape")}
-        {extraButtons?.map((btn, i) => renderButton(btn, `extra-${i}`))}
-        {confirmButton && renderButton(confirmButton, "confirm", "Enter")}
-      </div>
+    <div className={`flex w-full flex-col gap-2.5 sm:flex-row sm:items-center ${className}`}>
+      {leftAction && renderButton(leftAction, "left-action", undefined, "order-3 sm:order-1 sm:mr-auto sm:flex-none")}
+      {cancelButton && renderButton(cancelButton, "cancel", "Escape", "order-4 sm:order-2")}
+      {extraButtons?.map((btn, i) => renderButton(btn, `extra-${i}`, undefined, "order-2 sm:order-3"))}
+      {confirmButton && renderButton(confirmButton, "confirm", "Enter", "order-1 sm:order-4")}
     </div>
   );
 }

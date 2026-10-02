@@ -155,10 +155,10 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfilePr
       }
 
       // Update user data
+      // Email is the sign-in identity and isn't changed here.
       const updates = {
         contactPerson,
         storeName,
-        email,
         phone,
         storeAddress,
       };
@@ -187,86 +187,46 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfilePr
     }
   };
 
+  // Changes the real sign-in password: Firebase checks the current password
+  // (reauthentication) and then sets the new one. Nothing is stored in the
+  // profile document.
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isChangingPassword) return; // DOUBLE-SUBMIT GUARD
+    if (isChangingPassword) return; // double-submit guard
 
-    // Validate all password fields are filled
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      showAlert({
-        title: 'Validation Error',
-        message: 'Please fill in all password fields.',
-        icon: 'error'
-      });
-      return;
-    }
-
-    // Verify current password
-    if (currentPassword !== user.password) {
-      showAlert({
-        title: 'Incorrect Password',
-        message: 'The current password you entered is incorrect.',
-        icon: 'error'
-      });
-      return;
-    }
-
-    // Validate new password length
-    if (newPassword.length < 6) {
-      showAlert({
-        title: 'Weak Password',
-        message: 'New password must be at least 6 characters long.',
-        icon: 'error'
-      });
-      return;
-    }
-
-    // Check if new password matches confirmation
-    if (newPassword !== confirmPassword) {
-      showAlert({
-        title: 'Passwords Don\'t Match',
-        message: 'New password and confirmation password do not match.',
-        icon: 'error'
-      });
-      return;
-    }
-
-    // Check if new password is same as current
-    if (newPassword === currentPassword) {
-      showAlert({
-        title: 'Same Password',
-        message: 'New password must be different from your current password.',
-        icon: 'error'
-      });
-      return;
-    }
+    const fail = (title: string, message: string) => showAlert({ title, message, icon: 'error' });
+    if (!currentPassword || !newPassword || !confirmPassword) return fail('Validation Error', 'Please fill in all password fields.');
+    if (newPassword.length < 8) return fail('Weak Password', 'Your new password must be at least 8 characters long.');
+    if (newPassword !== confirmPassword) return fail("Passwords Don't Match", 'The new password and its confirmation are different.');
+    if (newPassword === currentPassword) return fail('Same Password', 'Choose a password different from your current one.');
 
     setIsChangingPassword(true);
     try {
-      await updateCustomer({ id: user.id, password: newPassword } as any);
+      const { auth } = await import('../../firebase/config');
+      const { EmailAuthProvider, reauthenticateWithCredential, updatePassword } = await import('firebase/auth');
+      const current = auth?.currentUser;
+      if (!current?.email) throw Object.assign(new Error('not-signed-in'), { code: 'auth/requires-recent-login' });
+      await reauthenticateWithCredential(current, EmailAuthProvider.credential(current.email, currentPassword));
+      await updatePassword(current, newPassword);
 
-      // Create updated user object for session
-      const updatedUser = {
-        ...user,
-        password: newPassword,
-      };
-
-      // Call parent update
-      onProfileUpdate(updatedUser);
-
-      // Clear password fields
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-
-      toast.success('Password changed successfully!', { duration: 3000 });
+      toast.success('Password changed', { description: 'Use your new password next time you sign in.', duration: 4000 });
     } catch (error) {
-      console.error('Failed to change password:', error);
-      showAlert({
-        title: 'Change Failed',
-        message: 'Failed to change password. Please try again.',
-        icon: 'error'
-      });
+      const code = (error as any)?.code ?? '';
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        fail('Incorrect Password', 'The current password you entered is incorrect.');
+      } else if (code === 'auth/weak-password') {
+        fail('Weak Password', 'Please choose a stronger password.');
+      } else if (code === 'auth/too-many-requests') {
+        fail('Too Many Attempts', 'Too many attempts. Please wait a few minutes and try again.');
+      } else if (code === 'auth/requires-recent-login') {
+        fail('Please Sign In Again', 'For security, sign out and back in, then change your password.');
+      } else {
+        console.error('Failed to change password:', error);
+        fail('Change Failed', 'Failed to change your password. Please try again.');
+      }
     } finally {
       setIsChangingPassword(false);
     }
@@ -356,10 +316,11 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfilePr
                   type="email"
                   placeholder="your@email.com"
                   value={email}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                  required
-                  className="bg-white border-neutral-300 text-neutral-900 placeholder:text-neutral-500 focus:border-[#D4A574] h-11 rounded-lg"
+                  readOnly
+                  aria-readonly="true"
+                  className="bg-neutral-100 border-neutral-300 text-neutral-600 h-11 rounded-lg cursor-not-allowed"
                 />
+                <p className="text-xs text-neutral-500">This is your sign-in email. To change it, contact the bakery.</p>
               </div>
 
               {/* Phone */}
@@ -482,7 +443,7 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfilePr
                   {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <p className="text-xs text-neutral-600 mt-1">Minimum 6 characters</p>
+              <p className="text-xs text-neutral-600 mt-1">At least 8 characters</p>
             </div>
 
             {/* Confirm Password */}

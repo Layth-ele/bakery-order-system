@@ -34,14 +34,11 @@ import { usePaginatedOrders } from "../../hooks/usePaginatedOrders";
 import { Pagination } from "../../components/ui/pagination";
 import type { User } from "../../services/firebase/authService"; // ✅ Import User type from authService
 import { withAdminGuard } from "../../guards/adminGuards";
-import { generateCustomerId } from '../../services/idCounterService';
-import { updateCustomer } from '../../services/customersService';
-import { logger } from '../../utils/logger';
+import { CopyButton } from '../../components/shared/CopyButton';
 import { AdminPageLayout } from "../../components/admin/AdminPageLayout"; // ✅ PHASE 2: New layout
 import { StatCard } from "../../components/shared/StatCard"; // ✅ PHASE 2: Shared component
 
 import { SearchBar } from "../../components/ui/SearchBar";
-import { ToastNotification } from "../../components/ToastNotification"; // ✅ Import ToastNotification
 
 // ✅ PHASE 2: Import helper functions (assuming they exist)
 import {
@@ -73,7 +70,7 @@ function CustomersListComponent({
     "all" | "commercial" | "individual" | "admin"
   >("all");
   const [filterStatus, setFilterStatus] = useState<
-    "all" | "approved" | "suspended" | "active"
+    "all" | "suspended" | "active" | "archived"
   >("all");
 
   // ============================================================================
@@ -94,9 +91,6 @@ function CustomersListComponent({
 
   const {
     copiedAddress,
-    notification,
-    notificationType,
-    clearNotification,
     handleToggleSuspend,
     handleEditCustomer,
     handleDeleteCustomer,
@@ -129,109 +123,12 @@ function CustomersListComponent({
     }
   }, [currentPage]);
 
-  // Auto-backfill customerCode for any customer that doesn't have one yet.
-  // Bulletproof: retries on failure, staggered writes, never duplicates.
-  const backfilledRef = useRef<Set<string>>(new Set());
-
-  // FIX: cap total generation attempts per customer *per browser tab session*
-  // (not just per-mount). Without this, a customer whose write never sticks
-  // (e.g. Firestore write silently rolled back) burns a fresh sequential
-  // CUST-##### id every time this page remounts — an audit-compliance risk
-  // for a system that requires gapless sequential ids.
-  const MAX_BACKFILL_ATTEMPTS = 3;
-  const ATTEMPTS_KEY = 'bakery_customerCode_backfill_attempts';
-  const readAttempts = (): Record<string, number> => {
-    try { return JSON.parse(sessionStorage.getItem(ATTEMPTS_KEY) || '{}'); } catch { return {}; }
-  };
-  const bumpAttempts = (customerId: string): number => {
-    const attempts = readAttempts();
-    attempts[customerId] = (attempts[customerId] || 0) + 1;
-    try { sessionStorage.setItem(ATTEMPTS_KEY, JSON.stringify(attempts)); } catch { /* ignore quota errors */ }
-    return attempts[customerId];
-  };
-
-  useEffect(() => {
-    if (!allCustomers || allCustomers.length === 0) return;
-    const attempts = readAttempts();
-    const missing = (allCustomers as any[]).filter(
-      (c) => !c.customerCode && c.id && c.customerType !== 'admin'
-        && !backfilledRef.current.has(c.id)
-        && (attempts[c.id] || 0) < MAX_BACKFILL_ATTEMPTS
-    );
-    if (missing.length === 0) return;
-
-    // Mark in-progress so re-renders don't double-fire
-    missing.forEach((customer) => backfilledRef.current.add(customer.id));
-
-    // Stagger writes: 500ms apart to avoid Firestore rate limits
-    missing.forEach((customer, idx) => {
-      setTimeout(async () => {
-        bumpAttempts(customer.id);
-        let code = '';
-        // Try up to 3 times
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            code = await generateCustomerId();
-            break;
-          } catch (genError) {
-            if (attempt === 3) {
-              logger.error(`\u274c [CustomersList] generateCustomerId failed 3x for ${customer.id}, using local fallback:`, genError);
-              // Final fallback: date + crypto-secure 3-digit suffix.
-              // FIX T2R3-H3 (HIGH): was Math.random()-based which is
-              // reverse-engineerable in V8 and prone to collisions when
-              // two backfill cycles run concurrently. Now uses
-              // crypto.getRandomValues with rejection sampling.
-              const d = new Date().toISOString().slice(0, 10);
-              const buf = new Uint32Array(1);
-              const range = 900;             // 100..999 (3-digit suffix)
-              const limit = Math.floor(0xFFFFFFFF / range) * range;
-              let n: number;
-              do {
-                crypto.getRandomValues(buf);
-                n = buf[0];
-              } while (n >= limit);
-              const rand = (n % range) + 100;
-              code = `CUST-${d}-${rand}`;
-            }
-            await new Promise(r => setTimeout(r, 500 * attempt));
-          }
-        }
-        try {
-          const updated = await updateCustomer({ id: customer.id, customerCode: code } as any);
-          // NOTE: updateCustomer() re-reads the doc right after writing it.
-          // With Firestore persistence enabled that read can occasionally
-          // return a stale cached snapshot, so a one-off mismatch here isn't
-          // proof the write failed — just log it, don't burn another id by
-          // retrying immediately. The session attempt cap above is what
-          // actually prevents runaway id generation if the write is truly
-          // never landing.
-          if ((updated as any)?.customerCode !== code) {
-            logger.warn(`\u26a0\ufe0f [CustomersList] customerCode not visible immediately after write for ${customer.id} (wrote "${code}"); will not retry until next tab session`);
-          }
-        } catch (updateError) {
-          logger.error(`\u274c [CustomersList] Failed to save customerCode for ${customer.id}:`, updateError);
-          // Remove so it can retry (still bounded by MAX_BACKFILL_ATTEMPTS above)
-          backfilledRef.current.delete(customer.id);
-        }
-      }, idx * 600);
-    });
-  }, [allCustomers]);
-
   // ============================================================================
   // PRESENTATION LAYER
   // ============================================================================
 
   return (
     <>
-      {/* ✅ Toast Notification */}
-      {notification && (
-        <ToastNotification
-          message={notification}
-          type={notificationType}
-          onClose={clearNotification}
-        />
-      )}
-
       <AdminPageLayout
         icon={Users}
         title="Customer Management"
@@ -314,10 +211,24 @@ function CustomersListComponent({
                         ? "Suspended Accounts"
                         : filterStatus === "active"
                           ? "Active Accounts"
-                          : "All Accounts"}{" "}
+                          : filterStatus === "archived"
+                            ? "Archived Accounts"
+                            : "All Accounts"}{" "}
                 ({processedCustomers.length})
               </h2>
             </div>
+            {stats.archived > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterType("all");
+                  setFilterStatus(filterStatus === "archived" ? "all" : "archived");
+                }}
+                className="text-xs font-semibold text-[#8B6F47] underline underline-offset-2 hover:text-[#5d4a2f]"
+              >
+                {filterStatus === "archived" ? "Back to all accounts" : `Archived accounts (${stats.archived})`}
+              </button>
+            )}
           </div>
 
           {customersLoading ? (
@@ -390,15 +301,11 @@ function CustomersListComponent({
                             {customer.storeName}
                           </h3>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                            {(customer as any).customerCode ? (
-                              <span className="inline-flex items-center gap-1 bg-[#f5f0e8] border border-[#D4A574]/30 rounded-md px-2 py-0.5">
-                                <span className="text-[9px] font-bold text-[#D4A574] uppercase tracking-wide">ID</span>
-                                <span className="font-mono text-xs text-[#8B6F47] font-bold">{(customer as any).customerCode}</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5">
-                                <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wide">ID</span>
-                                <span className="text-[10px] text-amber-500 italic">Generating…</span>
+                            {(customer as any).customerCode && (
+                              <span className="inline-flex max-w-full items-center gap-1 bg-[#f5f0e8] border border-[#D4A574]/30 rounded-md pl-2 pr-0.5">
+                                <span className="text-[11px] font-bold text-[#D4A574] uppercase tracking-wide">ID</span>
+                                <span className="truncate whitespace-nowrap font-mono text-xs text-[#8B6F47] font-bold">{(customer as any).customerCode}</span>
+                                <CopyButton text={(customer as any).customerCode} label="Customer ID" className="h-7 w-7 text-[#8B6F47] hover:bg-[#D4A574]/20" />
                               </span>
                             )}
                           </div>
@@ -427,7 +334,7 @@ function CustomersListComponent({
                         </span>
                         {isSuspended && (
                           <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 text-xs font-semibold">
-                            🔒 SUSPENDED
+                            {isArchived ? '📦 ARCHIVED' : '🔒 SUSPENDED'}
                           </span>
                         )}
                       </div>
@@ -572,62 +479,59 @@ function CustomersListComponent({
                       </div>
                     )}
 
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() =>
-                          openModal("CUSTOMER_PROFILE", {
-                            customerEmail: customer.email || "",
-                            onClose: () => {},
-                            isAdmin: true,
-                            openModal: openModal as any,
-                          }, "lg")
-                        }
-                        className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 px-2.5 py-2 bg-gradient-to-r from-[#8B6F47] to-[#D4A574] text-white rounded-lg hover:from-[#7A5F3C] hover:to-[#C89968] transition-all text-xs font-medium shadow-sm"
-                      >
-                        <Eye className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>View</span>
-                      </button>
-                      <button
-                        onClick={() => handleEditCustomer(customer)}
-                        className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 px-2.5 py-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-800 transition-all text-xs font-medium shadow-sm"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        onClick={() => handleToggleSuspend(customer)}
-                        className={`flex-1 min-w-[70px] flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg transition-colors text-xs font-medium ${
-                          isSuspended
-                            ? "bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm"
-                            : "bg-amber-500 text-white hover:bg-amber-600 shadow-sm"
-                        }`}
-                      >
-                        {isSuspended ? (
-                          <><Unlock className="w-3.5 h-3.5 flex-shrink-0" /><span>Activate</span></>
-                        ) : (
-                          <><LockIcon className="w-3.5 h-3.5 flex-shrink-0" /><span>Suspend</span></>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleResetPassword(customer)}
-                        disabled={customer.customerType === "admin"}
-                        title={customer.customerType === "admin" ? "Cannot reset admin password here" : "Send password reset email"}
-                        className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 px-2.5 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-all text-xs font-medium shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <Key className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>Reset PW</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCustomer(customer)}
-                        disabled={customer.customerType === "admin"}
-                        title={customer.customerType === "admin" ? "Cannot delete admin account" : "Delete customer"}
-                        className="flex-1 min-w-[70px] flex items-center justify-center gap-1.5 px-2.5 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-all text-xs font-medium shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>Delete</span>
-                      </button>
-                    </div>
+                    {/* Action Buttons — archived accounts can only be viewed or deleted for good */}
+                    {(() => {
+                      const isSelf = customer.id === user.id;
+                      const btn = "flex-1 min-w-[90px] min-h-[40px] flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg transition-all text-xs font-semibold shadow-sm disabled:opacity-40 disabled:cursor-not-allowed";
+                      return (
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                          <button
+                            onClick={() => openModal("CUSTOMER_PROFILE", {
+                              customerEmail: customer.email || "",
+                              onClose: () => {},
+                              isAdmin: true,
+                              openModal: openModal as any,
+                            }, "lg")}
+                            className={`${btn} bg-gradient-to-r from-[#8B6F47] to-[#D4A574] text-white hover:from-[#7A5F3C] hover:to-[#C89968]`}
+                          >
+                            <Eye className="w-3.5 h-3.5 flex-shrink-0" /><span>View</span>
+                          </button>
+                          {!isArchived && (
+                            <>
+                              <button onClick={() => handleEditCustomer(customer)} className={`${btn} bg-neutral-700 text-white hover:bg-neutral-800`}>
+                                <Edit2 className="w-3.5 h-3.5 flex-shrink-0" /><span>Edit</span>
+                              </button>
+                              <button
+                                onClick={() => handleToggleSuspend(customer)}
+                                disabled={isSelf}
+                                title={isSelf ? "You can't suspend your own account" : undefined}
+                                className={`${btn} ${isSuspended ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-amber-500 text-white hover:bg-amber-600"}`}
+                              >
+                                {isSuspended
+                                  ? <><Unlock className="w-3.5 h-3.5 flex-shrink-0" /><span>Reactivate</span></>
+                                  : <><LockIcon className="w-3.5 h-3.5 flex-shrink-0" /><span>Suspend</span></>}
+                              </button>
+                              <button
+                                onClick={() => handleResetPassword(customer)}
+                                disabled={isSuspended}
+                                title={isSuspended ? "Reactivate the account first" : "Email a password reset link"}
+                                className={`${btn} bg-sky-700 text-white hover:bg-sky-800`}
+                              >
+                                <Key className="w-3.5 h-3.5 flex-shrink-0" /><span>Reset Password</span>
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleDeleteCustomer(customer)}
+                            disabled={isSelf}
+                            title={isSelf ? "You can't delete your own account" : "Archive or delete this account"}
+                            className={`${btn} bg-rose-600 text-white hover:bg-rose-700 ${isArchived ? "" : "col-span-2 sm:col-span-1"}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /><span>Delete</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}

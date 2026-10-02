@@ -81,18 +81,18 @@ export function PaidOrderDetailsModal({
       footer={
         <ModalFooterButtons
           leftAction={onDownloadExcel ? {
-            label: "Excel",
+            label: "Download Excel",
             onClick: () => onDownloadExcel(order),
             variant: "ghost",
             icon: <Download className="w-4 h-4" />,
           } : undefined}
-          cancelButton={onDownloadPDF ? {
+          confirmButton={onDownloadPDF ? {
             label: "Download PDF",
             onClick: () => onDownloadPDF(order),
-            variant: "ghost",
+            variant: "primary",
             icon: <Download className="w-4 h-4" />,
           } : undefined}
-          confirmButton={{ label: "Close", onClick: onClose, variant: "primary" }}
+          cancelButton={{ label: "Close", onClick: onClose, variant: onDownloadPDF ? "secondary" : "primary", keyboardShortcut: "Escape" }}
         />
       }
     >

@@ -17,7 +17,7 @@
 
 import { useCallback } from 'react';
 import type { Settings } from '../../types/domain';
-import { isFirebaseConfigured } from '../../firebase/config';
+
 import { getSettingsDataService } from '../../services/data/settingsDataService';
 import { useCacheInvalidation } from '../useCacheInvalidation';
 

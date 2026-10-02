@@ -265,11 +265,12 @@ export type PasswordResetInput = z.infer<typeof passwordResetInputSchema>;
  */
 export const customerStatsSchema = z.object({
   total: z.number().int().nonnegative(),
-  active: z.number().int().nonnegative(),  // ✅ Added: active = total - suspended
+  active: z.number().int().nonnegative(),  // approved, non-admin customers
   approved: z.number().int().nonnegative(),
   pending: z.number().int().nonnegative(),
   rejected: z.number().int().nonnegative(),
   suspended: z.number().int().nonnegative(),
+  archived: z.number().int().nonnegative(),
   commercial: z.number().int().nonnegative(),
   individual: z.number().int().nonnegative(),
   admin: z.number().int().nonnegative(),
