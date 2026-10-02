@@ -36,10 +36,10 @@ import {
   rejectOrderAction,
   getAdminInfo 
 } from '../../services/orderActionService';
-import { updateOrder } from '../../services/data/ordersDataService';
+import { saveOrderEdit, type AdminOrderChanges } from '../../services/orders/orderEdits';
+import { callableErrorMessage } from '../../services/firebase/cloudFunctions';
 import { invalidateCache } from '../useCachedFirebase';
 import { useInvalidateOrders } from '../useOptimizedQueries'; // Auto cache invalidation
-import { getServerTimestamp } from '../../utils/timestamps';
 import { debug } from '../../utils/debug';
 import { canApproveOrder, canRejectOrder } from '../../utils/orderSelectors';
 import type {Order, User} from '../../types'
@@ -50,17 +50,6 @@ interface ApproveOrderData {
 
 interface RejectOrderData {
   reason: string;
-}
-
-interface EditOrderData {
-  updatedItems: any[];
-  updatedTotal: number;
-  editedItems?: any[];
-  deliveryFee?: number;
-  discount?: number;
-  discountNote?: string;
-  discountType?: string;
-  [key: string]: unknown; // allow additional fields
 }
 
 interface UsePendingOrderActionsReturn {
@@ -77,7 +66,7 @@ interface UsePendingOrderActionsReturn {
   /**
    * Edit a pending order
    */
-  editOrder: (order: Order, data: EditOrderData) => Promise<void>;
+  editOrder: (order: Order, changes: AdminOrderChanges) => Promise<void>;
   
   /**
    * Notification message (for success toasts)
@@ -207,60 +196,27 @@ export function usePendingOrderActions(user: User): UsePendingOrderActionsReturn
   }, [user, invalidateOrders]);
   
   /**
-   * Edit a pending order
+   * Edit a pending order — the editOrder Cloud Function reprices and saves it.
    */
   const editOrder = useCallback(async (
     order: Order,
-    data: EditOrderData
+    changes: AdminOrderChanges
   ): Promise<void> => {
     try {
       debug.log('📝 [usePendingOrderActions] Editing order:', order.id);
-      
- // Support both old format (updatedItems) and new format (editedItems)
-      const updates: any = {};
-      
-      // Handle items (support both field names)
-      if (data.editedItems || data.updatedItems) {
-        updates.items = data.editedItems || data.updatedItems;
-      }
-      
-      // Handle total (if provided)
-      if (data.updatedTotal !== undefined) {
-        updates.total = data.updatedTotal;
-      }
-      
-      // Handle delivery fee (if provided by admin)
-      if (data.deliveryFee !== undefined) {
-        updates.deliveryFee = data.deliveryFee;
-      }
-      
-      // Handle discount fields (if provided by admin)
-      if (data.discount !== undefined) {
-        updates.discount = data.discount;
-      }
-      if (data.discountNote !== undefined) {
-        updates.discountNote = data.discountNote;
-      }
-      if (data.discountType !== undefined) {
-        updates.discountType = data.discountType;
-      }
-      
-      // Add timestamp
-      updates.updatedAt = getServerTimestamp();
-      
-      
-      await updateOrder(order.id, updates);
-      
- // Auto invalidate caches
+      const result = await saveOrderEdit(order, changes);
+
       await invalidateCache.orders();
       invalidateOrders(order.customerId);
-      
-      setNotification('Order updated successfully');
+
+      setNotification(`Order updated — new total $${result.total.toFixed(2)}`);
       setTimeout(() => setNotification(''), 3000);
-      debug.log('✅ [usePendingOrderActions] Order edited successfully');
+      if (result.creditReturned > 0) {
+        toast.info(`$${result.creditReturned.toFixed(2)} store credit returned to the customer.`);
+      }
     } catch (error) {
       debug.error('❌ [usePendingOrderActions] Failed to edit order:', error);
-      toast.error((error as any).message || 'Failed to edit order');
+      toast.error(callableErrorMessage(error, 'save the order changes'));
       throw error;
     }
   }, [invalidateOrders]);

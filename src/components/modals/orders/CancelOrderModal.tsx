@@ -130,16 +130,7 @@ export function CancelOrderModal({
   // Calculate refund for selected days
   const refundCalculation = useMemo(() => {
     if (selectedDays.size === 0) {
-      return {
-        subtotalRefund: 0,
-        gstRefund: 0,
-        deliveryFeeRefund: 0,
-        serviceChargeRefund: 0,
-        cancellationFee: 0,
-        totalRefund: 0,
-        totalCredit: 0,
-        percentageCancelled: 0,
-      };
+      return calculateRefundAmount(order, new Set(), 0);
     }
     return calculateRefundAmount(order, selectedDays, typeof cancellationFeePercentage === "number" ? cancellationFeePercentage : 0);
   }, [order, selectedDays, cancellationFeePercentage]);
@@ -175,8 +166,9 @@ export function CancelOrderModal({
     setIsSubmitting(true);
     try {
       const feePercent = typeof cancellationFeePercentage === 'number' ? cancellationFeePercentage : 0;
+      // The server computes the credit with the same rules as this preview.
       onConfirm && (await onConfirm(finalReason, Array.from(selectedDays), {
-        cancellationFeePercentage: feePercent,
+        cancellationFeePercentage: refundCalculation.paid ? feePercent : 0,
         creditAmount: refundCalculation.totalCredit,
       }));
     } finally {
@@ -443,12 +435,14 @@ export function CancelOrderModal({
                       <span className="text-red-800">Items to Cancel:</span>
                       <span className="font-bold text-red-900">{selectedDayItemCount} items</span>
                     </div>
+                    {refundCalculation.paid ? (
+                      <>
                     <div className="flex justify-between">
                       <span className="text-red-800">Subtotal Refund:</span>
                       <span className="font-bold text-red-900">${refundCalculation.subtotalRefund.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-red-800">GST Refund (5%):</span>
+                      <span className="text-red-800">GST Refund:</span>
                       <span className="font-bold text-red-900">${refundCalculation.gstRefund.toFixed(2)}</span>
                     </div>
                     {refundCalculation.deliveryFeeRefund > 0 && (
@@ -467,8 +461,17 @@ export function CancelOrderModal({
                         <span className="font-bold text-red-900">-${refundCalculation.cancellationFee.toFixed(2)}</span>
                       </div>
                     )}
+                      </>
+                    ) : (
+                      <div className="rounded-lg bg-white/60 p-2 text-red-800">
+                        Not paid yet — no refund and no cancellation fee.
+                        {!refundCalculation.full && (
+                          <> New amount due: <strong>${refundCalculation.newAmountDue.toFixed(2)}</strong>.</>
+                        )}
+                      </div>
+                    )}
                     <div className="flex justify-between pt-2 border-t-2 border-red-300">
-                      <span className="text-red-900 font-bold">CREDIT TO CUSTOMER:</span>
+                      <span className="text-red-900 font-bold">{refundCalculation.paid ? 'CREDIT TO CUSTOMER:' : 'STORE CREDIT RETURNED:'}</span>
                       <span className="font-bold text-lg text-red-900">${refundCalculation.totalCredit.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-[10px]">
@@ -480,14 +483,16 @@ export function CancelOrderModal({
                   {/* Credit Notice */}
                   <div className="mt-4 p-3 bg-gradient-to-r from-[#8B6F47]/10 to-[#D4A574]/10 rounded-lg border border-[#D4A574]">
                     <p className="text-xs font-bold text-[#8B6F47]">
-                      💳 This amount will be added as credit to the customer's account and can be used for future orders.
+                      💳 {refundCalculation.totalCredit > 0
+                        ? "This amount will be added as credit to the customer's account and can be used for future orders."
+                        : 'No store credit will be issued.'}
                     </p>
                   </div>
 
                   {isFullCancellation && (
                     <div className="mt-4 p-3 bg-red-200 rounded-lg border border-red-400">
                       <p className="text-xs font-bold text-red-900">
-                        ⚠️ This will cancel the ENTIRE ORDER and issue credit to the customer.
+                        ⚠️ This will cancel the ENTIRE ORDER{refundCalculation.totalCredit > 0 ? ' and issue credit to the customer' : ''}.
                       </p>
                     </div>
                   )}
@@ -649,6 +654,8 @@ export function CancelOrderModal({
                         <span className="text-[#666666]">Items to Cancel:</span>
                         <span className="font-bold text-[#333333]">{selectedDayItemCount} items</span>
                       </div>
+                      {refundCalculation.paid ? (
+                        <>
                       <div className="flex justify-between">
                         <span className="text-[#666666]">Subtotal:</span>
                         <span className="font-bold text-[#333333]">${refundCalculation.subtotalRefund.toFixed(2)}</span>
@@ -676,9 +683,18 @@ export function CancelOrderModal({
                           </div>
                         </>
                       )}
+                        </>
+                      ) : (
+                        <div className="text-[#666666]">
+                          Not paid yet — no refund and no cancellation fee.
+                          {!refundCalculation.full && (
+                            <> New amount due: <strong>${refundCalculation.newAmountDue.toFixed(2)}</strong>.</>
+                          )}
+                        </div>
+                      )}
                       <div className="border-t-2 border-[#D4A574] pt-3 mt-3"></div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[#8B6F47] font-bold text-base">CREDIT TO CUSTOMER:</span>
+                        <span className="text-[#8B6F47] font-bold text-base">{refundCalculation.paid ? 'CREDIT TO CUSTOMER:' : 'STORE CREDIT RETURNED:'}</span>
                         <span className="font-bold text-base text-[#8B6F47]">${refundCalculation.totalCredit.toFixed(2)}</span>
                       </div>
                     </div>

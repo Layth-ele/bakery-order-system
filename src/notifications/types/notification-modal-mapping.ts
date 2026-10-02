@@ -27,7 +27,9 @@ export const NOTIFICATION_MODAL_MAP: Readonly<Record<NotificationType, Notificat
   // customer already submitted payment (decided in notificationActions).
   PAYMENT_REMINDER: { modalType: 'PAYMENT_IN_REVIEW', description: 'Pay, or see the submitted payment' },
   CREDIT_ISSUED: { modalType: 'CREDIT_RECEIVED', description: 'Store credit received' },
-  ORDER_EDITED: { modalType: 'PAID_ORDER_DETAILS', description: 'Edited paid order and credit issued' },
+  // Paid order reduced → order details; unpaid order updated → pay the new
+  // amount (decided in notificationTarget from the order's status).
+  ORDER_EDITED: { modalType: 'PAID_ORDER_DETAILS', description: 'Changed order (and any credit issued)' },
 
   // ── Admin ─────────────────────────────────────────────────────────────────
   ORDER_PLACED_TRACKING: { modalType: 'ADMIN_ORDER_VIEW', description: 'Review the new order' },
@@ -37,6 +39,10 @@ export const NOTIFICATION_MODAL_MAP: Readonly<Record<NotificationType, Notificat
     modalType: 'NOTIFICATION_DETAILS',
     route: '/admin/registrations',
     description: 'Review the registration request',
+  },
+  CREDIT_PAYOUT_REQUESTED: {
+    modalType: 'NOTIFICATION_DETAILS',
+    description: 'Customer asked for store credit to be paid out',
   },
 };
 

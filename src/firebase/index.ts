@@ -55,9 +55,6 @@ export {
   subscribeToProducts,
   
   // Order operations
-  createOrder,
-  updateOrder,
-  deleteOrder,
   getOrder,
   getOrders,
   getOrdersByCustomer,
@@ -72,8 +69,6 @@ export {
   
   // Credit note operations
   getCreditNotes,
-  createCreditNote,
-  updateCreditNote,
   subscribeToCreditNotes,
 } from './firestore';
 

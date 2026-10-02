@@ -18,7 +18,7 @@ import {getCustomers, createCustomer, createUserProfile, getCustomerForAuth} fro
 import { serverTimestamp } from 'firebase/firestore';
 // ✅ FIX H5 (Pass 1): createAdminNotification import removed — registration
 // notification creation moved to createCustomerWithCode Cloud Function.
-import { generateCustomerId } from '../idCounterService';
+import { createCustomerViaCloudFunction, callableErrorMessage } from './cloudFunctions';
 import type { Customer } from '../../types';
 
 /**
@@ -277,68 +277,34 @@ export async function register(data: RegisterData, contactEmail: string = 'order
 
         const credential = await createUserWithEmailAndPassword(auth, normalisedEmail, data.password);
         
-        // Create user profile in Firestore
-        //
-        // FIX T2R8-H3 (HIGH — defense-in-depth): Was passing `customerType: data.customerType`
-        // straight through from the registration form. The Firestore rule
-        // post-T2R7-C1 blocks `customerType: 'admin'` on customer self-create,
-        // so this attack is closed at the rule layer — but defense-in-depth
-        // says we should also reject it here. If a malicious user crafts a
-        // `RegisterData` payload with `customerType: 'admin'` (e.g., via dev
-        // tools / direct Firebase JS SDK call to this code path), we now
-        // coerce it to a safe non-admin value before the Firestore write.
-        // The form's only legitimate values are 'individual' and 'commercial'.
+        // Profile, customer code and the admin's "new registration"
+        // notification are created together by the createCustomerWithCode
+        // Cloud Function (status "pending", never admin).
         const safeCustomerType: 'individual' | 'commercial' =
           data.customerType === 'commercial' ? 'commercial' : 'individual';
-
-        await createUserProfile(credential.user.uid, {
-          email: normalisedEmail,
-          password: undefined, // Don't store password in Firestore
-          storeName: (data.storeName ?? ""),
-          contactPerson: (data.contactPerson ?? ""),
-          storeAddress: data.storeAddress,
-          phone: (data.phone ?? ""),
-          customerType: safeCustomerType,
-          status: 'pending',
-          registeredAt: getServerTimestamp() as any,
-        });
-
-        // Generate human-readable customer code — try up to 3 times, always fall back
-        let customerCode = '';
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            customerCode = await generateCustomerId();
-            break;
-          } catch {
-            if (attempt === 3) {
-              // Guaranteed fallback: date + timestamp suffix
-              const d = new Date().toISOString().slice(0, 10);
-              customerCode = `CUST-${d}-${String(Date.now()).slice(-4)}`;
-            }
-            await new Promise(r => setTimeout(r, 300 * attempt));
-          }
-        }
-        // Write customerCode directly to the already-created profile
         try {
-          const { doc: fsDoc, updateDoc } = await import('firebase/firestore');
-          const { db } = await import('../../firebase/config');
-          await updateDoc(fsDoc(db!, 'customers', credential.user.uid), { customerCode });
-        } catch { /* profile exists, backfill in CustomersList will retry */ }
+          await createCustomerViaCloudFunction({
+            uid: credential.user.uid,
+            email: normalisedEmail,
+            storeName: data.storeName ?? '',
+            contactPerson: data.contactPerson ?? '',
+            storeAddress: data.storeAddress ?? '',
+            phone: data.phone ?? '',
+            customerType: safeCustomerType,
+          });
+        } catch (profileError) {
+          // Don't leave a sign-in without a profile behind: remove it so the
+          // customer can simply register again.
+          await credential.user.delete().catch(() => undefined);
+          await signOut(auth).catch(() => undefined);
+          return {
+            success: false,
+            message: callableErrorMessage(profileError, 'complete your registration'),
+          };
+        }
 
-        // Sign out after profile is fully set up — they need admin approval
+        // Sign out after profile is set up — they need admin approval
         await signOut(auth);
-
-        // ✅ FIX H5 (Pass 1): Removed client-side createAdminNotification call.
-        // It always failed silently because:
-        //   1. signOut() above means caller is now unauthenticated
-        //   2. Even before signOut, customer status is 'pending' so the
-        //      notifications/admin/items rule (`isApproved() || isAnyAdmin()`)
-        //      denied the write
-        // Admin notification of new registrations should be created server-side
-        // by the createCustomerWithCode Cloud Function (see src/functions/src/customers.ts).
-        // Migrating registration to use that Cloud Function is Pass 2 work.
-        // Until then, admins discover new registrations via the Pending tab in
-        // CustomersList — which queries customers where status == 'pending'.
 
         return {
           success: true,

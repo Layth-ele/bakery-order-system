@@ -158,3 +158,16 @@ describe('buildCompletionSnapshot', () => {
     expect(buildCompletionSnapshot({}, 'o1', 'admin@bakery.test', 'o1').reason).toBe('Manually completed by admin@bakery.test');
   });
 });
+
+describe('buildFinalInvoice with store credit (credit counted once)', () => {
+  it('paid order with credit: cash paid = total − credit, balance 0, status paid', () => {
+    const inv = buildFinalInvoice(
+      { total: 120, subtotal: 100, gst: 5, creditApplied: 20, paymentReceived: true, year: 2026, week: 40 },
+      'o1',
+      'N',
+      new Date('2026-10-02T19:05:00Z')
+    );
+    expect(inv.snapshots.totals).toMatchObject({ baseTotal: 120, creditsApplied: 20, totalPaid: 100, balanceDue: 0 });
+    expect(inv.invoiceStatus).toBe('paid');
+  });
+});

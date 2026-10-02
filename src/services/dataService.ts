@@ -29,7 +29,6 @@ import * as customersService from './customersService';
 import type { Customer } from '../types/customer';
 
 import { invalidateCache } from '../hooks/useCachedFirebase';
-import { logOrderEvent } from './orders/orderAuditService'; // ✅ Audit logging for order creation
 
 // ✅ Data service imports
 import * as productsDataService from './data/productsDataService';
@@ -243,45 +242,7 @@ export const getActiveOrders = ordersDataService.getActiveOrders;
 export const getOrder = ordersDataService.getOrder;
 export const getOrdersByCustomer = ordersDataService.getOrdersByCustomer;
 
-// Note: createOrder needs special handling for audit logging
-//
-// FIX R4-S4-F27 (CRITICAL): Was returning a synthetic `id: order-${Date.now()}`
-// while addOrder() generated the real Firestore ID server-side and discarded it.
-// Callers receiving the fake id used it to:
-//   - link UI navigation (broken — opens "order not found")
-//   - record in audit logs (orphan: writes to non-existent doc)
-//   - emit notifications (notification.orderId pointed to nothing)
-// Now we capture the real ID returned by addOrder() and pass it forward.
-export const createOrder = async (order: Omit<Order, 'id'>): Promise<Order> => {
-  // Strip any synthetic id the caller may have provided
-  const orderForCreate: Omit<Order, 'id'> = {
-    ...(order as any),
-    createdAt: order.createdAt || new Date().toISOString(),
-    updatedAt: order.updatedAt || new Date().toISOString(),
-  };
-
-  // Add order through canonical service — returns the real Firestore-generated ID
-  const realId = await ordersDataService.addOrder(orderForCreate);
-
-  const persistedOrder: Order = {
-    ...(orderForCreate as any),
-    id: realId,
-  };
-
-  // ✅ AUDIT: Log order creation against the REAL document ID so the audit
-  // event lands in the correct subcollection (orders/{realId}/snapshots/*).
-  await logOrderEvent(
-    persistedOrder,
-    'create',
-    persistedOrder.customerId,
-    'Order submitted by customer'
-  );
-
-  return persistedOrder;
-};
-
-export const updateOrder = ordersDataService.updateOrder;
-export const deleteOrder = ordersDataService.deleteOrder;
+// Orders are written only by Cloud Functions (services/firebase/cloudFunctions.ts).
 
 // ============================================================================
 // SETTINGS OPERATIONS

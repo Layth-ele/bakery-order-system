@@ -616,10 +616,24 @@ async function resolveAdminOrderViewProps(
         // Open CANCEL_ORDER modal
         context.openModal('CANCEL_ORDER', {
           order,
-          onConfirm: async (cancellationReason: string) => {
-            // The modal will handle calling the cancellation service
+          onConfirm: async (cancellationReason: string, cancelledDays?: any[], data?: { cancellationFeePercentage?: number }) => {
+            const { cancelOrderAction, getAdminInfo } = await import('../services/orderActionService');
+            const { toast } = await import('sonner');
+            const result = await cancelOrderAction(
+              order,
+              getAdminInfo(context.user as any),
+              cancellationReason,
+              cancelledDays as any,
+              data?.cancellationFeePercentage
+            );
+            if (result.success) {
+              toast.success(result.data?.full === false ? 'Days cancelled' : 'Order cancelled', { description: result.message });
+              context.closeModal?.();
+            } else {
+              toast.error(result.message || 'Failed to cancel order');
+            }
           }
-        });
+        } as any);
       } else {
       }
     }),

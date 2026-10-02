@@ -151,14 +151,21 @@ export function buildFinalInvoice(order: Doc, orderId: string, invoiceNumber: st
   const decreases = adjustments.filter((a) => a.type === "decrease");
 
   const baseTotal = money(order.total);
+  const creditsApplied = money(order.creditApplied ?? order.appliedCredit ?? 0);
   const adjPaidConfirmed = money(increases.filter((a) => a.paidStatus === "confirmed").reduce((s, a) => s + a.paidAmount, 0));
   const adjUnpaid = money(increases.filter((a) => a.paidStatus !== "confirmed").reduce((s, a) => s + a.paidAmount, 0));
-  const creditsIssued = money(decreases.reduce((s, a) => s + Math.abs(a.deltaTotal), 0));
-  const creditsApplied = money(order.creditApplied ?? order.appliedCredit ?? 0);
+  // Reductions after payment (paid-order edits, partial cancellations) were
+  // returned as store credit; the order's total already excludes them.
+  const editCredits = money(order.creditIssued ?? 0);
+  const creditsIssued = money(decreases.reduce((s, a) => s + Math.abs(a.deltaTotal), 0) + editCredits);
 
   const finalTotal = baseTotal;
-  const totalPaid = money((order.paymentReceived === true ? baseTotal : 0) + adjPaidConfirmed);
-  const balanceDue = money(Math.max(0, finalTotal - totalPaid - creditsApplied));
+  // A paid order's cash payment is its amount due (total minus store credit,
+  // plus anything later returned as credit); credit is counted once, as
+  // creditsApplied.
+  const basePaid = order.paymentReceived === true ? Math.max(0, baseTotal + editCredits - creditsApplied) : 0;
+  const totalPaid = money(basePaid + adjPaidConfirmed);
+  const balanceDue = money(Math.max(0, finalTotal + editCredits - totalPaid - creditsApplied));
   const invoiceStatus = balanceDue <= 0 ? "paid" : totalPaid > 0 || creditsApplied > 0 ? "partial" : "unpaid";
 
   const year = num(order.year) || now.getUTCFullYear();

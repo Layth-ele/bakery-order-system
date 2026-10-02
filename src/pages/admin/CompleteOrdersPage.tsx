@@ -31,7 +31,6 @@ import { useCachedCategories } from '../../hooks/useCachedCategories';
 import { invalidateCache } from '../../hooks/useCachedFirebase';
 import { useCompleteOrdersData } from '../../hooks/orders/useCompleteOrdersData';
 import { CompleteOrdersView } from '../../components/order/CompleteOrdersView';
-import { backfillDeliveryDate } from '../../services/migrations/backfillDeliveryDate';
 import type { User } from '../../services/firebase/authService';
 import type { Order } from '../../types';
 import type { ActionButtonSection } from '../../components/order/UnifiedOrderList';
@@ -101,40 +100,6 @@ export function CompleteOrdersPage({
   
   // ✅ Modal management
   const { openModal } = useModal();
-  
-  // ============================================================================
-  // MIGRATIONS
-  // ============================================================================
-  
- // One-time migration to backfill deliveryDate for completed orders
-  const migrationCompleted = useRef(false);
-  
-  useEffect(() => {
-    if (migrationCompleted.current || !isActive || ordersLoading || filteredOrders.length === 0) {
-      return;
-    }
-    
-    (async () => {
-      try {
-        // Only backfill for completed orders missing deliveryDate
-        const completedOrders = filteredOrders.filter(
-          (order) => order.status === 'completed' && !order.deliveryDate
-        );
-        
-        if (completedOrders.length > 0) {
-          await backfillDeliveryDate(filteredOrders.filter(o => o.status === 'completed'));
-          
-          // Invalidate cache to reload with updated data
-          await invalidateCache.orders();
-        }
-        
-        migrationCompleted.current = true;
-      } catch (error) {
-        console.error('❌ [CompleteOrdersPage] Migration failed:', error);
-        migrationCompleted.current = true; // Don't retry on every render
-      }
-    })();
-  }, [isActive, ordersLoading, filteredOrders]);
   
   // ============================================================================
   // HANDLERS (Orchestration)

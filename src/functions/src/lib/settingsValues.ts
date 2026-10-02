@@ -10,6 +10,8 @@ type Doc = Record<string, unknown> | null | undefined;
 
 export const DEFAULT_TAX_RATE = 0.05;
 export const DEFAULT_FREE_DELIVERY_MIN = 250;
+export const DEFAULT_DELIVERY_FEE = 10;
+export const DEFAULT_SERVICE_CHARGE = 3.99;
 
 const rate = (v: unknown): number | undefined =>
   typeof v === "number" && Number.isFinite(v) && v >= 0 && v < 1 ? v : undefined;
@@ -34,4 +36,16 @@ export function resolveTaxRate(general: Doc, legacy?: Doc): number {
 /** Order subtotal that qualifies for free delivery: freeDeliveryMin → freeDeliveryThreshold → $250. */
 export function resolveFreeDeliveryMin(general: Doc, legacy?: Doc): number {
   return first([general, legacy], ["freeDeliveryMin", "freeDeliveryThreshold"], amount) ?? DEFAULT_FREE_DELIVERY_MIN;
+}
+
+/** Standard delivery fee charged below the free-delivery minimum (default $10). */
+export function resolveDeliveryFee(general: Doc, legacy?: Doc): number {
+  return first([general, legacy], ["deliveryFee"], amount) ?? DEFAULT_DELIVERY_FEE;
+}
+
+/** Service charge per order: 0 when disabled; on by default at $3.99. */
+export function resolveServiceCharge(general: Doc, legacy?: Doc): number {
+  const enabled = [general, legacy].map((d) => d?.serviceChargeEnabled).find((v) => typeof v === "boolean");
+  if (enabled === false) return 0;
+  return first([general, legacy], ["serviceChargeAmount"], amount) ?? DEFAULT_SERVICE_CHARGE;
 }

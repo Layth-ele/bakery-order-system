@@ -195,33 +195,32 @@ export async function rejectOrderAction(
 }
 
 /**
- * Cancel an order (any non-terminal status) — cancelOrder Cloud Function only.
- *
- * Atomic on the server: status flip + optional store-credit note + voided
- * invoice record + audit. Supports partial-day cancellations
- * (`cancelledDays`) with a fee percentage and credit amount.
+ * Cancel an order, or some of its delivery days — cancelOrder Cloud Function
+ * only. The server computes the store credit (same rules as the cancel
+ * screen's preview) and commits it atomically with the change.
  */
 export async function cancelOrderAction(
   order: Order,
   _admin: AdminInfo,
   reason: string,
   cancelledDays?: Array<'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'>,
-  cancellationFeePercentage?: number,
-  creditAmount?: number
+  cancellationFeePercentage?: number
 ): Promise<OrderActionResult> {
   try {
-    await cancelOrderViaCloudFunction({
+    const r = await cancelOrderViaCloudFunction({
       orderId: order.id,
       reason,
       cancelledDays: cancelledDays as string[] | undefined,
       cancellationFeePercentage,
-      creditAmount,
     });
     await invalidateCache.orders();
+    const credit = r.credit > 0 ? ` $${r.credit.toFixed(2)} store credit issued.` : '';
     return {
       success: true,
-      message: `Order ${displayOrderNumber(order)} has been cancelled.`,
-      data: { orderId: order.id || '', reason, creditNoteIssued: true },
+      message: r.full
+        ? `Order ${displayOrderNumber(order)} has been cancelled.${credit} The customer has been notified.`
+        : `Selected days removed from order ${displayOrderNumber(order)}.${credit} The customer has been notified.`,
+      data: r,
     };
   } catch (error) {
     const message = callableErrorMessage(error, 'cancel this order');

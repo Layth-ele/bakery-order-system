@@ -46,7 +46,7 @@ vi.mock('firebase/storage', () => ({
 
 // PASS 10 FIX: services/firebase/cloudFunctions.ts calls `getFunctions(app)`
 // at module load time. Several smoke tests transitively import it (via
-// ordersService → orderWorkflowService → ...). Without this mock the import
+// ordersService → ...). Without this mock the import
 // chain throws on a stub `app` and the whole test file fails to load.
 vi.mock('firebase/functions', () => ({
   getFunctions: vi.fn(() => ({})),

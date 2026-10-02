@@ -243,55 +243,6 @@ export function useInvalidateCustomers() {
 // ============================================
 
 /**
- * Create order mutation with automatic cache invalidation
- * 
- * @example
- * ```typescript
- * const createOrderMutation = useCreateOrder();
- * 
- * createOrderMutation.mutate(orderData, {
- *   onSuccess: () => {
- *     toast.success('Order created!');
- *   }
- * });
- * ```
- */
-export function useCreateOrder() {
-  const invalidateOrders = useInvalidateOrders();
-  
-  return useMutation<any, Error, any>({
-    mutationFn: async (orderData: any) => {
-      // Import dynamically to avoid circular dependency
-      const { addOrder } = await import('../services/data/ordersDataService');
-      return addOrder(orderData);
-    },
-    onSuccess: (data, variables) => {
-      // Invalidate caches
-      invalidateOrders(variables.customerId);
-    },
-  });
-}
-
-/**
- * Update order mutation with automatic cache invalidation
- */
-export function useUpdateOrder() {
-  const invalidateOrders = useInvalidateOrders();
-  
-  return useMutation<any, Error, { orderId: string; updates: any }>({
-    mutationFn: async ({ orderId, updates }: { orderId: string; updates: any }) => {
-      const { updateOrder } = await import('../services/data/ordersDataService');
-      return updateOrder(orderId, updates);
-    },
-    onSuccess: (data, variables) => {
-      // Invalidate caches
-      const customerId = (variables.updates as any)?.customerId;
-      invalidateOrders(customerId);
-    },
-  });
-}
-
-/**
  * Approve customer mutation with automatic cache invalidation
  */
 export function useApproveCustomer() {

@@ -72,65 +72,6 @@ export const getCreditNotes = async (customerId: string): Promise<CreditNote[]> 
 // WRITE OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Create credit note
- * ✅ INPUT VALIDATED: Input is validated before write
- * ✅ RETURNS: Document ID only (caller should fetch if needed)
- */
-export const createCreditNote = async (creditNote: Omit<CreditNote, 'id' | 'createdAt'>): Promise<string> => {
-  return wrapFirestoreOperation(async () => {
-    // ✅ SCHEMA PROTECTION: Validate input using base schema (no refinements)
-    const validatedInput = parseOrThrow(
-      baseCreditNoteSchema.omit({ id: true, createdAt: true }),
-      creditNote,
-      'CreateCreditNoteInput'
-    );
-    
-    const colRef = collection(db, 'creditNotes');
-    const docRef = await addDoc(colRef, {
-      ...validatedInput,
-      createdAt: serverTimestamp(),
-    });
-    
-    return docRef.id;
-  }, 'createCreditNote');
-};
-
-/**
- * Update credit note
- * ✅ INPUT VALIDATED: Partial update is validated
- */
-export const updateCreditNote = async (creditNoteId: string, data: Partial<CreditNote>): Promise<void> => {
-  return wrapFirestoreOperation(async () => {
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid update data: must be an object');
-    }
-    
-    // ✅ SCHEMA PROTECTION: Validate partial update using base schema (no refinements)
-    const validatedInput = parseOrThrow(
-      baseCreditNoteSchema.partial(),
-      data,
-      'UpdateCreditNoteInput'
-    );
-    
-    const cleanData = Object.entries(validatedInput).reduce((acc, [key, value]) => {
-      if (value !== undefined) {
-        acc[key] = value;
-      }
-      return acc;
-    }, {} as any);
-    
-    if (Object.keys(cleanData).length === 0) {
-      logger.warn('updateCreditNote: No valid fields to update');
-      return;
-    }
-    
-    const docRef = doc(db, 'creditNotes', creditNoteId);
-    await updateDoc(docRef, cleanData);
-    
-  }, `updateCreditNote(${creditNoteId})`);
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 // REAL-TIME SUBSCRIPTIONS
 // ═══════════════════════════════════════════════════════════════════════════

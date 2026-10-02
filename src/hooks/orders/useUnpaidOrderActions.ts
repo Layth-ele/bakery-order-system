@@ -28,14 +28,11 @@
 import { useCallback, useState, useRef, useEffect, startTransition } from 'react';
 import { useAlert } from '../../contexts/AlertContext';
 import { useModal } from '../../contexts/ModalContextNew';
-import { updateOrder } from '../../services/data/ordersDataService';
 import { toast } from 'sonner';
 import { cancelOrderAction, getAdminInfo } from '../../services/orderActionService';
-import { notifyPaymentReminder } from '../../notifications';
-import { sendPaymentReminderEmail, describeEmailResult } from '../../services/emailService';
+import { reminderConfirmMessage, remindCustomerToPay } from '../../services/orders/paymentReminders';
 // ✅ PASS 3: excelExport intentionally NOT imported at top — pulls in
 // xlsx-js-style (~750KB). Dynamic import below at the call site.
-import { serverTimestamp } from 'firebase/firestore';
 import { debug } from '../../utils/debug';
 import { invalidateCache } from '../useCachedFirebase'; // ✅ FIX: Add missing import
 import type { Order, User, Product, Category } from '../../types';
@@ -50,7 +47,7 @@ interface UseUnpaidOrderActionsReturn {
   confirmPayment: (order: Order) => Promise<void>;
   
   /**
-   * Send payment reminder (notification or email based on count)
+   * Send payment reminder (in-app notification + email, via the server)
    * - First 2 reminders: Notification reminders
    * - After 2: Email reminders
    */
@@ -265,100 +262,26 @@ export function useUnpaidOrderActions(
   );
   
   /**
-   * Send payment reminder
-   * - First 2 reminders: Notification reminders
-   * - After 2: Email reminders
+   * Send payment reminder — confirm, then the sendPaymentReminder Cloud
+   * Function notifies the customer in the app and by email.
    */
   const sendReminder = useCallback(
     async (order: Order): Promise<void> => {
-      const currentReminderCount = order.paymentReminderCount || 0;
-      const currentEmailReminderCount = order.emailReminderCount || 0;
-      
-      // First 2 reminders: Notification reminders
-      if (currentReminderCount < 2) {
-        const reminderNumber = currentReminderCount + 1;
-        
-        showAlert({
-          title: '🔔 Send Payment Reminder',
-          message: `Send notification reminder #${reminderNumber} to ${order.customerName} for Order #${displayOrderNumber(order)}?\n\nAmount Due: $${order.total.toFixed(2)}\n\nThis is a notification reminder. After 2 notifications, the system will send email reminders.`,
-          icon: 'info',
-          confirmText: 'SEND REMINDER',
-          cancelText: 'CANCEL',
-          onConfirm: async () => {
-            try {
-              await updateOrder(order.id, {
-                paymentReminderCount: reminderNumber,
-                lastReminderSentAt: serverTimestamp() as any,
-              });
-              await notifyPaymentReminder(order, reminderNumber);
-              
-              // ✅ Invalidate cache to refresh UI with updated reminder count
-              await invalidateCache.orders();
-              
- // Replaced modal with toast notification
-              toast.success('✅ Reminder Sent', {
-                description: `Notification reminder #${reminderNumber} sent to ${order.customerName}. ${2 - reminderNumber} reminder(s) remaining before email.`,
-                duration: 5000,
-              });
-            } catch (error) {
-              debug.error('❌ [useUnpaidOrderActions] Failed to send payment reminder:', error);
-              showAlert({
-                title: 'Error',
-                message: 'Failed to send payment reminder. Please try again.',
-                icon: 'error',
-              });
-            }
-          },
-        });
-      } else {
-        // After 2 notifications: Email reminders
-        const emailReminderNumber = currentEmailReminderCount + 1;
-        
-        showAlert({
-          title: '📧 Send Email Reminder',
-          message: `Send email reminder #${emailReminderNumber} to ${order.customerName} for Order #${displayOrderNumber(order)}?\n\nAmount Due: $${order.total.toFixed(2)}\n\nThe customer will receive a payment reminder email with order details and payment instructions.`,
-          icon: 'warning',
-          confirmText: 'SEND EMAIL',
-          cancelText: 'CANCEL',
-          onConfirm: async () => {
-            try {
-              // Send first; the counter only advances once the email is
-              // actually delivered to Resend. The server resolves the
-              // customer's address.
-              const result = await sendPaymentReminderEmail(order.id, emailReminderNumber);
-              if (result.state !== 'sent') {
-                showAlert({
-                  title: 'Email Not Sent',
-                  message: describeEmailResult(result),
-                  icon: 'error',
-                });
-                return;
-              }
-
-              await updateOrder(order.id, {
-                emailReminderCount: emailReminderNumber,
-                lastEmailReminderSentAt: serverTimestamp() as any,
-              });
-              await notifyPaymentReminder(order, emailReminderNumber);
-
-              // ✅ Invalidate cache to refresh UI with updated reminder count
-              await invalidateCache.orders();
-
-              toast.success('✅ Email Sent!', {
-                description: `Email reminder #${emailReminderNumber} sent to ${result.to}. Customer should receive it shortly.`,
-                duration: 5000,
-              });
-            } catch (error) {
-              debug.error('❌ [useUnpaidOrderActions] Failed to send email reminder:', error);
-              showAlert({
-                title: 'Error',
-                message: `Failed to send email reminder: ${(error as Error).message || 'please try again.'}`,
-                icon: 'error',
-              });
-            }
-          },
-        });
-      }
+      showAlert({
+        title: '🔔 Send Payment Reminder',
+        message: reminderConfirmMessage(order),
+        icon: 'info',
+        confirmText: 'SEND REMINDER',
+        cancelText: 'CANCEL',
+        onConfirm: async () => {
+          try {
+            await remindCustomerToPay(order);
+            await invalidateCache.orders();
+          } catch (error) {
+            debug.error('❌ [useUnpaidOrderActions] Failed to send payment reminder:', error);
+          }
+        },
+      });
     },
     [showAlert]
   );
@@ -382,24 +305,21 @@ export function useUnpaidOrderActions(
             try {
               const admin = getAdminInfo(userRef.current);
               
-              // Extract credit details from cancellationData
-              const creditAmount = cancellationData?.creditAmount;
               const cancellationFeePercentage = cancellationData?.cancellationFeePercentage;
               
+              // The server computes any store credit (same rules as the preview).
               const result = await cancelOrderAction(
                 order, 
                 admin, 
                 reason,
                 cancelledDays,
-                cancellationFeePercentage,
-                creditAmount
+                cancellationFeePercentage
               );
               
               if (result.success) {
                 closeModal();
- // Use toast notification instead of modal
-                toast.success('Order cancelled successfully', {
-                  description: `Order ${displayOrderNumber(order)} cancelled — Reason: ${reason}. Customer notified.`,
+                toast.success(result.data?.full === false ? 'Days cancelled' : 'Order cancelled', {
+                  description: result.message,
                   duration: 5000,
                 });
               } else {

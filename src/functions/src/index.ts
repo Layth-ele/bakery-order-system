@@ -1,30 +1,25 @@
 /**
- * Cloud Functions Entry Point
+ * Cloud Functions entry point.
  *
- * Exports all Cloud Functions for Firebase deployment
+ * Every change to an order, its money or its notifications happens here —
+ * the web app only calls these functions (Firestore rules deny direct
+ * writes). Order status notifications + emails come from one trigger
+ * (onOrderLifecycle); other notifications are written by the function that
+ * performs the action, in the same transaction.
  *
- * Available Functions:
- *   Creation (existing — Pass 1 hardened):
- *   - createOrderWithCustomId: Create order with sequential ID (ORD-2026-03-26-NNN)
- *   - createCustomerWithCode: Create customer with sequential code (CUST-2026-03-26-NNN)
- *   - createInvoiceWithCustomId: Create invoice with sequential number (DBH-2026-03-26-NNNNNN)
- *   - generateId: Server-side ID generation (callable)
- *
- *   Lifecycle (Pass 1):
- *   - deleteCustomerAccount: Soft/hard delete customer with cascade
- *   - cleanupOldCounters: Scheduled monthly cleanup of old counter docs
- *
- *   Order actions (Pass 2 — server-enforced state transitions):
- *   - approveOrder: Admin approves a pending order with server-computed totals
- *   - rejectOrder: Admin rejects a pending order
- *   - cancelOrder: Admin cancels an order (any non-terminal status)
- *
- *   Payments (Pass 2):
- *   - submitPaymentProof: Customer submits payment proof for an approved order
- *   - confirmOrderPayment: Admin confirms payment received → in_process
- *
- *   Credit (Pass 2):
- *   - applyOrderCredit: Customer applies their available credit FIFO to an order
+ *   Orders       placeOrder · approveOrder · rejectOrder · cancelOrder
+ *                (whole order or some days) · editOrder (unpaid) ·
+ *                editPaidOrder (reduce → store credit) · completeOrder ·
+ *                autoCompleteOrders (weekly schedule)
+ *   Payments     submitPaymentProof · confirmOrderPayment
+ *   Credit       applyOrderCredit · issueStoreCredit · requestCreditPayout
+ *   Reminders    sendPaymentReminder
+ *   Customers    createCustomerWithCode · deleteCustomerAccount
+ *   Emails       sendPasswordResetEmail · sendTestEmail (see emails.ts)
+ *   Triggers     onOrderLifecycle · onSettingsWritten ·
+ *                snapshot/event customerId denormalization
+ *   Maintenance  generateId · cleanupOldCounters · bootstrapSettings ·
+ *                backfillSnapshotCustomerId
  */
 
 import { initializeApp } from "firebase-admin/app";
@@ -33,9 +28,8 @@ import { initializeApp } from "firebase-admin/app";
 initializeApp();
 
 // ─── Creation ───────────────────────────────────────────────────────────────
-export { createOrderWithCustomId } from "./orders";
+export { placeOrder } from "./orders";
 export { createCustomerWithCode, deleteCustomerAccount } from "./customers";
-export { createInvoiceWithCustomId } from "./invoices";
 
 // ─── ID generation & maintenance ─────────────────────────────────────────────
 export { generateId } from "./generateId";
@@ -75,9 +69,10 @@ export { completeOrder, autoCompleteOrders } from "./orderCompletion";
 export { onOrderLifecycle } from "./orderLifecycleTrigger";
 
 // ─── Customer emails via Resend (see docs/email-system.md) ──────────────────
-export {
-  sendPaymentReminderEmail,
-  sendOrderUpdatedEmail,
-  sendPasswordResetEmail,
-  sendTestEmail,
-} from "./emails";
+export { sendPasswordResetEmail, sendTestEmail } from "./emails";
+
+// ─── Admin order edits (unpaid: reprice; paid: reduce → store credit) ───────
+export { editOrder, editPaidOrder } from "./orderRevisions";
+
+// ─── Reminders and store credit (notification written in the same tx) ──────
+export { sendPaymentReminder, issueStoreCredit, requestCreditPayout } from "./accountActions";

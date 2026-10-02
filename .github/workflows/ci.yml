@@ -39,6 +39,9 @@ jobs:
       - name: TypeScript strict typecheck
         run: npx tsc --noEmit
 
+      - name: Unit tests (app + Cloud Functions pure modules)
+        run: npm test
+
       - name: Production build (verifies Pass 3 chunk graph)
         run: npm run build
 
@@ -115,6 +118,42 @@ jobs:
         # Starts the Firestore emulator (demo project, never a real one) and
         # runs src/__tests__/rules with vitest.rules.config.ts.
         run: npm run test:rules
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # End-to-end order lifecycle — real Cloud Functions in the emulator
+  # ─────────────────────────────────────────────────────────────────────────
+  e2e:
+    name: Order lifecycle end-to-end (emulator)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (app + functions)
+        run: |
+          npm ci --legacy-peer-deps
+          npm --prefix src/functions ci
+
+      - name: Setup Java (required by the emulators)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Emulator-only config (no real email, demo project)
+        run: |
+          printf 'RESEND_API_KEY=not-configured-in-emulator\n' > src/functions/.secret.local
+          printf 'EMAIL_FROM=\nAPP_URL=http://localhost:5173\n' > src/functions/.env
+
+      - name: Run the lifecycle journey
+        # Places, edits, approves, reminds, pays, reduces, partially cancels
+        # and completes orders; checks every amount and every notification.
+        run: npm run test:e2e
 
   # ─────────────────────────────────────────────────────────────────────────
   # Dependency audit — surface known CVEs in production deps

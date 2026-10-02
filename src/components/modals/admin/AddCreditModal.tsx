@@ -8,10 +8,9 @@ import { useState } from "react";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { Wallet, AlertCircle, CheckCircle } from "lucide-react";
 import { Customer } from "../../../types";
-import { formatCreditAmount, createCreditNote } from "../../../services/creditService";
-import { notifyCreditIssued } from "../../../notifications";
+import { formatCreditAmount } from "../../../services/creditService";
+import { issueStoreCreditViaCloudFunction, callableErrorMessage } from "../../../services/firebase/cloudFunctions";
 import { invalidateCache } from "../../../hooks/useCachedFirebase";
-import { logger } from '../../../utils/logger';
 
 
 interface AddCreditModalProps {
@@ -52,42 +51,18 @@ export function AddCreditModal({
     setLoading(true);
 
     try {
- // Create proper credit note structure matching schema
-      const gstRate = 0.05; // 5% GST
-      const subtotal = creditAmount / (1 + gstRate);
-      const gst = creditAmount - subtotal;
-      
-      // Use a stable ID shared between credit note and notification
-      const d = new Date().toISOString().slice(0,10);
-      const seq = String(Date.now()).slice(-4);
-      const creditId = `CREDIT-${d}-${seq}`;
-
-      // createCreditNote expects positional args: (customerId, sourceOrderId, amount, reason, type, adminEmail)
-      await createCreditNote(
-        customer.id || "",
-        creditId,
-        creditAmount,
-        reason.trim(),
+      // issueStoreCredit Cloud Function: creates the credit note and the
+      // customer's notification together.
+      await issueStoreCreditViaCloudFunction({
+        customerId: customer.id || "",
+        amount: Math.round(creditAmount * 100) / 100,
+        reason: reason.trim(),
         type,
-        "admin"
-      );
+      });
 
       // Invalidate credit cache so CreditBalanceWidget updates immediately
       invalidateCache.credit(customer.id);
       invalidateCache.all(); // also refresh creditNotes query used by CreditReceivedModal
-
-      // Send Firestore notification to customer
-      try {
-        await notifyCreditIssued(
-          customer.id || "",
-          customer.storeName || customer.contactPerson || customer.email || "",
-          creditId,
-          creditAmount,
-          reason.trim() || 'Manual credit issued by admin'
-        );
-      } catch (notifErr) {
-        logger.warn('⚠️ Credit notification failed (non-fatal):', notifErr);
-      }
 
       // Also dispatch DOM event so celebration modal fires if customer is on same browser
       // (only relevant in same-tab scenario, e.g. admin impersonating customer view)
@@ -117,7 +92,7 @@ export function AddCreditModal({
       }, 1500);
     } catch (err) {
       console.error("Error adding credit:", err);
-      setError(err instanceof Error ? err.message : "Failed to add credit");
+      setError(callableErrorMessage(err, "add the credit"));
     } finally {
       setLoading(false);
     }

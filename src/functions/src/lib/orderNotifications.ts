@@ -14,6 +14,7 @@
  * Pure: no Firebase imports.
  */
 import type { OrderEvent } from "./orderLifecycle";
+import type { AccountNotificationType } from "./accountNotifications";
 import { normalizeOrder, type EmailOrder } from "./emailContent";
 import { money } from "./emailLayout";
 
@@ -36,7 +37,7 @@ export interface NotificationAction {
 }
 
 export interface NotificationContent {
-  type: OrderNotificationType;
+  type: OrderNotificationType | AccountNotificationType;
   title: string;
   message: string;
   orderId: string;
@@ -149,9 +150,12 @@ export function buildOrderNotifications(
         message:
           `Your order ${describe(o)} was not accepted.` +
           (o.rejectionReason ? `\n\nReason: ${o.rejectionReason}` : "") +
+          (num(raw.creditAmount) > 0
+            ? `\n\n💰 The ${money(num(raw.creditAmount))} store credit used on this order is back in your account.`
+            : "") +
           `\n\nPlease contact us if you have any questions.`,
         actions: [{ ...viewOrder, label: "View Details" }],
-        metadata: { ...orderMeta, reason: o.rejectionReason },
+        metadata: { ...orderMeta, reason: o.rejectionReason, creditAmount: num(raw.creditAmount) },
       });
 
     case "cancelled": {
@@ -178,9 +182,9 @@ export function buildOrderNotifications(
           type: "PAYMENT_CONFIRMED",
           title: "🎉 Payment Confirmed — Order in Production",
           message: `Your payment for order ${describe(o)} has been confirmed.\n\n✓ Payment received\n✓ Your order is now in production\n\nThank you for your business!`,
-          amount: o.total,
+          amount: o.amountDue,
           actions: [{ ...viewOrder, label: "View Production Status" }],
-          metadata: { ...orderMeta, amount: o.total, invoiceNumber: o.invoiceNumber },
+          metadata: { ...orderMeta, amount: o.amountDue, invoiceNumber: o.invoiceNumber },
         }),
         // Resolve the admin's "review required" alert so it doesn't linger.
         {

@@ -2,7 +2,7 @@
  * Delivery Fee Service
  *
  * Pure business rules for delivery fee calculation.
- * Extracted from orderWorkflowService to reduce its size.
+ * Delivery-fee rules shown on the admin approval screen.
  */
 import { getSettings } from '../data/settingsDataService';
 import type { Order } from '../../types';

@@ -10,7 +10,7 @@
  * 
  * DOES NOT CONTAIN:
  * - ❌ Business logic (moved to services)
- * - ❌ Complex workflows (moved to orderWorkflowService)
+ * - ❌ Order writes (all in Cloud Functions — services/firebase/cloudFunctions.ts)
  * - ❌ Validation rules (moved to services)
  * 
  * RESPONSIBILITIES:
@@ -25,13 +25,13 @@
 import { useCallback } from 'react';
 import { useAlert } from '../../contexts/AlertContext';
 import { invalidateCache } from '../useCachedFirebase';
-import { updateOrder, bulkUpdateOrders } from '../../services/data/ordersDataService';
 import { cancelOrderAction } from '../../services/orderActionService'; // ✅ MAR 17: Fixed import (removed getAdminInfo)
 import { completeOrderNow } from '../../services/orderCompletion/completeOrderNow';
-import {notifyPaymentReminder} from '../../notifications'
-import { sendPaymentReminderEmail, describeEmailResult } from '../../services/emailService';
+import { describeEmailResult } from '../../services/emailService';
+import { callableErrorMessage } from '../../services/firebase/cloudFunctions';
+import { saveOrderEdit, type AdminOrderChanges } from '../../services/orders/orderEdits';
+import { remindCustomerToPay } from '../../services/orders/paymentReminders';
 import { toast } from 'sonner';
-import { getServerTimestamp } from '../../utils/timestamps';
 import { debug } from '../../utils/debug';
 import type { Order, User } from '../../types';
 import { displayOrderNumber } from '../../utils/displayId';
@@ -44,22 +44,12 @@ interface CancelOrderData {
   adminPassword: string;
 }
 
-interface EditOrderData {
-  updatedItems: any[];
-  updatedTotal?: number;
-  deliveryFee?: number;
-  discount?: number;
-  discountNote?: string;
-  discountType?: string;
-}
-
 interface UseOrderActionsReturn {
   cancelOrder: (order: Order, data: CancelOrderData) => Promise<void>;
   completeOrder: (order: Order, adminUser: User) => Promise<void>;
-  editOrder: (order: Order, data: EditOrderData) => Promise<void>;
+  editOrder: (order: Order, changes: AdminOrderChanges) => Promise<void>;
   sendPaymentReminder: (order: Order) => Promise<void>;
   approveOrder: (order: Order, adminUser: User) => Promise<void>;
-  migrateOrders: (orders: Order[]) => Promise<void>;
 }
 
 /**
@@ -104,7 +94,6 @@ export function useOrderActions(): UseOrderActionsReturn {
       };
 
       // Execute cancellation via service
-      // ✅ MAR 17: Fixed call signature - (order, admin, reason, cancelledDays, feePercentage, creditAmount)
       debug.log('🚫 Cancelling order:', order.id);
       
       const result = await cancelOrderAction(
@@ -112,8 +101,7 @@ export function useOrderActions(): UseOrderActionsReturn {
         admin,
         data.reason,
         undefined,
-        data.cancellationFeePercentage ? parseFloat(data.cancellationFeePercentage) : undefined,
-        undefined
+        data.cancellationFeePercentage ? parseFloat(data.cancellationFeePercentage) : undefined
       );
       
       if (!result.success) {
@@ -170,96 +158,47 @@ export function useOrderActions(): UseOrderActionsReturn {
   }, [showAlert]);
   
   /**
-   * Edit an order (simple update)
-   * Note: For complex editing, use orderWorkflowService directly
+   * Edit an unpaid (approved) order — the editOrder Cloud Function reprices
+   * it and tells the customer the new amount due.
    */
   const editOrder = useCallback(async (
     order: Order,
-    data: EditOrderData
+    changes: AdminOrderChanges
   ): Promise<void> => {
     try {
       debug.log('📝 Editing order:', order.id);
-
-      // FIX T2R1-F2 sibling (CRITICAL): editOrder previously did a raw
-      // updateOrder() with no validation, no audit event, no notification.
-      // Route through editOrderItemsWorkflow which validates, persists, logs,
-      // and notifies in a single coordinated path.
-      const { editOrderItemsWorkflow } = await import('../../services/orderWorkflowService');
-      const workflowResult = await editOrderItemsWorkflow(
-        order.id || '',
-        data.updatedItems,
-        { email: 'admin', name: 'Admin', role: 'admin' as const /* caller hook lacks admin context here; UI passes via order edit modal */ },
-        {
-          deliveryFee: data.deliveryFee,
-          discount: data.discount,
-          discountNote: data.discountNote,
-          discountType: data.discountType,
-          updatedTotal: data.updatedTotal,
-        } as any
-      );
-
-      if (!workflowResult || (workflowResult as any).success === false) {
-        const msg = (workflowResult as any)?.error ?? 'Failed to edit order';
-        showAlert({ title: 'Edit Failed', message: msg, icon: 'error' as const });
-        throw new Error(msg);
-      }
-
+      const result = await saveOrderEdit(order, changes);
       await invalidateCache.orders();
-      toast.success('Order updated successfully', { duration: 4000 });
-      debug.log('✅ Order edited successfully');
+      const emailNote =
+        result.email && result.email.state !== 'sent'
+          ? ` The customer was notified in the app, but the email was not sent: ${describeEmailResult(result.email)}`
+          : ' The customer has been notified.';
+      toast.success('Order updated', {
+        description: `New amount due: $${result.amountDue.toFixed(2)}.${emailNote}`,
+        duration: 5000,
+      });
     } catch (error) {
       debug.error('❌ Failed to edit order:', error);
+      showAlert({ title: 'Edit Failed', message: callableErrorMessage(error, 'save the order changes'), icon: 'error' as const });
       throw error;
     }
   }, [showAlert]);
   
   /**
-   * Send payment reminder
+   * Send a payment reminder (sendPaymentReminder Cloud Function: in-app
+   * notification + email, reminder count kept on the order).
    */
   const sendPaymentReminder = useCallback(async (
     order: Order
   ): Promise<void> => {
     try {
-      debug.log('📧 Sending payment reminder for order:', order.id);
-      
-      const currentReminderCount = order.paymentReminderCount || 0;
-      const newReminderCount = currentReminderCount + 1;
-      
-      // Send email — awaited so counter only increments on success. The
-      // server resolves the customer's address (order → customer profile).
-      let emailResult;
-      try {
-        emailResult = await sendPaymentReminderEmail(order.id, newReminderCount);
-      } catch (emailError) {
-        throw new Error(`Failed to send payment reminder email: ${(emailError as Error).message}`);
-      }
-      if (emailResult.state !== 'sent') {
-        throw new Error(describeEmailResult(emailResult));
-      }
-
-      // Update order (only reached if email succeeded)
-      await updateOrder(order.id, {
-        paymentReminderCount: newReminderCount,
-        lastReminderSentAt: getServerTimestamp() as any, // ✅ MAR 17: Fixed field name (was lastPaymentReminderSent, schema uses lastReminderSentAt)
-      });
-      
-      // Send notification
-      await notifyPaymentReminder(order, newReminderCount);
-      
+      await remindCustomerToPay(order);
       await invalidateCache.orders();
-      
- // Replaced alert with toast notification
-      toast.success('✅ Reminder Sent', {
-        description: `Payment reminder #${newReminderCount} emailed to ${order.customerName} (${emailResult.to})`,
-        duration: 5000,
-      });
-      debug.log('✅ Payment reminder sent successfully');
     } catch (error) {
       debug.error('❌ Failed to send payment reminder:', error);
-      showAlert({ title: 'Alert', message: (error as any).message || 'Failed to send payment reminder', icon: 'error' as const });
       throw error;
     }
-  }, [showAlert]);
+  }, []);
   
   /**
    * Approve an order
@@ -310,44 +249,11 @@ export function useOrderActions(): UseOrderActionsReturn {
   }, [showAlert]);
   
   
-  /**
-   * Migrate orders (background task - add missing fields)
-   * ✅ MAR 17: Fixed bulkUpdateOrders call - uses { orderId, data } not { id, data }
-   */
-  const migrateOrders = useCallback(async (orders: Order[]): Promise<void> => {
-    try {
-      const ordersToUpdate = orders
-        .filter(order => order.status === 'approved' && !order.approvedBy)
-        .map(order => ({
-          orderId: order.id || "", // ✅ Fixed: was `id`, bulkUpdateOrders expects `orderId`
-          data: {
-            approvedBy: (import.meta.env.VITE_ADMIN_EMAIL || 'admin@bakery.com'),
-            approvedAt: order.updatedAt || order.createdAt,
-          },
-        }));
-      
-      if (ordersToUpdate.length > 0) {
-        debug.log(
-          `🔄 Migrating ${ordersToUpdate.length} orders with approvedBy field...`
-        );
-        await bulkUpdateOrders(ordersToUpdate);
-        await invalidateCache.orders();
-        debug.log(
-          `✅ Successfully migrated ${ordersToUpdate.length} orders`
-        );
-      }
-    } catch (error) {
-      debug.error('❌ Failed to migrate orders:', error);
-      // Don't show alert to user - this is a background migration
-    }
-  }, []);
-  
   return {
     cancelOrder,
     completeOrder,
     editOrder,
     sendPaymentReminder,
     approveOrder,
-    migrateOrders,
   };
 }

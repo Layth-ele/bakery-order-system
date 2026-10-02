@@ -1,23 +1,15 @@
 /**
- * Cloud Functions Client SDK
- * Wrapper for calling Firebase Cloud Functions from React app
- * 
- * Usage:
- * import { createOrderViaCloudFunction } from '@/services/firebase/cloudFunctions';
- * 
- * const result = await createOrderViaCloudFunction({
- *   customerId: user.id || "",
- *   customerName: (user.storeName ?? ""),
- *   items: cart,
- *   subtotal: 100,
- *   gst: 5,
- *   total: 105
- * });
- * 
- * logger.log("Order ID:", result.id); // "ORD-2026-04-001"
+ * Cloud Functions client — typed wrappers for every callable.
  *
- * ✅ PASS 2 (April 2026): Added wrappers for order action / payment / credit
- *    Cloud Functions. These move business-critical writes off the client.
+ * Business-critical writes (placing, approving, rejecting, cancelling and
+ * completing orders, payments, store credit, reminders) happen ONLY in
+ * these server functions; the browser never writes them directly.
+ *
+ * @example
+ *   const { orderNumber } = await placeOrderViaCloudFunction({
+ *     requestId, week: 40, year: 2026,
+ *     items: [{ productId: 'p1', quantities: { monday: 4, tuesday: 0, ... } }],
+ *   });
  */
 
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -37,56 +29,38 @@ const functions = getFunctions(app);
 //   }
 
 // ============================================
-// ORDER FUNCTIONS
+// ORDER PLACEMENT
 // ============================================
 
-export interface CreateOrderPayload {
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  items: any[];
-  subtotal: number;
-  gst: number;
-  total: number;
-  status?: string;
-  weekRange?: string;
-  deliveryDays?: any[];
-  orderNote?: string;
+export interface PlaceOrderPayload {
+  /** Stable per submission (reuse on retry) — becomes the order id. */
+  requestId: string;
+  week: number;
+  year: number;
+  items: Array<{
+    productId: string;
+    quantities: Record<'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday', number>;
+  }>;
+  note?: string;
+  creditToApply?: number;
 }
 
-export interface CreateOrderResult {
-  id: string; // "ORD-2026-04-001"
+export interface PlaceOrderResult {
+  orderId: string;
+  orderNumber: string;
+  total: number;
+  creditApplied: number;
+  amountDue: number;
+  duplicate: boolean;
 }
 
 /**
- * Create order via Cloud Function
- * Server generates sequential order ID
- * 
- * @param payload - Order data
- * @returns {id: "ORD-2026-04-001"}
- * 
- * @example
- * const result = await createOrderViaCloudFunction({
- *   customerId: "user123",
- *   customerName: "ABC Bakery",
- *   customerEmail: "abc@example.com",
- *   items: [{productId: "p1", quantity: 10}],
- *   subtotal: 100,
- *   gst: 5,
- *   total: 105,
- *   status: "pending",
- *   weekRange: "Apr 14-20, 2026",
- *   deliveryDays: []
- * });
+ * Customer: place an order. The server prices it, checks cutoffs, applies
+ * credit and assigns the order number in one transaction. Idempotent per
+ * requestId.
  */
-export async function createOrderViaCloudFunction(
-  payload: CreateOrderPayload
-): Promise<CreateOrderResult> {
-  const fn = httpsCallable<CreateOrderPayload, CreateOrderResult>(
-    functions,
-    "createOrderWithCustomId"
-  );
-  
+export async function placeOrderViaCloudFunction(payload: PlaceOrderPayload): Promise<PlaceOrderResult> {
+  const fn = httpsCallable<PlaceOrderPayload, PlaceOrderResult>(functions, "placeOrder");
   const result = await fn(payload);
   return result.data;
 }
@@ -102,6 +76,7 @@ export interface CreateCustomerPayload {
   contactPerson?: string;
   phone?: string;
   storeAddress?: string;
+  customerType?: 'individual' | 'commercial';
 }
 
 export interface CreateCustomerResult {
@@ -141,61 +116,6 @@ export async function createCustomerViaCloudFunction(
   return result.data;
 }
 
-// ============================================
-// INVOICE FUNCTIONS
-// ============================================
-
-export interface CreateInvoicePayload {
-  customerId: string;
-  customerName: string;
-  subtotal: number;
-  gst: number;
-  total: number;
-  orderIds?: string[];
-  week?: number;
-  year?: number;
-}
-
-export interface CreateInvoiceResult {
-  id: string; // e.g. "DBH-2026-03-26-000001"
-  invoiceNumber: string; // e.g. "DBH-2026-03-26-000001" (same as id)
-}
-
-/**
- * Create invoice via Cloud Function
- * Server generates sequential invoice number
- * 
- * @param payload - Invoice data
- * @returns {id: "DBH-2026-03-26-000001", invoiceNumber: "DBH-2026-03-26-000001"}
- * 
- * @example
- * const result = await createInvoiceViaCloudFunction({
- *   customerId: "user123",
- *   customerName: "ABC Bakery",
- *   subtotal: 500,
- *   gst: 25,
- *   total: 525,
- *   orderIds: ["ORD-2026-04-001", "ORD-2026-04-002"],
- *   week: 16,
- *   year: 2026
- * });
- */
-export async function createInvoiceViaCloudFunction(
-  payload: CreateInvoicePayload
-): Promise<CreateInvoiceResult> {
-  const fn = httpsCallable<CreateInvoicePayload, CreateInvoiceResult>(
-    functions,
-    "createInvoiceWithCustomId"
-  );
-  
-  const result = await fn(payload);
-  return result.data;
-}
-
-// ============================================
-// ERRORS
-// ============================================
-
 /**
  * User-facing message for a failed order-action callable.
  *
@@ -228,7 +148,7 @@ export function callableErrorMessage(error: unknown, action: string): string {
 // ============================================
 
 export interface ApproveOrderPayload { orderId: string; deliveryFee?: number; }
-export interface ApproveOrderResult { success: boolean; orderId: string; total: number; gst: number; deliveryFee: number; }
+export interface ApproveOrderResult { success: boolean; orderId: string; total: number; gst: number; amountDue: number; deliveryFee: number; }
 
 /**
  * ✅ PASS 2: Approve order via Cloud Function (server-enforced state transition).
@@ -242,7 +162,7 @@ export async function approveOrderViaCloudFunction(
 }
 
 export interface RejectOrderPayload { orderId: string; reason?: string; }
-export interface RejectOrderResult { success: boolean; orderId: string; }
+export interface RejectOrderResult { success: boolean; orderId: string; creditReturned: number; }
 
 /**
  * ✅ PASS 2: Reject order via Cloud Function.
@@ -260,9 +180,16 @@ export interface CancelOrderPayload {
   reason: string;
   cancelledDays?: string[];
   cancellationFeePercentage?: number;
-  creditAmount?: number;
 }
-export interface CancelOrderResult { success: boolean; orderId: string; }
+/** `full` false = only some delivery days were cancelled; the order continues. */
+export interface CancelOrderResult {
+  success: boolean;
+  orderId: string;
+  full: boolean;
+  credit: number;
+  fee: number;
+  creditNoteId: string | null;
+}
 
 /**
  * ✅ PASS 2: Cancel order via Cloud Function.
@@ -368,4 +295,85 @@ export async function applyOrderCreditViaCloudFunction(
   );
   const result = await fn(payload);
   return result.data;
+}
+
+// ============================================
+// ORDER EDITS, REMINDERS, STORE CREDIT
+// ============================================
+
+export interface DayQuantitiesPayload {
+  monday: number; tuesday: number; wednesday: number; thursday: number;
+  friday: number; saturday: number; sunday: number;
+}
+
+export interface EditOrderPayload {
+  orderId: string;
+  /** The full edited order: every product with its per-day quantities. */
+  items: Array<{
+    productId: string;
+    quantities: DayQuantitiesPayload;
+    /** Only for a custom product added in this edit (productId "custom-…"). */
+    custom?: { name: string; price: number };
+  }>;
+  deliveryFee?: number;
+  discount?: { type: 'percentage' | 'fixed'; value: number; note?: string };
+}
+export interface CallableEmailResult { state: 'sent' | 'skipped' | 'failed'; to: string; reason?: string }
+export interface EditOrderResult {
+  orderId: string;
+  total: number;
+  amountDue: number;
+  creditReturned: number;
+  /** Set for approved orders: the "order updated" email to the customer. */
+  email?: CallableEmailResult;
+}
+
+/** Admin edits a pending/approved (unpaid) order; the server reprices it. */
+export async function editOrderViaCloudFunction(payload: EditOrderPayload): Promise<EditOrderResult> {
+  const fn = httpsCallable<EditOrderPayload, EditOrderResult>(functions, "editOrder");
+  return (await fn(payload)).data;
+}
+
+export interface EditPaidOrderPayload {
+  orderId: string;
+  items: Array<{ productId: string; quantities: DayQuantitiesPayload }>;
+  reason: string;
+}
+export interface EditPaidOrderResult { orderId: string; total: number; creditIssued: number; creditNoteId: string }
+
+/** Admin reduces a paid order; the difference becomes store credit. */
+export async function editPaidOrderViaCloudFunction(payload: EditPaidOrderPayload): Promise<EditPaidOrderResult> {
+  const fn = httpsCallable<EditPaidOrderPayload, EditPaidOrderResult>(functions, "editPaidOrder");
+  return (await fn(payload)).data;
+}
+
+export interface PaymentReminderResult { reminderNumber: number; amountDue: number; email: CallableEmailResult }
+
+/** Admin reminds a customer to pay (in-app notification + email). */
+export async function sendPaymentReminderViaCloudFunction(orderId: string): Promise<PaymentReminderResult> {
+  const fn = httpsCallable<{ orderId: string }, PaymentReminderResult>(functions, "sendPaymentReminder");
+  return (await fn({ orderId })).data;
+}
+
+export interface IssueStoreCreditPayload {
+  customerId: string;
+  amount: number;
+  reason: string;
+  type?: 'refund' | 'overpayment' | 'admin_edit' | 'cancellation';
+}
+
+/** Admin adds store credit to a customer's account (customer is notified). */
+export async function issueStoreCreditViaCloudFunction(
+  payload: IssueStoreCreditPayload
+): Promise<{ creditNoteId: string; amount: number }> {
+  const fn = httpsCallable<IssueStoreCreditPayload, { creditNoteId: string; amount: number }>(functions, "issueStoreCredit");
+  return (await fn(payload)).data;
+}
+
+/** Customer asks for a credit note's balance to be paid out (admin is notified). */
+export async function requestCreditPayoutViaCloudFunction(
+  creditNoteId: string
+): Promise<{ creditNoteId: string; amount: number }> {
+  const fn = httpsCallable<{ creditNoteId: string }, { creditNoteId: string; amount: number }>(functions, "requestCreditPayout");
+  return (await fn({ creditNoteId })).data;
 }

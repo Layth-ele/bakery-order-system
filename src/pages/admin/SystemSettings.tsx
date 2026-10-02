@@ -27,7 +27,6 @@ import { useCleanupActions } from '../../hooks/admin/useCleanupActions';
 import { SystemSettingsView } from '../../components/admin/system-settings/SystemSettingsView';
 
 // ✅ MAR 16, 2026: Import timestamp fix utility
-import { fixAllOrderTimestamps } from '../../utils/fixOrderTimestamps';
 
 // ============================================================================
 // TYPES
@@ -73,7 +72,6 @@ export function SystemSettings({ user, setCurrentPage }: SystemSettingsProps): J
   } = settingsData ?? {};
   
  // Local state for timestamp fix operation
-  const [timestampFixRunning, setTimestampFixRunning] = useState(false);
   const [notificationType, setNotificationType] = useState<'success' | 'error' | 'warning'>('success');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -139,19 +137,6 @@ export function SystemSettings({ user, setCurrentPage }: SystemSettingsProps): J
     runClientCleanup();
   }, [runClientCleanup]);
   
- // Handle timestamp fix operation
-  const handleFixTimestamps = useCallback(async () => {
-    setTimestampFixRunning(true);
-    try {
-      await fixAllOrderTimestamps();
-      showNotification('✅ Order timestamps fixed successfully!');
-    } catch (error) {
-      console.error('Error fixing timestamps:', error);
-      showNotification('❌ Error fixing timestamps. Check console for details.');
-    } finally {
-      setTimestampFixRunning(false);
-    }
-  }, [showNotification]);
   
   // ❌ REMOVED MAR 14, 2026: handleFirebaseCleanup (button removed from UI)
   
@@ -172,7 +157,6 @@ export function SystemSettings({ user, setCurrentPage }: SystemSettingsProps): J
       loading={loading}
       saving={saving}
       cleanupRunning={cleanupRunning}
-      timestampFixRunning={timestampFixRunning}
       // ❌ REMOVED MAR 14, 2026: serverCleanupRunning (Firebase cleanup removed)
       
       // UI state
@@ -183,7 +167,6 @@ export function SystemSettings({ user, setCurrentPage }: SystemSettingsProps): J
       onSettingsChange={setSettings}
       onSave={handleSave}
       onCleanup={handleCleanup}
-      onFixTimestamps={handleFixTimestamps}
       onRefresh={handleRefresh}
       isRefreshing={isRefreshing}
       // ❌ REMOVED MAR 14, 2026: onFirebaseCleanup (Firebase cleanup removed)

@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { canEditPaidOrder } from '../../services/orders/paidOrderEditService';
 import { isDeliveryFeeRequired, qualifiesForFreeDelivery, calculateOrderTotals } from '../../services/orders/deliveryFeeService';
-import { validateItemEdit, calculateCreditFromReduction } from '../../services/creditService';
+import { validateItemEdit } from '../../services/creditService';
 import { canTransitionOrderStatus } from '../../utils/stateTransitionRules';
 import type { Order, OrderItem } from '../../types';
 import { Timestamp } from 'firebase/firestore';
@@ -47,14 +47,19 @@ function makeItem(overrides: Partial<OrderItem> = {}): OrderItem {
 }
 
 describe('canEditPaidOrder', () => {
-  it('allows editing in_process orders', () => {
-    const { canEdit } = canEditPaidOrder(makeOrder({ status: 'in_process' }));
+  it('allows editing paid orders in production', () => {
+    const { canEdit } = canEditPaidOrder(makeOrder({ status: 'in_process', paymentReceived: true }));
     expect(canEdit).toBe(true);
   });
 
-  it('allows editing completed orders', () => {
-    const { canEdit } = canEditPaidOrder(makeOrder({ status: 'completed' }));
-    expect(canEdit).toBe(true);
+  it('blocks in_process orders without a confirmed payment', () => {
+    expect(canEditPaidOrder(makeOrder({ status: 'in_process', paymentReceived: false })).canEdit).toBe(false);
+  });
+
+  it('blocks completed orders (final invoice is locked)', () => {
+    const { canEdit, reason } = canEditPaidOrder(makeOrder({ status: 'completed', paymentReceived: true }));
+    expect(canEdit).toBe(false);
+    expect(reason).toMatch(/final invoice/);
   });
 
   it('blocks editing pending orders', () => {
@@ -110,20 +115,6 @@ describe('item edit validation', () => {
 
   it('rejects negative quantity', () => {
     expect(validateItemEdit(item, -1).valid).toBe(false);
-  });
-});
-
-describe('credit calculation', () => {
-  it('issues credit equal to reduction amount', () => {
-    expect(calculateCreditFromReduction(100, 80)).toBeCloseTo(20);
-  });
-
-  it('issues no credit when total is same', () => {
-    expect(calculateCreditFromReduction(100, 100)).toBe(0);
-  });
-
-  it('issues no credit when total increases', () => {
-    expect(calculateCreditFromReduction(100, 120)).toBe(0);
   });
 });
 

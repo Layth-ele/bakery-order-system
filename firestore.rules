@@ -81,22 +81,10 @@ service cloud.firestore {
       //  - cannot include any role-elevation fields (role, isAdmin, etc.)
       // Admin-on-behalf creation (isAnyAdmin path) is not restricted because
       // the admin is intentionally setting these fields.
-      allow create: if isAnyAdmin() ||
-                      (isAuthenticated() && 
-                       request.auth.uid == customerId &&
-                       request.resource.data.keys().hasAll(['email']) &&
-                       // customerType must be absent or non-admin
-                       (!request.resource.data.keys().hasAny(['customerType']) ||
-                        request.resource.data.customerType in ['individual', 'commercial']) &&
-                       // status must be absent or 'pending' — admins promote
-                       (!request.resource.data.keys().hasAny(['status']) ||
-                        request.resource.data.status == 'pending') &&
-                       // legacy role field — block if attempting admin
-                       (!request.resource.data.keys().hasAny(['role']) ||
-                        request.resource.data.role != 'admin') &&
-                       // block any boolean isAdmin shortcut
-                       (!request.resource.data.keys().hasAny(['isAdmin']) ||
-                        request.resource.data.isAdmin == false));
+      // Self-registration runs in the createCustomerWithCode Cloud Function
+      // (profile + customer code + admin notification, atomically); only
+      // admins create profiles from the browser.
+      allow create: if isAnyAdmin();
       
       // Users can update their own profile (limited fields only)
       allow update: if (isOwner(customerId) && 
@@ -139,82 +127,12 @@ service cloud.firestore {
                      (isApproved() && resource.data.customerId == request.auth.uid);
       allow list: if isAnyAdmin();
       
-      // FIX BUG 11: Validate status value and numeric price fields server-side.
-      // Previously only checked field presence — a customer could submit
-      // status:'approved' or subtotal:0.01 for a $500 order.
-      allow create: if isAuthenticated() && 
-                       isApproved() &&
-                       request.resource.data.customerId == request.auth.uid &&
-                       request.resource.data.keys().hasAll(['customerId', 'items', 'subtotal', 'total', 'status']) &&
-                       // status must start as 'pending' — only admins can transition to other states
-                       request.resource.data.status == 'pending' &&
-                       // price fields must be positive numbers
-                       request.resource.data.subtotal is number &&
-                       request.resource.data.subtotal > 0 &&
-                       request.resource.data.total is number &&
-                       request.resource.data.total > 0 &&
-                       // total must be at least subtotal (allows for GST/fees on top)
-                       request.resource.data.total >= request.resource.data.subtotal;
-      
-      // Users can update their own orders (limited to payment fields)
-      // Admins can update any field
-      // ✅ IMMUTABILITY: invoiceNumber is write-once — cannot be changed once set
-      // FIX H4 (HIGH): Previous customer rule included `invoiceNumber` in the
-      // hasOnly list. The "write-once" check passed for the FIRST write because
-      // resource.data didn't have the field yet. A malicious customer could race
-      // the admin and set their own invoiceNumber: 'DBH-FAKE-01'. Once set, the
-      // immutability check would lock the bogus value in.
-      // Fix: customers cannot set invoiceNumber at all. Only admins can.
-      //
-      // PASS 9 FIX (MEDIUM): The customer payment-fields whitelist had no
-      // "write-once" enforcement. Once a customer set paymentSubmitted=true
-      // (committing to a payment proof), they could later flip it back to
-      // false, rewrite paymentMethod, paymentReference, or transferPassword,
-      // and resubmit. This created confusion in the admin review queue and
-      // bypassed the duplicate-submission check enforced by the
-      // submitPaymentProof Cloud Function. Customers must still be allowed
-      // to set the fields the FIRST time (before paymentSubmitted exists or
-      // is false), but the rule now denies subsequent edits — those must go
-      // through the Cloud Function or be performed by an admin.
-      //
-      // FIX T2R7-C3 (CRITICAL — workflow integrity / submitPaymentProof CF
-      // bypass): Previous rule allowed customers to set paymentSubmitted=true
-      // on orders in ANY status — including 'pending' (not yet approved).
-      // The submitPaymentProof Cloud Function correctly requires status
-      // 'approved' (payments.ts:60) but the Firestore rule did not.  A
-      // customer could direct-write paymentSubmitted=true with a fake
-      // paymentReference on a pending order, bypassing the CF's status
-      // check.  Admin's "payment pending review" queue would show the order
-      // as awaiting payment confirmation despite the order being not yet
-      // approved.
-      //
-      // Fix: require resource.data.status == 'approved' for the customer's
-      // payment-field write path.  Other statuses (pending/in_process/
-      // completed/cancelled/rejected) all reject the write — payments are
-      // only legitimate while the order is approved-but-unpaid.
-      allow update: if isAuthenticated() && 
-                       (
-                         // Customer can only update payment-related fields on their own approved orders
-                         (resource.data.customerId == request.auth.uid && 
-                          isApproved() &&
-                          // FIX T2R7-C3: order must currently be in 'approved' status
-                          resource.data.status == 'approved' &&
-                          request.resource.data.diff(resource.data).affectedKeys()
-                            .hasOnly(['paymentSubmitted', 'paymentSubmittedAt', 'paymentMethod', 'paymentReference', 'transferPassword', 'updatedAt']) &&
-                          // Block edits once paymentSubmitted has been latched true.
-                          // Allow the field to transition false → true exactly once.
-                          (!resource.data.keys().hasAny(['paymentSubmitted']) ||
-                           resource.data.paymentSubmitted != true))
-                         ||
-                         // Admins can update any field EXCEPT invoiceNumber once set
-                         (isAnyAdmin() &&
-                          (!resource.data.keys().hasAll(['invoiceNumber']) || 
-                           !request.resource.data.keys().hasAll(['invoiceNumber']) ||
-                           resource.data.invoiceNumber == request.resource.data.invoiceNumber))
-                       );
-      
-      // Only admins can delete orders
-      allow delete: if isAnyAdmin();
+      // Orders are created and changed ONLY by Cloud Functions (placeOrder,
+      // approve/reject/cancel, editOrder/editPaidOrder, payments, credit,
+      // reminders, completion) via the Admin SDK, which bypasses these rules.
+      // The browser never writes an order — not even an admin — so totals,
+      // status, credit and notifications always come from one place.
+      allow create, update, delete: if false;
     }
     
     // ============================================================================
@@ -269,12 +187,8 @@ service cloud.firestore {
       // pollution can't be deleted by anyone except an admin via console).
       // The denormalized customerId field is also required so the read fast-path
       // works without a parent-doc get().
-      allow create: if isAnyAdmin() ||
-                       (isAuthenticated() && isApproved() &&
-                        request.resource.data.customerId == request.auth.uid &&
-                        get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid);
-
-      // Snapshots are immutable - no updates or deletes
+      // Written by Cloud Functions only (completion, paid-order edits).
+      allow create: if false;
       allow update, delete: if false;
     }
     
@@ -337,7 +251,9 @@ service cloud.firestore {
       // Functions with the Admin SDK, which bypasses these rules. Customers
       // never write here — the old customer-create allowance (with a list of
       // legacy types) was a spam/phishing surface and has been removed.
-      allow create: if isAnyAdmin();
+      // Admins don't create notifications from the browser either: every
+      // notification is written by a Cloud Function (see functions/src/notify.ts).
+      allow create: if false;
       allow read, update, delete: if isAnyAdmin();
     }
     
@@ -378,7 +294,8 @@ service cloud.firestore {
       // potentially triggering incorrect UI flows (e.g. unlocking payment screens).
       // All legitimate customer notifications are created by admin-side code or
       // system workflows — customers never need to write to this path themselves.
-      allow create: if isAnyAdmin();
+      // Every notification is written by a Cloud Function (functions/src/notify.ts).
+      allow create: if false;
       
       // Users can delete their own notifications; admins can delete any
       allow delete: if isNotifOwner();
@@ -575,14 +492,8 @@ service cloud.firestore {
                         get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid)
                      );
 
-      // FIX BUG 4: Was isAuthenticated() — any Firebase Auth user could write order events.
-      // FIX R10-S2-F23: Added denormalized customerId + parent-order ownership check.
-      // Without ownership validation, any approved customer could pollute any order's
-      // event trail.  Events are immutable, so cleanup requires admin console access.
-      allow create: if isAnyAdmin() ||
-                       (isAuthenticated() && isApproved() &&
-                        request.resource.data.customerId == request.auth.uid &&
-                        get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid);
+      // Written by Cloud Functions only.
+      allow create: if false;
 
       // Events are immutable - no updates or deletes
       allow update, delete: if false;
@@ -646,7 +557,8 @@ service cloud.firestore {
       //
       // Anyone trying to apply credit via direct client writes will now hit
       // permission-denied. Use the applyOrderCredit Cloud Function instead.
-      allow create, update, delete: if isAnyAdmin();
+      // Issued, spent and flagged for payout only by Cloud Functions.
+      allow create, update, delete: if false;
     }
     
     match /creditApplicationHistory/{historyId} {
@@ -675,21 +587,16 @@ service cloud.firestore {
       // try/catch already labels that path as "non-fatal audit trail" —
       // failing silently is acceptable because the actual credit deduction
       // (the creditNotes write) is what matters for correctness.
-      allow create: if isAnyAdmin();
-      allow update, delete: if isAnyAdmin();
+      // Written by Cloud Functions only (placeOrder, applyOrderCredit).
+      allow create, update, delete: if false;
     }
     
     match /orderEditHistory/{historyId} {
       allow read: if isAuthenticated() && 
                      ((resource.data.customerId == request.auth.uid && isApproved()) || 
                       isAnyAdmin());
-      // FIX BUG 4: Was isAuthenticated() — now requires approved status
-      // FIX R7-S1-F18 cluster: Added customerId binding so customers cannot pollute
-      // other customers' edit history.
-      allow create: if isAnyAdmin() ||
-                       (isAuthenticated() && isApproved() &&
-                        request.resource.data.customerId == request.auth.uid);
-      allow update, delete: if isAnyAdmin();
+      // Written by Cloud Functions only (editOrder, editPaidOrder, cancelOrder).
+      allow create, update, delete: if false;
     }
     
     // ============================================================================
@@ -811,11 +718,8 @@ service cloud.firestore {
       // FIX R7-S2-F24: Voided invoices are CRA-relevant audit records.  Customer creation
       // is too permissive — anyone can pollute the void register with fake invoice numbers.
       // Restricted to admin OR customers whose customerId matches the document field.
-      allow create: if isAnyAdmin() ||
-                       (isAuthenticated() && isApproved() &&
-                        request.resource.data.keys().hasAll(['customerId']) &&
-                        request.resource.data.customerId == request.auth.uid);
-      // Void records are immutable — no updates or deletes
+      // Written by the cancelOrder Cloud Function only.
+      allow create: if false;
       allow update, delete: if false;
     }
 

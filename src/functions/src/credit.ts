@@ -103,9 +103,11 @@ export const applyOrderCredit = onCall<ApplyOrderCreditInput>(async (request) =>
           status: d.status as string,
           remainingBalance: (d.remainingBalance ?? d.amount ?? 0) as number,
           createdAt: d.createdAt,
+          payoutRequested: d.payoutRequested === true,
         };
       })
-      .filter(n => n.status === "available" || n.status === "partially_used")
+      // Credit with a payout requested is reserved for the payout.
+      .filter(n => (n.status === "available" || n.status === "partially_used") && !n.payoutRequested)
       .sort((a, b) => {
         const at = (a.createdAt?.toMillis?.() ?? 0) as number;
         const bt = (b.createdAt?.toMillis?.() ?? 0) as number;
