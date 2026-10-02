@@ -28,11 +28,11 @@ export function CustomerPageLayout({
   children,
 }: CustomerPageLayoutProps): JSX.Element | null {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f5f5f5] via-[#e8e8e8] to-[#f0f0f0] py-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#f5f5f5] via-[#e8e8e8] to-[#f0f0f0] py-5 sm:py-8">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ── Page Header ─────────────────────────────────────────────────── */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <div className="flex items-center justify-between gap-3">
 
             <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -69,9 +69,9 @@ export function CustomerPageLayout({
         </div>
 
         {/* ── Section Header Bar ───────────────────────────────────────────── */}
-        <div className="rounded-xl overflow-hidden mb-5 shadow-md">
-          <div className="px-5 py-3.5 bg-gradient-to-r from-[#8B6F47] to-[#D4A574]">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white">
+        <div className="rounded-xl overflow-hidden mb-3 sm:mb-5 shadow-md">
+          <div className="px-4 py-2.5 sm:px-5 sm:py-3.5 bg-gradient-to-r from-[#8B6F47] to-[#D4A574]">
+            <h2 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-white">
               {sectionTitle}
             </h2>
           </div>

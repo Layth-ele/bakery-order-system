@@ -32,10 +32,8 @@ interface StatCardProps {
  * Used across both Admin and Customer dashboards for consistency.
  * 
  * SIZING:
- * - Icon: icon-lg (24px desktop, 22px mobile)
- * - Value: stat-value-sm (24px desktop, 20px mobile)
- * - Label: body-sm (14px desktop, 13px mobile)
- * - Padding: p-4 (responsive)
+ * - Phones: horizontal tile, 64px tall — 16px icon, 20px value, 11px label
+ * - sm+: vertical card, 132px min — 20px icon, 30px value, 14px label
  */
 export function StatCard({ icon: Icon, label, value, color, onClick, isActive }: StatCardProps): JSX.Element | null {
   // ✅ Color style definitions matching bakery brand colors
@@ -100,21 +98,25 @@ export function StatCard({ icon: Icon, label, value, color, onClick, isActive }:
 
   const style = colorStyles[color];
 
+  // Phones: a compact tile — icon beside label and number (64 px tall), so
+  // a 2×2 overview takes one glance, not a whole screen. sm and up: the
+  // icon-on-top card.
   return (
     <div
-      className={`w-full h-full min-h-[172px] sm:min-h-[182px] ${style.bg} rounded-2xl border-2 ${isActive ? 'border-[#D4A574] ring-2 ring-[#D4A574]/25 shadow-lg' : `${style.border} shadow-sm`} hover:shadow-md transition-all flex flex-col items-center justify-center text-center p-3 sm:p-4 ${onClick ? 'cursor-pointer active:scale-[0.99] hover:scale-[1.01]' : ''}`}
+      className={`w-full h-full min-h-[64px] sm:min-h-[132px] ${style.bg} rounded-2xl border sm:border-2 ${isActive ? 'border-[#D4A574] ring-2 ring-[#D4A574]/25 shadow-lg' : `${style.border} shadow-sm`} hover:shadow-md transition-all flex items-center gap-3 p-3 text-left sm:flex-col sm:justify-center sm:gap-0 sm:p-4 sm:text-center ${onClick ? 'cursor-pointer active:scale-[0.99] hover:scale-[1.01]' : ''}`}
       onClick={onClick}
     >
-      <div className={`p-2.5 sm:p-3 ${style.iconBg} rounded-xl mb-3 sm:mb-4 shadow-inner`}>
-        <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${style.iconColor}`} />
+      <div className={`flex-shrink-0 p-2 sm:p-2.5 ${style.iconBg} rounded-xl sm:mb-3 shadow-inner`}>
+        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${style.iconColor}`} />
       </div>
 
-      <div className="text-[11px] sm:text-sm text-neutral-700 font-medium mb-1 leading-tight">
-        {label}
-      </div>
-
-      <div className={`text-2xl sm:text-3xl font-bold leading-none ${style.valueColor}`}>
-        {value}
+      <div className="min-w-0">
+        <div className="truncate text-[11px] sm:text-sm text-neutral-700 font-medium leading-tight sm:mb-1">
+          {label}
+        </div>
+        <div className={`text-xl sm:text-3xl font-bold leading-tight sm:leading-none ${style.valueColor}`}>
+          {value}
+        </div>
       </div>
     </div>
   );

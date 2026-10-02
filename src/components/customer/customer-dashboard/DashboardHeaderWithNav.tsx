@@ -153,14 +153,14 @@ export function DashboardHeaderWithNav({
         aria-label="Dashboard Navigation"
         className="bg-gradient-to-r from-[#3d3832] via-[#2c2416] to-[#3d3832] border-t border-[#D4A574]/30"
       >
-        <div className="w-full px-4">
+        <div className="w-full px-1 sm:px-4">
           {/* ✅ ACCESSIBILITY: Tablist role for tab navigation */}
           <div
             role="tablist"
             aria-label="Dashboard Sections"
-            className="flex flex-wrap justify-around gap-0"
+            className="flex items-stretch sm:flex-wrap sm:justify-around"
           >
-            <div className="flex-shrink-0">
+            <div className="flex min-w-0 flex-1 sm:flex-none">
               <NavTab
                 active={activeTab === DashboardTab.PLACE_ORDER}
                 onClick={() =>
@@ -175,7 +175,7 @@ export function DashboardHeaderWithNav({
               />
             </div>
 
-            <div className="flex-shrink-0">
+            <div className="flex min-w-0 flex-1 sm:flex-none">
               <NavTab
                 active={activeTab === DashboardTab.PRODUCTS}
                 onClick={() =>
@@ -189,7 +189,7 @@ export function DashboardHeaderWithNav({
               />
             </div>
 
-            <div className="flex-shrink-0">
+            <div className="flex min-w-0 flex-1 sm:flex-none">
               <NavTab
                 active={
                   activeTab === DashboardTab.ACTIVE_ORDERS
@@ -212,7 +212,7 @@ export function DashboardHeaderWithNav({
               />
             </div>
 
-            <div className="flex-shrink-0">
+            <div className="flex min-w-0 flex-1 sm:flex-none">
               <NavTab
                 active={activeTab === DashboardTab.OUTSTANDING}
                 onClick={() =>
@@ -222,7 +222,7 @@ export function DashboardHeaderWithNav({
                   <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                 }
                 label="Outstanding (Unpaid)"
-                shortLabel="Outstanding"
+                shortLabel="Unpaid"
                 badge={
                   badgeCounts.outstanding > 0
                     ? badgeCounts.outstanding
@@ -233,7 +233,7 @@ export function DashboardHeaderWithNav({
               />
             </div>
 
-            <div className="flex-shrink-0">
+            <div className="flex min-w-0 flex-1 sm:flex-none">
               <NavTab
                 active={
                   activeTab === DashboardTab.ORDER_INVOICES
@@ -249,7 +249,7 @@ export function DashboardHeaderWithNav({
               />
             </div>
 
-            <div className="flex-shrink-0">
+            <div className="flex min-w-0 flex-1 sm:flex-none">
               <NavTab
                 active={activeTab === DashboardTab.MY_PROFILE}
                 onClick={() =>
