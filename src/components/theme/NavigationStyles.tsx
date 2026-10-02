@@ -115,7 +115,7 @@ export function NavBarShell({
           ref={tablistRef}
           role="tablist"
           aria-label={ariaLabel}
-          className={`flex items-center ${justify ? 'justify-around' : 'gap-2'} ${scrollable ? 'overflow-x-auto' : ''}`}
+          className={`flex items-stretch sm:items-center ${justify ? 'sm:justify-around' : 'sm:gap-2'} ${scrollable ? 'overflow-x-auto' : ''}`}
           style={scrollable ? { scrollbarWidth: 'thin' } : undefined}
         >
           {children}
@@ -146,10 +146,10 @@ interface NavTabProps {
   badgeLabel?: string;
   /** ID of panel this tab controls */
   ariaControls?: string;
-  /** 
-   * Variant: 
-   * - 'main' = main navigation tabs (flex-shrink-0, supports shortLabel)
-   * - 'admin' = admin sub-tabs (no flex-shrink-0)
+  /**
+   * Variant:
+   * - 'main'  = main navigation tabs (icon over label on phones, underline when active)
+   * - 'admin' = admin order sub-tabs (icon over short label in a pill on phones)
    */
   variant?: 'main' | 'admin';
 }
@@ -167,7 +167,19 @@ export function NavTab({
   variant = 'main'
 }: NavTabProps): JSX.Element | null {
   const isMain = variant === 'main';
-  
+
+  // Phones: every tab is an equal-width tile — icon above a short label,
+  // 56 px (main) / 52 px (sub-tabs) tall, so the bars are easy to tap and
+  // look the same on every screen. sm and up: the original inline layout.
+  const layout = isMain
+    ? 'flex-1 min-w-0 flex-col gap-1 min-h-[56px] px-1 py-2 text-[12px] sm:flex-none sm:flex-row sm:gap-2 sm:min-h-0 sm:px-4 sm:py-3 sm:text-base'
+    : `flex-1 min-w-0 flex-col gap-1 min-h-[52px] rounded-xl px-1 py-1.5 text-[11px] sm:flex-row sm:gap-2 sm:min-h-0 sm:min-w-[140px] sm:rounded-none sm:px-3 sm:py-3 sm:text-sm ${
+        active ? 'bg-[#D4A574]/15 sm:bg-transparent' : 'hover:bg-white/5 sm:hover:bg-transparent'
+      }`;
+  const mobileLabel = shortLabel || label;
+  // Main tabs keep their short label everywhere; sub-tabs show the full label from sm up.
+  const desktopLabel = isMain ? mobileLabel : label;
+
   return (
     <button
       type="button"
@@ -177,29 +189,23 @@ export function NavTab({
       aria-controls={ariaControls}
       aria-label={label}
       tabIndex={active ? 0 : -1}
-      className={`${isMain ? 'flex-shrink-0' : ''} ${variant === 'admin' ? 'flex-1 min-w-[110px] justify-center basis-[calc(50%-0.25rem)] sm:min-w-[140px] sm:basis-auto' : ''} relative flex items-center gap-1 sm:gap-2 px-${isMain ? '1.5 xs:px-2 sm:px-4' : '2 sm:px-3'} py-1.5 sm:py-3 text-[10px] sm:text-sm md:text-base transition-all whitespace-nowrap ${FOCUS_VISIBLE_CLASS} ${
-        active ? 'text-[#D4A574] font-medium' : 'text-neutral-400 hover:text-neutral-300'
+      className={`${layout} relative flex items-center justify-center font-medium leading-tight transition-all ${FOCUS_VISIBLE_CLASS} ${
+        active ? 'text-[#D4A574]' : 'text-neutral-400 hover:text-neutral-300'
       }`}
     >
-      <span aria-hidden="true">{icon}</span>
-      {isMain && shortLabel ? (
-        <>
-          <span className="hidden xs:inline">{label}</span>
-          <span className="xs:hidden">{shortLabel}</span>
-        </>
-      ) : (
-        <span>{label}</span>
-      )}
+      <span aria-hidden="true" className="flex [&>svg]:h-5 [&>svg]:w-5">{icon}</span>
+      <span className="max-w-full truncate sm:hidden">{mobileLabel}</span>
+      <span className="hidden whitespace-nowrap sm:inline">{desktopLabel}</span>
       {badge !== undefined && (
         <span 
-          className={`${badgeColor} text-xs font-bold rounded-full px-2 py-0.5 ml-1 shadow-sm`}
+          className={`${badgeColor} absolute right-1 top-1 min-w-[18px] rounded-full px-1.5 py-px text-center text-[10px] font-bold leading-4 shadow-sm sm:static sm:ml-1 sm:min-w-0 sm:px-2 sm:py-0.5 sm:text-xs`}
           aria-label={`${badge} ${badgeLabel}`}
         >
           {badge}
         </span>
       )}
       <span
-        className={`absolute bottom-0 left-2 right-2 h-0.5 overflow-hidden rounded-full bg-[#D4A574]/15 transition-all duration-300 ease-out ${active ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute bottom-0 left-2 right-2 h-0.5 overflow-hidden rounded-full bg-[#D4A574]/15 transition-all duration-300 ease-out ${isMain ? '' : 'hidden sm:block'} ${active ? 'opacity-100' : 'opacity-0'}`}
         aria-hidden="true"
       >
         <span

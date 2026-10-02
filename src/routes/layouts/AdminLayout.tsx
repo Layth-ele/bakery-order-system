@@ -221,9 +221,9 @@ export function AdminLayout(): JSX.Element | null {
           {/* Order Sub-Navigation */}
           {isOrdersPage(currentPage) && (
             <div className="bg-neutral-800 border-b border-neutral-700/50 shadow-md backdrop-blur-md">
-              <div className="max-w-7xl mx-auto px-4 py-0">
+              <div className="max-w-7xl mx-auto px-2 sm:px-4 py-0">
                 <div
-                  className="flex flex-wrap items-stretch gap-1.5 py-1.5 sm:justify-between sm:gap-3"
+                  className="flex items-stretch gap-1 py-1.5 sm:flex-wrap sm:justify-between sm:gap-3"
                   role="tablist"
                   aria-label="Order status filters"
                 >
