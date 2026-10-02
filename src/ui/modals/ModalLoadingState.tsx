@@ -11,7 +11,6 @@
  * Design: Luxury gold theme with professional animations
  */
 
-import React from "react";
 import { Loader2 } from "lucide-react";
 
 // ============================================

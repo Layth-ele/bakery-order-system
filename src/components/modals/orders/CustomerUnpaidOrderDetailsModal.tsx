@@ -1,4 +1,4 @@
-import { CreditCard, CheckCircle, DollarSign, MapPin, Package, AlertCircle, User as UserIcon } from 'lucide-react';
+import { CreditCard } from 'lucide-react';
 /**
  * CustomerUnpaidOrderDetailsModal - Customer view of their unpaid (APPROVED) order details
  *
@@ -20,8 +20,7 @@ import { ModalThreeSections } from './ModalOrderSections';
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons"; // ✅ FEB 21, 2026
 import type { Order, Product, Category } from "../../../types";
-import { formatTimestamp } from "../../../utils/timestampFormatting"; // 🔥 TIMESTAMP FIX: Use new utility
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+ // 🔥 TIMESTAMP FIX: Use new utility
 
 interface CustomerUnpaidOrderDetailsModalProps {
   order: Order;

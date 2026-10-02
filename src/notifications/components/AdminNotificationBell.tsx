@@ -3,7 +3,7 @@
  * 
  * ✅ V9.0 FEB 12, 2026: UNIFIED WITH CUSTOMER ARCHITECTURE
  * - Uses unified notification modal system
- * - Passes onViewNotification to ADMIN_NOTIFICATIONS modal
+ * - Passes onViewNotification to the NOTIFICATIONS modal (audience: admin)
  * - All notification types open correct modals
  * - Eliminates legacy action system
  * 
@@ -83,18 +83,19 @@ export const AdminNotificationBell = memo(function AdminNotificationBell({
   });
   
   /**
-   * Handle bell click - Opens ADMIN_NOTIFICATIONS modal
+   * Handle bell click - opens the notification list (admin audience)
    * ✅ MAR 8, 2026: Added duplicate check to prevent warning
    */
   const handleBellClick = useCallback(() => {
     // ✅ Check if modal is already open to prevent duplicate warning
-    const isAlreadyOpen = modalStack.some(m => m.type === 'ADMIN_NOTIFICATIONS');
+    const isAlreadyOpen = modalStack.some(m => m.type === 'NOTIFICATIONS');
     if (isAlreadyOpen) {
       return;
     }
     
     
-    openModal('ADMIN_NOTIFICATIONS', {
+    openModal('NOTIFICATIONS', {
+      audience: 'admin',
       onViewNotification: openNotificationModal, // ✅ Uses unified mapping system
  // Pass notification data to modal (modal rendered outside provider)
       notifications: context.notifications,

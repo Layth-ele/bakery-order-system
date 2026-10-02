@@ -29,26 +29,13 @@
  * For editing, use the EditOrderModal instead
  */
 
-import { useMemo } from "react";
 import { formatTimestamp, toDate } from '../../../utils/timestampFormatting';
 import { ModalThreeSections } from './ModalOrderSections';
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { CloseFooter } from "../../../ui/modals/ModalFooterButtons";
-import {
-  Clock,
-  User,
-  Calendar,
-  MapPin,
-  DollarSign,
-  Edit,
-  XCircle,
-  FileText,
-  Package,
-  Save,
-  X,
-} from "lucide-react";
+import { Clock, Calendar, XCircle, FileText } from "lucide-react";
 import type { Order, Product, Category } from "../../../types";
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+import { displayOrderNumber } from '../../../utils/displayId';
 
 interface PendingOrderDetailsModalProps {
   order: Order;
@@ -68,36 +55,6 @@ export function PendingOrderDetailsModal({
   onSave,
 }: PendingOrderDetailsModalProps): JSX.Element | null {
   // Days of week for delivery schedule
-  // Helper to parse week range and get dates
-  const getWeekDates = () => {
-    if (!order.weekRange) return null;
-    
-    // Parse "Week X, YYYY - Mon DD - Sun DD, MMM YYYY" format
-    const match = order.weekRange.match(/Mon\s+(\d+)\s*-\s*Sun\s+(\d+),\s*(\w+)\s+(\d{4})/);
-    if (!match) return null;
-    
-    const [, startDay, endDay, month, year] = match;
-    const monthMap: Record<string, number> = {
-      'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-      'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
-    };
-    
-    const monthNum = monthMap[month];
-    if (monthNum === undefined) return null;
-    
-    // Create date for Monday (start of week)
-    const mondayDate = new Date(parseInt(year), monthNum, parseInt(startDay));
-    
-    // Generate all 7 dates
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(mondayDate);
-      date.setDate(mondayDate.getDate() + i);
-      dates.push(date);
-    }
-    
-    return dates;
-  };
 
   // Calculate days since submission
   const daysSinceSubmission = order.createdAt
@@ -106,9 +63,6 @@ export function PendingOrderDetailsModal({
           (1000 * 60 * 60 * 24),
       )
     : 0;
-
-  // Group items by category
-  const isAdmin = userRole === "admin";
 
   return (
     <StyleModalShell

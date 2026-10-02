@@ -13,7 +13,6 @@
  * 4. User can track status in dashboard
  */
 
-import React from "react";
 import {
   CheckCircle,
   Clock,
@@ -24,7 +23,7 @@ import {
 import type { Order } from "../../../types";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { CloseFooter } from "../../../ui/modals/ModalFooterButtons";
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+import { displayInvoiceNumber } from '../../../utils/displayId';
 
 interface PaymentSubmittedModalProps {
   order: Order;

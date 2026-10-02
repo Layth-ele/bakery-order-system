@@ -14,7 +14,6 @@
 
 import type { Order, Product, Category } from "../../../types";
 import { EditOrderPage } from "../../order/EditOrderPage";
-import { useModal } from "../../../contexts/ModalContextNew";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { Edit2 } from "lucide-react";
 import { EditableItemsMap, EditOrderResult } from "../../../types/order-flow"; // Import proper types
@@ -40,7 +39,6 @@ export function EditOrderModal({
   onNavigateToHistory,
   onClose,
 }: EditOrderModalProps): JSX.Element | null {
-  const { openModal } = useModal();
 
   // Provide a fallback onSave function if not provided
   const handleSave = (result: EditOrderResult | void) => { // Properly typed

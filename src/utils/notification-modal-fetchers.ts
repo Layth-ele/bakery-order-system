@@ -1,4 +1,4 @@
-import type { NotificationItem } from '../types/notification-contract';
+
 import { safeParseJSON } from '../utils/safeLocalStorage';
 /**
  * Notification Modal Data Fetchers
@@ -11,7 +11,6 @@ import type { ModalType, ModalProps } from '../types/modals';
 import type { ModalSize, OverlayBlur } from '../ui/modals/BaseModal';
 import { getOrder } from "../services/data/ordersDataService";
 import { logger } from './logger';
-
 
 interface AppContext {
   orders?: Order[];
@@ -170,41 +169,6 @@ export async function fetchCustomer(customerId: string, context: AppContext): Pr
 // ═══════════════════════════════════════════════════════════════════════════
 // MODAL PROPS RESOLVERS (Per Modal Type)
 // ══════════════════════════════════════════════════════════════════════════
-
-/**
- * 1. PENDING_ORDER_DETAILS - Customer order pending approval
- */
-export async function resolvePendingOrderDetailsProps(
-  notification: NotificationItem,
-  context: AppContext
-): Promise<any> {
-  
-  if (!notification.orderId) {
-    throw new Error('Missing orderId in notification');
-  }
-  
-  const order = await fetchOrder(notification.orderId, context);
-  if (!order) {
-    throw new Error(`Order ${notification.orderId} not found`);
-  }
-  
-  const products = fetchProducts(context);
-  const categories = fetchCategories(context);
-  
-  // ✅ Detect user role from context
-  // If user is admin, notification is admin-facing (ORDER_SUBMITTED, ORDER_UPDATE_REQUESTED)
-  // If user is customer, notification is customer-facing (ORDER_PENDING)
-  const userRole = context.currentUser?.role === 'admin' ? 'admin' : 'customer';
-  
-  
-  return {
-    order,
-    products,
-    categories,
-    userRole, // ✅ Pass role to modal for read-only vs action mode
-    onClose: () => {} // Will be overridden by modal system
-  };
-}
 
 /**
  * 2. SUBMIT_PAYMENT - Payment submission form

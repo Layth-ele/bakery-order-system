@@ -74,12 +74,10 @@ const STACK_LIMIT_STRATEGY: StackLimitStrategy = 'prevent';
 /**
  * Auto-close rules: When opening a modal, which other modals should auto-close?
  * 
- * Example: Opening ADMIN_PASSWORD should close NOTIFICATIONS to prevent stack overflow
+ * Example: opening AUTH_GUARD closes the notification list first.
  */
 const AUTO_CLOSE_RULES: Record<string, ModalType[]> = {
-  ADMIN_PASSWORD: ['NOTIFICATIONS', 'ADMIN_NOTIFICATIONS'],
-  ADMIN_PASSWORD_CONFIRM: ['NOTIFICATIONS', 'ADMIN_NOTIFICATIONS'],
-  AUTH_GUARD: ['NOTIFICATIONS', 'ADMIN_NOTIFICATIONS'],
+  AUTH_GUARD: ['NOTIFICATIONS'],
 };
 
 // ============================================

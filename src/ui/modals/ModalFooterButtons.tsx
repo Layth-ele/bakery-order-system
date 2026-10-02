@@ -167,12 +167,14 @@ export function DeleteFooter({
   onDelete,
   itemName = "item",
   isDeleting = false,
+  deleteDisabled = false,
   leftAction,
 }: {
   onCancel: () => void;
   onDelete: () => void;
   itemName?: string;
   isDeleting?: boolean;
+  deleteDisabled?: boolean;
   leftAction?: ButtonConfig;
 }) {
   return (
@@ -190,6 +192,7 @@ export function DeleteFooter({
         onClick: onDelete, 
         variant: "danger", 
         loading: isDeleting,
+        disabled: deleteDisabled,
         keyboardShortcut: "shift+d" // ✅ APR 1, 2026: Shift+D to delete
       }}
     />

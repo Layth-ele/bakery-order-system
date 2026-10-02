@@ -20,10 +20,10 @@
 import { useState, useEffect } from "react";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
-import {FileText, Download, CheckCircle, DollarSign, Loader2} from "lucide-react"
+import { FileText, Download, CheckCircle } from "lucide-react";
 import type { Order, Product, Category } from "../../../types";
 import { formatOrderDateWithFallback } from "../../../services/calculators";
-import { displayOrderNumber, displayInvoiceNumber } from '../../../utils/displayId';
+import { displayInvoiceNumber } from '../../../utils/displayId';
 import { ModalThreeSections } from './ModalOrderSections';
 import { downloadCompleteOrderPDF } from '../../../utils/pdf';
 
@@ -44,7 +44,6 @@ export function CompletedOrderInvoiceModal({
   onDownloadExcel,
   onDownloadPDF,
 }: CompletedOrderInvoiceModalProps): JSX.Element | null {
-  const orderTotal = order.total || 0;
 
   // Self-fetch products & categories if not provided (e.g. opened from notification)
   const [products,   setProducts]   = useState<Product[]>(productsProp);

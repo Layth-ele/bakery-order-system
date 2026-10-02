@@ -29,9 +29,6 @@ import { getModalComponent } from "./modalRegistry";
 import { BaseModal } from "./BaseModal";
 import { scrollLockManager } from "../../utils/scrollLockManager"; // Centralized scroll lock
 
-const DEBUG =
-  typeof import.meta !== "undefined" && import.meta.env?.DEV;
-
 /**
  * Loading Fallback Component
  * Shows while lazy-loaded modal is being fetched
@@ -189,7 +186,6 @@ export function ModalRoot(): JSX.Element | null {
     <>
       {modalStack.map((modalEntry, index) => {
 
-
         const ModalComponent = getModalComponent(
           modalEntry.type,
         );
@@ -202,8 +198,6 @@ export function ModalRoot(): JSX.Element | null {
 
         const isTopModal = index === modalStack.length - 1;
         const zIndex = baseZIndex + index * zIndexIncrement;
-
-
 
         return (
           <BaseModal

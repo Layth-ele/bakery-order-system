@@ -19,12 +19,12 @@
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { ModalThreeSections } from './ModalOrderSections';
 import { CloseFooter, ModalFooterButtons } from '../../../ui/modals/ModalFooterButtons'; // ✅ FEB 21, 2026
-import {XCircle, User, Calendar, MapPin, DollarSign, AlertTriangle, FileText, Mail} from 'lucide-react'
+import { XCircle, AlertTriangle } from 'lucide-react';
 import type { Order, Product, Category } from '../../../types';
-import { formatOrderDateWithFallback } from '../../../services/calculators'; // Migrated from utils
-import { CONTACT_DEFAULTS } from '../../../constants/businessDefaults'; // Import bakery email
-import { getWeekDayDate, formatShortDate } from '../../../utils/weekUtils'; // Import date utilities
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+ // Migrated from utils
+ // Import bakery email
+ // Import date utilities
+import { displayOrderNumber } from '../../../utils/displayId';
 
 interface RejectedOrderDetailsModalProps {
   order: Order | null; // ✅ Allow null for deleted orders
@@ -88,15 +88,9 @@ export function RejectedOrderDetailsModal({
     );
   }
   
-  // Calculate order details
-  const orderTotal = order.total || 0;
   
 
-  // Determine rejection context
-  const reason = rejectionReason || order.rejectionReason || 'No reason provided';
   
-  // Calculate total product count
-  const totalProducts = order.items.length;
 
   return (
     <StyleModalShell

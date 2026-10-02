@@ -8,7 +8,7 @@
 import { ModalFooterButtons, submitForm } from '../../../ui/modals/ModalFooterButtons';
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
-import { Lock, AlertTriangle, ShieldCheck, Loader2, Eye, EyeOff, CheckSquare, Square, CreditCard, Hash, DollarSign, User } from 'lucide-react';
+import { Lock, AlertTriangle, ShieldCheck, Eye, EyeOff, CheckSquare, Square, CreditCard, Hash, DollarSign, User } from 'lucide-react';
 import { getAuth, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { normalizeLoginError } from '../../../utils/error/firebaseAuthErrors';
 
@@ -117,7 +117,6 @@ export function AuthGuardModal({
   const isLocked = lockoutSeconds > 0;
   const canSubmit = password.trim().length > 0 && !verifying && !isLocked && allChecked;
   const skin = danger ? 'danger' : 'warning';
-  const accentColor = danger ? 'bg-red-600 hover:bg-red-700' : 'bg-[#FF9800] hover:bg-[#F57C00]';
   const iconColor = danger ? 'text-red-500' : 'text-[#FF9800]';
   const iconBg = danger ? 'bg-red-50' : 'bg-amber-50';
   const warnBg = danger ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200';

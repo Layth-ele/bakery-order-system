@@ -1,46 +1,41 @@
 /**
- * NotificationsModal.tsx V4.0
+ * NotificationsModal — the notification list for both bells.
  *
- * ✅ FEB 19, 2026: MOVED to /components/modals/ (consolidation project)
- * ✅ FEB 19, 2026: CONVERTED TO StyleModalShell FOR CONSISTENCY
- * - Now uses standardized modal shell component
- * - Maintains luxury black and gold theme
- * - Consistent with all other modals in the app
- * - Custom header with unread count badge
- * - Custom footer with "Mark All Read" button
+ *   audience "customer" (default): CustomerNotificationBell
+ *   audience "admin":              AdminNotificationBell
  *
- * ✅ FEB 12, 2026: REMOVED DOUBLE BASEMODAL WRAPPER
- * - Removed BaseModal wrapper (already wrapped by ModalRoot)
- * - Fixes z-index conflict (was creating two BaseModals)
- * - Modal now renders correctly with proper z-index stacking
- *
- * ✅ FEB 11, 2026: MOVED TO /notifications/components/
- * - Part of complete consolidation: all notification files in /notifications/
- * - Updated imports to reflect new subdirectory structure
- *
- * ✅ FEB 11, 2026: STALE STATE FIX - Reads notifications directly from context
- * ✅ Modal for viewing all customer notifications
- * ✅ Premium black and gold theme, mark as read, delete
- *
- * STALE STATE PROBLEM FIXED:
- * - BEFORE: Received notifications array as prop (snapshot at bell click time)
- * - AFTER: Reads notifications directly from context (real-time updates)
- *
- * Benefits:
- * - Modal always shows current notifications (no stale data)
- * - Unread count stays in sync with bell
- * - New notifications appear automatically while modal is open
- * - Mark as read/delete operations are immediately visible
+ * Same layout for both; only the data source (context), the per-type
+ * "View" button and the title differ. Clicking "View" closes the list and
+ * hands the notification to onViewNotification (notificationActions), which
+ * opens the matching modal.
  */
-
+import { toDate } from "../../../utils/timestampFormatting";
 import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
-import { useState, useCallback } from "react";
+import { startTransition, useState, useCallback } from "react";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import {Bell, Trash2, Check, Eye} from "lucide-react"
-import {
-  useCustomerNotificationsSafe,
-} from "../../../notifications/contexts"; // ✅ FIX: Use customer-specific hook
+import { useAdminNotificationsSafe, useCustomerNotificationsSafe } from "../../../notifications/contexts";
 import { normalizeNotificationType } from "../../../types/notification-contract";
+
+
+const CUSTOMER_TYPE_UI: Record<string, { icon: string; label: string; style: string }> = {
+  ORDER_APPROVED_PAY_REQUIRED: { icon: "✅", label: "Pay Now", style: "bg-orange-50 hover:bg-orange-100 text-orange-600" },
+  ORDER_REJECTED: { icon: "❌", label: "View Details", style: "bg-red-50 hover:bg-red-100 text-red-600" },
+  ORDER_CANCELLED: { icon: "❌", label: "View Details", style: "bg-gray-50 hover:bg-gray-100 text-gray-600" },
+  PAYMENT_CONFIRMED: { icon: "💰", label: "View Order", style: "bg-green-50 hover:bg-green-100 text-green-600" },
+  ORDER_COMPLETED: { icon: "✅", label: "View Invoice", style: "bg-green-50 hover:bg-green-100 text-green-600" },
+  PAYMENT_REMINDER: { icon: "⏳", label: "Check Status", style: "bg-purple-50 hover:bg-purple-100 text-purple-600" },
+  CREDIT_ISSUED: { icon: "💰", label: "View Credit", style: "bg-emerald-50 hover:bg-emerald-100 text-emerald-600" },
+  ORDER_EDITED: { icon: "✏️", label: "View Changes", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" },
+};
+
+const ADMIN_TYPE_UI: Record<string, { icon: string; label: string; style: string }> = {
+  ORDER_PLACED_TRACKING: { icon: "📦", label: "Review Order", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" },
+  PAYMENT_SUBMITTED: { icon: "💰", label: "Review Payment", style: "bg-green-50 hover:bg-green-100 text-green-600" },
+  PAYMENT_CONFIRMED_ADMIN: { icon: "✅", label: "View Details", style: "bg-emerald-50 hover:bg-emerald-100 text-emerald-600" },
+  NEW_REGISTRATION: { icon: "🆕", label: "Review Request", style: "bg-orange-50 hover:bg-orange-100 text-orange-600" },
+  CREDIT_PAYOUT_REQUESTED: { icon: "💸", label: "View Request", style: "bg-amber-50 hover:bg-amber-100 text-amber-700" },
+};
 
 // ✅ FIXED: Correct type - matches UINotification from CustomerNotificationProvider
 interface CustomerNotification {
@@ -61,7 +56,11 @@ interface CustomerNotification {
   }>;
 }
 
+export type NotificationsAudience = "customer" | "admin";
+
 interface NotificationsModalProps {
+  /** Which bell opened the list (default: customer). */
+  audience?: NotificationsAudience;
   // Optional unified handler for all notification types (falls back to context)
   onViewNotification?: (
     notification: CustomerNotification,
@@ -76,6 +75,7 @@ interface NotificationsModalProps {
 }
 
 export function NotificationsModal({
+  audience = "customer",
   onViewNotification,
   onClose,
   notifications: notificationsProp,
@@ -84,8 +84,10 @@ export function NotificationsModal({
   markAllAsRead: markAllAsReadProp,
   deleteNotification: deleteNotificationProp,
 }: NotificationsModalProps): JSX.Element | null {
- // Try context first, fallback to props
-  const context = useCustomerNotificationsSafe();
+  // Both hooks are "safe" (null outside their provider); use the bell's one.
+  const adminContext = useAdminNotificationsSafe();
+  const customerContext = useCustomerNotificationsSafe();
+  const context: any = audience === "admin" ? adminContext : customerContext;
 
   // Use context if available, otherwise use props
   const notifications =
@@ -116,8 +118,10 @@ export function NotificationsModal({
     }
   }, [deleteNotification]);
 
-  const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
+  const formatDate = (timestamp: unknown) => {
+    if (!timestamp) return "Date unavailable";
+    const date = toDate(timestamp as any);
+    if (!date || isNaN(date.getTime())) return "Date unavailable";
     const now = new Date();
     const diffInMinutes = Math.floor(
       (now.getTime() - date.getTime()) / (1000 * 60),
@@ -138,19 +142,10 @@ export function NotificationsModal({
     });
   };
 
-  // One entry per customer notification type (see notification-contract.ts).
-  const CUSTOMER_TYPE_UI: Record<string, { icon: string; label: string; style: string }> = {
-    ORDER_APPROVED_PAY_REQUIRED: { icon: "✅", label: "Pay Now", style: "bg-orange-50 hover:bg-orange-100 text-orange-600" },
-    ORDER_REJECTED: { icon: "❌", label: "View Details", style: "bg-red-50 hover:bg-red-100 text-red-600" },
-    ORDER_CANCELLED: { icon: "❌", label: "View Details", style: "bg-gray-50 hover:bg-gray-100 text-gray-600" },
-    PAYMENT_CONFIRMED: { icon: "💰", label: "View Order", style: "bg-green-50 hover:bg-green-100 text-green-600" },
-    ORDER_COMPLETED: { icon: "✅", label: "View Invoice", style: "bg-green-50 hover:bg-green-100 text-green-600" },
-    PAYMENT_REMINDER: { icon: "⏳", label: "Check Status", style: "bg-purple-50 hover:bg-purple-100 text-purple-600" },
-    CREDIT_ISSUED: { icon: "💰", label: "View Credit", style: "bg-emerald-50 hover:bg-emerald-100 text-emerald-600" },
-    ORDER_EDITED: { icon: "✏️", label: "View Changes", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" },
-  };
+  // One entry per notification type (see notification-contract.ts).
+  const TYPE_UI: Record<string, { icon: string; label: string; style: string }> = audience === "admin" ? ADMIN_TYPE_UI : CUSTOMER_TYPE_UI;
   const DEFAULT_UI = { icon: "🔔", label: "View", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" };
-  const uiFor = (type: string) => CUSTOMER_TYPE_UI[normalizeNotificationType(type) ?? ""] ?? DEFAULT_UI;
+  const uiFor = (type: string) => TYPE_UI[normalizeNotificationType(type) ?? ""] ?? DEFAULT_UI;
 
   const getNotificationIcon = (type: string) => uiFor(type).icon;
 
@@ -164,7 +159,7 @@ export function NotificationsModal({
       width="xl"
       skinType="default"
       onClose={onClose}
-      title="Notifications"
+      title={audience === "admin" ? "Admin Notifications" : "Notifications"}
       subtitle={
         unreadCount > 0 ? `${unreadCount} unread` : undefined
       }
@@ -196,8 +191,8 @@ export function NotificationsModal({
         ) : (
           <div className="space-y-3 pb-2">
             {notifications
-              .filter(n => !deletingIds.has(n.id))
-              .map((notification) => {
+              .filter((n: CustomerNotification) => !deletingIds.has(n.id))
+              .map((notification: CustomerNotification) => {
               const viewButtonConfig = getViewButtonConfig(notification);
 
               return (
@@ -264,7 +259,7 @@ export function NotificationsModal({
                       <button
                         onClick={() => {
                           onClose();
-                          onViewNotification?.(notification as any);
+                          startTransition(() => onViewNotification?.(notification as any));
                         }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all font-semibold ${viewButtonConfig.style}`}
                       >

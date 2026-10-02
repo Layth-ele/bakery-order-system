@@ -65,20 +65,6 @@ export function AddCreditModal({
       invalidateCache.credit(customer.id);
       invalidateCache.all(); // also refresh creditNotes query used by CreditReceivedModal
 
-      // Also dispatch DOM event so celebration modal fires if customer is on same browser
-      // (only relevant in same-tab scenario, e.g. admin impersonating customer view)
-      try {
-        window.dispatchEvent(new CustomEvent('creditReceived', {
-          detail: {
-            customerId: customer.id || "",
-            amount: creditAmount,
-            reason: reason.trim(),
-            creditType: type,
-            timestamp: Date.now(),
-          },
-        }));
-      } catch { /* non-fatal */ }
-
       // Show success
       setSuccess(true);
 

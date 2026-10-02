@@ -12,7 +12,6 @@
  *              ActiveOrders page (in_process + completed orders)
  */
 
-import React from "react";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
 import {

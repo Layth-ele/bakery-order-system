@@ -62,14 +62,10 @@ const FallbackModal: React.FC<{ onClose: () => void }> = ({
   </div>
 );
 
-
-
 /**
  * Analytics Tracking for Modal Opens
  * Integrates with Google Analytics (gtag) if available
  */
-const DEBUG =
-  typeof import.meta !== "undefined" && import.meta.env?.DEV;
 
 export function trackModalOpen(
   type: ModalType,
@@ -180,15 +176,6 @@ export const MODAL_REGISTRY: {
       }))
       .catch(() => ({ default: FallbackModal as any })),
   ),
-  CUSTOMER_CANCEL_ORDER: lazy(() =>
-    import(
-      "../../components/modals/orders/CustomerCancelOrderModal"
-    )
-      .then((module) => ({
-        default: module.CustomerCancelOrderModal,
-      }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
   INVOICE_PREVIEW: lazy(() =>
     import("../../components/modals/orders/InvoicePreviewModal")
       .then((module) => ({
@@ -228,20 +215,6 @@ export const MODAL_REGISTRY: {
     )
       .then((module) => ({
         default: module.CompletedOrderInvoiceModal,
-      }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
-  DELIVERY_FEE: lazy(() =>
-    import("../../components/modals/admin/DeliveryFeeModal")
-      .then((module) => ({ default: module.DeliveryFeeModal }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
-  ORDER_UPDATE_SUCCESS: lazy(() =>
-    import(
-      "../../components/modals/orders/OrderUpdateSuccessModal"
-    )
-      .then((module) => ({
-        default: module.OrderUpdateSuccessModal,
       }))
       .catch(() => ({ default: FallbackModal as any })),
   ),
@@ -287,10 +260,6 @@ export const MODAL_REGISTRY: {
   // ============================================
   // ADMIN FEATURE MODALS
   // ============================================
-  ADMIN_PASSWORD: lazy(() =>
-    import('../../components/modals/admin/AuthGuardModal').then(m => ({ default: m.AuthGuardModal }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
   FORGOT_PASSWORD: lazy(() =>
     import("../../components/modals/auth/ForgotPasswordModal")
       .then((module) => ({ default: module.ForgotPasswordModal }))
@@ -300,13 +269,6 @@ export const MODAL_REGISTRY: {
     import('../../components/modals/admin/AuthGuardModal').then(m => ({ default: m.AuthGuardModal }))
       .catch(() => ({ default: FallbackModal as any })),
   ),
-  ADMIN_SECURITY: lazy(() =>
-    import("../../components/modals/admin/AdminSecurityModal")
-      .then((module) => ({
-        default: module.AdminSecurityModal,
-      }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
   ADD_CREDIT: lazy(() =>
     import("../../components/modals/admin/AddCreditModal")
       .then((module) => ({
@@ -314,20 +276,7 @@ export const MODAL_REGISTRY: {
       }))
       .catch(() => ({ default: FallbackModal as any })),
   ),
-  ADMIN_PASSWORD_CONFIRM: lazy(() =>
-    import('../../components/modals/admin/AuthGuardModal').then(m => ({ default: m.AuthGuardModal }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
   PAYMENT_CONFIRMED_MESSAGE: lazy(() =>
-    import(
-      "../../components/modals/admin/PaymentConfirmedMessageModal"
-    )
-      .then((module) => ({
-        default: module.PaymentConfirmedMessageModal,
-      }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
-  PAYMENT_CONFIRMED_ADMIN: lazy(() =>
     import(
       "../../components/modals/admin/PaymentConfirmedMessageModal"
     )
@@ -396,24 +345,6 @@ export const MODAL_REGISTRY: {
       }))
       .catch(() => ({ default: FallbackModal as any })),
   ),
-  CREDIT_RECEIVED_CELEBRATION: lazy(() =>
-    import(
-      "../../components/modals/notifications/CreditReceivedCelebrationModal"
-    )
-      .then((module) => ({
-        default: module.CreditReceivedCelebrationModal,
-      }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
-  PAYMENT_RECEIVED_SUCCESS: lazy(() =>
-    import(
-      "../../components/modals/payments/PaymentReceivedSuccessModal"
-    )
-      .then((module) => ({
-        default: module.PaymentReceivedSuccessModal,
-      }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
   UNPAID_ORDER_DETAILS: lazy(() =>
     import(
       "../../components/modals/orders/UnpaidOrderDetailsModal"
@@ -465,22 +396,6 @@ export const MODAL_REGISTRY: {
     )
       .then((module) => ({
         default: module.NotificationsModal,
-      }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
-  ADMIN_NOTIFICATIONS: lazy(() =>
-    import(
-      "../../components/modals/admin/AdminNotificationsModal"
-    )
-      .then((module) => ({
-        default: module.AdminNotificationsModal,
-      }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
-  KEYBOARD_SHORTCUTS: lazy(() =>
-    import("../../components/modals/KeyboardShortcutsModal")
-      .then((module) => ({
-        default: module.KeyboardShortcutsModal,
       }))
       .catch(() => ({ default: FallbackModal as any })),
   ),

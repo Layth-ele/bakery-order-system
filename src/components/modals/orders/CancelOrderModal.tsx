@@ -27,7 +27,7 @@ import {
 } from "../../../utils/orderCancellationUtils";
 import { useSystemSettingsData } from '../../../hooks/admin/useSystemSettingsData';
 import { ModalThreeSections } from './ModalOrderSections';
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+import { displayOrderNumber } from '../../../utils/displayId';
 
 interface CancelOrderModalProps {
   onClose: () => void;
@@ -86,7 +86,6 @@ export function CancelOrderModal({
   );
   const [customReason, setCustomReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Check if this is a read-only view (order already cancelled)
   const isReadOnly = order.status === "cancelled" && !onConfirm;
@@ -176,23 +175,6 @@ export function CancelOrderModal({
     }
   };
 
-  // Calculate order totals
-  const orderTotal = order.total || 0;
-  const productCount = order.items?.length || 0;
-  const totalItems =
-    order.items?.reduce((sum, item) => {
-      return (
-        sum +
-        (item.monday +
-          item.tuesday +
-          item.wednesday +
-          item.thursday +
-          item.friday +
-          item.saturday +
-          item.sunday)
-      );
-    }, 0) || 0;
-
   // Can submit check
   const canSubmit = useMemo(() => {
     return (
@@ -207,7 +189,7 @@ export function CancelOrderModal({
     <StyleModalShell
       width="4xl"
       skinType="danger"
-      onClose={() => { setSubmitError(null); onClose(); }}
+      onClose={onClose}
       title={
         isReadOnly ? "CANCELLED ORDER DETAILS" : "CANCEL ORDER"
       }

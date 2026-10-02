@@ -20,28 +20,11 @@
 import { ModalThreeSections } from './ModalOrderSections';
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
-import { 
-  DollarSign, 
-  Package, 
-  AlertCircle, 
-  Bell, 
-  Mail,
-  XCircle, 
-  AlertTriangle, 
-  Check, 
-  Clock, 
-  FileText, 
-  User, 
-  Calendar,
-  MapPin,
-  CheckCircle2
-} from "lucide-react";
+import { DollarSign, Bell, Mail, Check } from "lucide-react";
 import type { Order, Product, Category } from "../../../types";
-import { toDate } from '../../../utils/timestampFormatting';
-import { formatShortDate } from "../../../utils/weekUtils";
+
 import { useCachedOrders } from '../../../hooks/useCachedFirebase';
 import { useMemo } from 'react';
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
 
 interface UnpaidOrderDetailsModalProps {
   order: Order;
@@ -77,18 +60,10 @@ export function UnpaidOrderDetailsModal({
   // Calculate payment reminder info from live order
   const paymentReminderCount = liveOrder.paymentReminderCount || 0;
   const emailReminderCount = liveOrder.emailReminderCount || 0;
-  const lastReminderSentAt = liveOrder.lastReminderSentAt;
-  const lastEmailReminderSentAt = liveOrder.lastEmailReminderSentAt;
   const paymentSubmitted = liveOrder.paymentSubmitted && !liveOrder.paymentReceived;
-  const transferPassword = liveOrder.transferPassword;
-  const paymentSubmittedAt = liveOrder.paymentSubmittedAt;
 
   // ✅ Determine if we're in email reminder mode (after 2 notification reminders)
   const isEmailMode = paymentReminderCount >= 2;
-
-  // Calculate order total
-  const orderTotal = liveOrder.total || 0;
-  const amountDue = liveOrder.amountDue || orderTotal;
 
   return (
     <StyleModalShell

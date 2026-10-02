@@ -59,31 +59,6 @@ const DIETARY_LABELS = [
   { id: "low-sugar",   label: "Low Sugar",   icon: "✦",  bg: "bg-purple-100 text-purple-800 border-purple-200" },
 ];
 
-const getMockNutrition = (name: string): NutritionalInfo | null => {
-  const mock: Record<string, NutritionalInfo> = {
-    croissant: { calories: 231, protein: 4.7, carbs: 26.1, fat: 12.0, fiber: 1.5, sugar: 6.0, sodium: 424, servingSize: "1 piece (57g)" },
-    baguette:  { calories: 289, protein: 9.0, carbs: 58.0, fat: 2.0,  fiber: 2.5, sugar: 2.0, sodium: 680, servingSize: "100g" },
-  };
-  return mock[name.toLowerCase()] ?? null;
-};
-
-const getMockAllergens = (name: string): string[] => {
-  const n = name.toLowerCase();
-  const a: string[] = [];
-  if (n.includes("croissant") || n.includes("bread") || n.includes("baguette")) a.push("wheat","eggs","milk");
-  if (n.includes("nut") || n.includes("almond")) a.push("nuts");
-  return a;
-};
-
-const getMockDietary = (name: string): string[] => {
-  const n = name.toLowerCase();
-  const d: string[] = [];
-  if (n.includes("vegan"))       d.push("vegan","dairy-free");
-  if (n.includes("gluten-free")) d.push("gluten-free");
-  if (n.includes("organic"))     d.push("organic");
-  return d;
-};
-
 export function ProductDetailsModal({
   product, onClose, products, onAddToCart,
   lockedDaysForWeek = [],

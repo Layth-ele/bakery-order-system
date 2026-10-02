@@ -42,19 +42,6 @@ export type ModalConfig =
   // ❌ MAR 9, 2026: REMOVED ORDER_CONFIRMATION modal
   // Order now closes directly after submission without confirmation modal
   | {
-      type: 'ADMIN_PASSWORD'; // Legacy alias → routes to AUTH_GUARD
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        onConfirm: (password: string) => void;
-        message?: string;
-        title?: string;
-        actionLabel?: string;
-        onCancel?: () => void;
-        danger?: boolean;
-      };
-    }
-  | {
       type: 'AUTH_GUARD'; // Unified admin authentication guard
       size?: ModalSize;
       overlayBlur?: OverlayBlur;
@@ -71,15 +58,6 @@ export type ModalConfig =
         }>;
         onConfirm: () => void | Promise<void>;
         onCancel?: () => void;
-      };
-    }
-  | {
-      type: 'ADMIN_SECURITY'; // Security verification modal to confirm admin role before creating new admin accounts
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        user: any; // User type from useAuth
-        onConfirm: () => void;
       };
     }
   | {
@@ -114,16 +92,6 @@ export type ModalConfig =
         selectedWeek: number;
         selectedYear: number;
         onConfirm: () => void;
-      };
-    }
-  | {
-      type: 'ADMIN_PASSWORD_CONFIRM'; // Legacy alias → routes to AUTH_GUARD
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        adminEmail: string;
-        actionDescription: string;
-        onConfirm: () => void | Promise<void>;
       };
     }
   | {
@@ -199,15 +167,6 @@ export type ModalConfig =
           quantity: number;
         };
         onClose: () => void;
-      };
-    }
-  | {
-      type: 'CUSTOMER_CANCEL_ORDER'; // Customer self-service order cancellation
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        order: Order;
-        onConfirm: (reason?: string, notes?: string) => void | Promise<void>;
       };
     }
   | {
@@ -324,38 +283,6 @@ export type ModalConfig =
     }
   // ❌ DELETED FEB 18, 2026: ADD_DISCOUNT - Removed from Pending Orders page
   | {
-      type: 'PAYMENT_RECEIVED_SUCCESS';
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        orderId: string;
-        amount?: number;
-        order?: Order;
-        products?: Product[];
-        categories?: Category[];
-      };
-    }
-  | {
-      type: 'PAYMENT_CONFIRMED_ADMIN'; // Admin audit trail for payment confirmations
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        orderId: string;
-        amount?: number;
-        invoiceId?: string;
-        confirmedAt?: string;
-        confirmedBy?: string;
-        confirmedByName?: string;
-        order?: Order;
-        onViewOrder?: (orderId: string) => void;
-      };
-    }
-  // ❌ REMOVED: SUBMIT_SUPPLEMENTARY_PAYMENT - legacy hybrid modal
-  // ❌ REMOVED: SUBMIT_ADJUSTMENT_PAYMENT - adjustment modals removed
-  // ❌ REMOVED: ADJUSTMENT_PAYMENT_NOTIFICATION - adjustment modals removed
-  // ❌ REMOVED: ADJUSTMENT_ORDER_DETAILS - adjustment modals removed
-  // ❌ REMOVED: SUPPLEMENTARY_PAYMENT_PROOF - supplementary invoices removed
-  | {
       type: 'CREDIT_HISTORY';
       size?: ModalSize;
       overlayBlur?: OverlayBlur;
@@ -371,16 +298,6 @@ export type ModalConfig =
         customerId: string;
         onViewCredit: () => void;
         onClose?: () => void;
-      };
-    }
-  | {
-      type: 'CREDIT_RECEIVED_CELEBRATION'; // Celebratory modal when customer receives credit
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        amount: number;
-        reason: string;
-        creditType: string;
       };
     }
   | {
@@ -503,10 +420,11 @@ export type ModalConfig =
       };
     }
   | {
-      type: 'NOTIFICATIONS'; // ✅ Main notifications list modal (customer)
+      type: 'NOTIFICATIONS'; // Notification list for both bells (audience)
       size?: ModalSize;
       overlayBlur?: OverlayBlur;
       props: {
+        audience?: 'customer' | 'admin';
         notifications: any[]; // Array of notifications
         onViewNotification?: (notification: any) => void; // ✅ Powers all View buttons
         onMarkAsRead?: (id: string) => void;
@@ -521,64 +439,12 @@ export type ModalConfig =
       };
     }
   | {
-      type: 'ADMIN_NOTIFICATIONS'; // ✅ Admin notifications list modal
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        notifications: any[]; // Array of notifications
-        onMarkAsRead?: (id: string) => void;
-        onMarkAllAsRead?: () => void;
-        onDeleteNotification?: (id: string) => void;
-        onViewNotification?: (notification: any) => void; // ✅ Powers all View buttons
-        onActionClick?: (action: any, notification: any) => void;
-        getActionButtonConfig?: (action: any, orderId?: string) => { buttonLabel: string; buttonStyle: string };
-        /** Passed from context by AdminNotificationBell */
-        unreadCount?: number;
-        markAsRead?: (id: string) => Promise<void>;
-        markAllAsRead?: () => Promise<void>;
-        deleteNotification?: (id: string) => Promise<void>;
-      };
-    }
-  // ❌ REMOVED: COMPLETE_ORDER - Replaced by UNIFIED_ORDER_DETAILS
-  // ❌ REMOVED: REVISION_PAYMENT_REQUIRED - revisions feature removed
-
- // Admin modal to set delivery fee for orders below free delivery minimum
-  | {
-      type: 'DELIVERY_FEE';
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        orderId: string;
-        onConfirm: (orderId: string, fee: number) => void;
-      };
-    }
-  // AdminOrderDetailsModal - Giant admin order details modal for the current route-driven admin flow
-  // OrderUpdateSuccessModal - Success notification after order updates
-  | {
-      type: 'ORDER_UPDATE_SUCCESS';
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        message: string;
-      };
-    }
-  // OrderSuccessModal - Shown to customer after successfully placing an order
-  | {
       type: 'ORDER_SUCCESS';
       size?: ModalSize;
       overlayBlur?: OverlayBlur;
       props: {
         week: number;
         year: number;
-      };
-    }
-  // KeyboardShortcutsModal - Help modal showing all keyboard shortcuts
-  | {
-      type: 'KEYBOARD_SHORTCUTS';
-      size?: ModalSize;
-      overlayBlur?: OverlayBlur;
-      props: {
-        shortcuts: KeyboardShortcut[];
       };
     }
 ;

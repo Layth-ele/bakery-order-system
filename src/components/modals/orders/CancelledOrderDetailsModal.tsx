@@ -24,22 +24,11 @@
 
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { CloseFooter, ModalFooterButtons } from '../../../ui/modals/ModalFooterButtons';
-import { 
-  XCircle, 
-  User, 
-  Calendar, 
-  MapPin, 
-  DollarSign, 
-  AlertTriangle, 
-  FileText,
-  CreditCard,
-  Info,
-  TrendingDown
-} from 'lucide-react';
+import { XCircle, AlertTriangle, CreditCard, Info, TrendingDown } from 'lucide-react';
 import type { Order, Product, Category } from '../../../types';
 import { formatOrderDateWithFallback } from '../../../services/calculators';
 import { ModalThreeSections } from './ModalOrderSections';
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+import { displayInvoiceNumber } from '../../../utils/displayId';
 
 interface CancelledOrderDetailsModalProps {
   order: Order | null;

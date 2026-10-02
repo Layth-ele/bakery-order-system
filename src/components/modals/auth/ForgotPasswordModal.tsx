@@ -7,7 +7,7 @@
 
 import { ModalFooterButtons, submitForm } from '../../../ui/modals/ModalFooterButtons';
 import { useState } from 'react';
-import { Mail, KeyRound, ArrowLeft, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, KeyRound, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { resetPassword } from '../../../services/firebase/authService';
 

@@ -12,9 +12,8 @@ import React from 'react';
  *  - Consistent spacing: space-y-4 between sections
  */
 
-import { FileText, Calendar, MapPin, User } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import type { Order, Product } from '../../../types';
-import { displayOrderNumber } from '../../../utils/displayId';
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const;
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
