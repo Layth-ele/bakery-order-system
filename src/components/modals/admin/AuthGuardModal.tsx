@@ -5,6 +5,7 @@
  * each item (order number, transfer password, amount) before confirming.
  */
 
+import { ModalFooterButtons, submitForm } from '../../../ui/modals/ModalFooterButtons';
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { Lock, AlertTriangle, ShieldCheck, Loader2, Eye, EyeOff, CheckSquare, Square, CreditCard, Hash, DollarSign, User } from 'lucide-react';
@@ -124,11 +125,24 @@ export function AuthGuardModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="md"
       skinType={skin}
       onClose={verifying ? () => {} : onClose}
       title="ADMIN VERIFICATION"
       headerLeft={<Lock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />}
+      footer={
+        <ModalFooterButtons
+          cancelButton={{ label: 'Cancel', onClick: onClose, variant: 'secondary', disabled: verifying, keyboardShortcut: 'Escape' }}
+          confirmButton={{
+            label: verifying ? 'Verifying...' : isLocked ? `Locked (${lockoutSeconds}s)` : actionLabel,
+            onClick: () => submitForm('auth-guard-form'),
+            variant: danger ? 'danger' : 'warning',
+            loading: verifying,
+            disabled: !canSubmit,
+            icon: <ShieldCheck className="w-4 h-4" />,
+          }}
+        />
+      }
     >
       <div className="space-y-4">
 
@@ -228,7 +242,7 @@ export function AuthGuardModal({
         )}
 
         {/* Password form */}
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form id="auth-guard-form" onSubmit={handleSubmit} className="space-y-3">
           <label className="block text-sm font-semibold text-neutral-700 text-center">
             Enter your admin password to continue
           </label>
@@ -273,29 +287,7 @@ export function AuthGuardModal({
             </div>
           )}
 
-          <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={verifying}
-              className="flex-1 px-4 py-3 bg-neutral-100 text-neutral-700 rounded-xl font-semibold hover:bg-neutral-200 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className={`flex-1 px-4 py-3 ${accentColor} text-white rounded-xl font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-            >
-              {verifying ? (
-                <><Loader2 className="w-4 h-4 animate-spin" />Verifying...</>
-              ) : isLocked ? (
-                `Locked (${lockoutSeconds}s)`
-              ) : (
-                <><ShieldCheck className="w-4 h-4" />{actionLabel}</>
-              )}
-            </button>
-          </div>
+        <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
         </form>
       </div>
     </StyleModalShell>

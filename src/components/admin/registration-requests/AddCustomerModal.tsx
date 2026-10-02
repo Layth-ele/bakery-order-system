@@ -11,7 +11,10 @@
  */
 
 import React from 'react';
-import { X, Save, Building2, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { Save, Building2, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { BaseModal } from '../../../ui/modals/BaseModal';
+import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
+import { SaveFooter } from '../../../ui/modals/ModalFooterButtons';
 import { AddressAutocomplete } from '../../AddressAutocomplete';
 import type { NewCustomer } from '../../../hooks/admin/useRegistrationRequestsData';
 
@@ -48,38 +51,32 @@ export function AddCustomerModal({
   onSelectCustomerType,
   onStartAdminCreation,
 }: AddCustomerModalProps): JSX.Element | null {
-  if (!isOpen) return null;
-  
+  // Rendered by RegistrationRequestsView (not ModalRoot), so it brings its
+  // own BaseModal frame — same backdrop, sheet and panel as every modal.
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center p-2 sm:p-4 z-modal-backdrop"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-    >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col z-modal-content">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#D4A574] to-[#E8C4A2] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-xl flex-shrink-0">
-          <h2 className="text-[#333333] text-lg sm:text-xl font-bold">
-            {isAddingAdmin ? 'ADD NEW ADMIN' : 'ADD NEW CUSTOMER'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-[#333333] hover:text-white transition-colors"
-            type="button"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
-        </div>
-
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+    <BaseModal isOpen={isOpen} onClose={onClose} size="lg" ariaLabel={isAddingAdmin ? 'Add new admin' : 'Add new customer'}>
+      <StyleModalShell
+        width="xl"
+        onClose={onClose}
+        title={isAddingAdmin ? 'Add New Admin' : 'Add New Customer'}
+        icon={isAddingAdmin ? Lock : User}
+        footer={
+          <SaveFooter
+            onCancel={onClose}
+            onSave={onSave}
+            saveLabel={isAddingAdmin ? 'Create Admin' : 'Create Customer'}
+            saveIcon={<Save className="w-4 h-4" />}
+          />
+        }
+      >
           {/* Customer Type Tabs (Only for non-admin) */}
           {!isAddingAdmin && (
-            <div className="mb-6 bg-gradient-to-br from-white to-[#F5E9D9] rounded-xl p-4 border-2 border-[#D4A574]/30">
+            <div className="mb-5 bg-gradient-to-br from-white to-[#F5E9D9] rounded-xl p-3 sm:p-4 border-2 border-[#D4A574]/30">
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => onSelectCustomerType('commercial')}
-                  className={`px-3 sm:px-4 py-3 sm:py-4 rounded-lg border-2 transition-all text-xs sm:text-sm font-bold flex items-center justify-center gap-1 sm:gap-2 ${
+                  className={`min-h-[44px] px-2 sm:px-4 py-2.5 sm:py-4 rounded-lg border-2 transition-all text-[11px] sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 ${
                     newCustomer.customerType === 'commercial'
                       ? 'bg-[#2196F3] border-[#2196F3] text-white shadow-lg'
                       : 'bg-white border-[#D4A574]/50 text-[#333333] hover:border-[#2196F3]'
@@ -91,7 +88,7 @@ export function AddCustomerModal({
                 <button
                   type="button"
                   onClick={() => onSelectCustomerType('individual')}
-                  className={`px-3 sm:px-4 py-3 sm:py-4 rounded-lg border-2 transition-all text-xs sm:text-sm font-bold flex items-center justify-center gap-1 sm:gap-2 ${
+                  className={`min-h-[44px] px-2 sm:px-4 py-2.5 sm:py-4 rounded-lg border-2 transition-all text-[11px] sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 ${
                     newCustomer.customerType === 'individual'
                       ? 'bg-[#9C27B0] border-[#9C27B0] text-white shadow-lg'
                       : 'bg-white border-[#D4A574]/50 text-[#333333] hover:border-[#9C27B0]'
@@ -103,7 +100,7 @@ export function AddCustomerModal({
                 <button
                   type="button"
                   onClick={onStartAdminCreation}
-                  className="px-3 sm:px-4 py-3 sm:py-4 rounded-lg border-2 transition-all text-xs sm:text-sm font-bold flex items-center justify-center gap-1 sm:gap-2 bg-white border-[#D4A574]/50 text-[#333333] hover:border-[#FF9800]"
+                  className="min-h-[44px] px-2 sm:px-4 py-2.5 sm:py-4 rounded-lg border-2 transition-all text-[11px] sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 bg-white border-[#D4A574]/50 text-[#333333] hover:border-[#FF9800]"
                 >
                   <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>ADMIN</span>
@@ -248,26 +245,7 @@ export function AddCustomerModal({
             </div>
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3 mt-6 pt-4 border-t-2 border-[#E8C4A2]">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-3 bg-neutral-700/50 text-neutral-300 rounded-lg hover:bg-neutral-700 transition-colors font-medium"
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onSave}
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-[#4CAF50] to-[#45a049] text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center justify-center gap-2"
-              type="button"
-            >
-              <Save className="w-4 h-4" />
-              {isAddingAdmin ? 'Create Admin' : 'Create Customer'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      </StyleModalShell>
+    </BaseModal>
   );
 }

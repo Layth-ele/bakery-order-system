@@ -53,7 +53,7 @@ export function AdminSecurityModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="md"
       skinType="info"
       onClose={handleCancel}
       title="ADMIN VERIFICATION"

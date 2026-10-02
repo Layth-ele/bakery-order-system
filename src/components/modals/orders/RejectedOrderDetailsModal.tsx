@@ -57,7 +57,7 @@ export function RejectedOrderDetailsModal({
     
     return (
       <StyleModalShell
-        width="4xl"
+        width="md"
         skinType="danger"
         isOpen={true}
         onClose={onClose}

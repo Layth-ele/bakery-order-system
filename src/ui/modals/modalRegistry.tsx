@@ -314,11 +314,6 @@ export const MODAL_REGISTRY: {
       }))
       .catch(() => ({ default: FallbackModal as any })),
   ),
-  ADD_CUSTOMER: lazy(() =>
-    import("../../components/modals/customers/AddCustomerModal")
-      .then((module) => ({ default: module.AddCustomerModal }))
-      .catch(() => ({ default: FallbackModal as any })),
-  ),
   ADMIN_PASSWORD_CONFIRM: lazy(() =>
     import('../../components/modals/admin/AuthGuardModal').then(m => ({ default: m.AuthGuardModal }))
       .catch(() => ({ default: FallbackModal as any })),

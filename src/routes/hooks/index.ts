@@ -25,4 +25,3 @@ export type { ModalRouterOptions, ModalRouterReturn } from './useModalRouter';
 // Other route hooks
 export { useDocumentTitle, usePageTitle } from './useDocumentTitle';
 export { useBlocker, useNavigationPrompt } from './useBlocker';
-export { useFormBlocker, useReactHookFormBlocker } from './useFormBlocker';

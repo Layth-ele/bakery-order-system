@@ -58,14 +58,14 @@ export function OrderItemsSimpleTable({
             Order Items
           </h3>
           <div className="text-right">
-            <p className="text-[10px] uppercase font-bold text-[#8B6F47]">Order Total</p>
+            <p className="text-[11px] uppercase font-bold text-[#8B6F47]">Order Total</p>
             <p className={`text-lg font-bold ${hasCredit ? 'line-through text-neutral-400' : 'text-[#333333]'}`}>
               ${orderTotal.toFixed(2)}
             </p>
             {hasCredit && (
               <p className="text-lg font-bold text-green-700">${amountDue.toFixed(2)}</p>
             )}
-            <p className="text-[10px] text-[#666666] mt-0.5">
+            <p className="text-[11px] text-[#666666] mt-0.5">
               {productCount} product{productCount !== 1 ? 's' : ''},{' '}
               {totalQty} total item{totalQty !== 1 ? 's' : ''}
             </p>
@@ -83,7 +83,7 @@ export function OrderItemsSimpleTable({
             <p className="text-xs font-bold text-green-800 uppercase tracking-wide">
               💳 Store Credit Applied
             </p>
-            <p className="text-[10px] text-green-700">
+            <p className="text-[11px] text-green-700">
               Customer redeemed store credit on this order
             </p>
           </div>

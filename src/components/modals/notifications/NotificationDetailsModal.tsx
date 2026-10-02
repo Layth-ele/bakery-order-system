@@ -84,7 +84,7 @@ export function NotificationDetailsModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="xl"
       skinType="default"
       onClose={onClose}
       title="Notification Details"

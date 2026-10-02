@@ -67,7 +67,7 @@ function SectionCard({ icon, title, children }: {
       {/* Section title bar */}
       <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-[#E8C4A2]">
         <span className="text-[#D4A574] text-sm sm:text-base">{icon}</span>
-        <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#8B6F47]">
+        <h3 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#8B6F47]">
           {title}
         </h3>
       </div>
@@ -82,11 +82,11 @@ function SectionCard({ icon, title, children }: {
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-[#D4A574]">
+      <span className="text-[11px] sm:text-[11px] font-bold uppercase tracking-widest text-[#D4A574]">
         {label}
       </span>
       <span className="text-xs sm:text-sm font-bold text-[#2d2416] leading-snug">
-        {value || <span className="text-[#8B6F47]/40 font-normal text-[10px]">—</span>}
+        {value || <span className="text-[#8B6F47]/40 font-normal text-[11px]">—</span>}
       </span>
     </div>
   );
@@ -178,18 +178,18 @@ export function OrderItemsSection({ order, products = [] }: { order: Order; prod
         <table className="w-full text-xs min-w-[520px]">
           <thead>
             <tr className="border-b border-[#E8C4A2]">
-              <th className="px-4 sm:px-5 py-2 text-left font-bold text-[#8B6F47] uppercase tracking-wide text-[10px]">
+              <th className="px-4 sm:px-5 py-2 text-left font-bold text-[#8B6F47] uppercase tracking-wide text-[11px]">
                 Product
               </th>
               {DAY_LABELS.map((label, i) => (
-                <th key={label} className="px-1 py-2 text-center font-bold text-[#8B6F47] text-[10px]">
+                <th key={label} className="px-1 py-2 text-center font-bold text-[#8B6F47] text-[11px]">
                   <div className="font-bold">{label}</div>
                   {weekDates[i] && (
                     <div className="text-[#8B6F47]/50 font-normal">{weekDates[i]}</div>
                   )}
                 </th>
               ))}
-              <th className="px-4 sm:px-5 py-2 text-center font-bold text-[#8B6F47] uppercase tracking-wide text-[10px]">
+              <th className="px-4 sm:px-5 py-2 text-center font-bold text-[#8B6F47] uppercase tracking-wide text-[11px]">
                 Total
               </th>
             </tr>

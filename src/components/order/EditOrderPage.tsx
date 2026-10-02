@@ -19,6 +19,7 @@
 
 import {X, Save, AlertTriangle, Calendar, Package, Tag, Truck, Plus, DollarSign} from 'lucide-react'
 import { useState } from 'react';
+import { CloseFooter, SaveFooter } from '../../ui/modals/ModalFooterButtons';
 import {Order, Product, Category} from '../../types'
 import { DayQuantities } from '../../types/order-flow';
 import {canCustomerEditOrder} from '../../services/orders/orderEditRules'
@@ -107,25 +108,18 @@ export function EditOrderPage({
   // ✅ PHASE 5: SECURITY - Show permission denied UI if editing not allowed
   if (!editPermission.allowed) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="flex-shrink-0 w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-yellow-600" />
-            </div>
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="flex items-start gap-3 rounded-xl border-2 border-yellow-300 bg-yellow-50 p-4">
+            <AlertTriangle className="h-6 w-6 flex-shrink-0 text-yellow-600" />
             <div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Cannot Edit Order</h3>
-              <p className="text-gray-600 leading-relaxed">{editPermission.reason}</p>
+              <h3 className="mb-1 text-lg font-bold text-gray-800">Cannot Edit Order</h3>
+              <p className="leading-relaxed text-gray-600">{editPermission.reason}</p>
             </div>
           </div>
-          <div className="flex justify-end">
-            <button 
-              onClick={onCancel}
-              className="px-6 py-2 bg-gradient-to-r from-[#8B6F47] to-[#D4A574] text-white rounded-lg hover:opacity-90 transition-opacity"
-            >
-              Close
-            </button>
-          </div>
+        </div>
+        <div className="flex-shrink-0 border-t border-neutral-200 bg-white px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
+          <CloseFooter onClose={onCancel} />
         </div>
       </div>
     );
@@ -242,7 +236,7 @@ export function EditOrderPage({
     <div className="flex flex-col flex-1 min-h-0">
       
       {/* Content Area - Light Background */}
-      <div className="flex-1 overflow-y-auto bg-[#F5E9D9] p-6">
+      <div className="flex-1 overflow-y-auto overscroll-contain bg-[#F5E9D9] p-4 sm:p-6">
         {/* Alerts moved inside content area */}
 
         {/* Permission Warning */}
@@ -960,30 +954,15 @@ export function EditOrderPage({
         )}
       </div>
 
-      {/* Footer Actions - Like UNPAID ORDER DETAILS buttons */}
-      <div className="bg-white border-t-2 border-[#D4A574]/30 px-6 py-4 flex items-center justify-end gap-3">
-        <button
-          onClick={onCancel}
-          className="px-6 py-3 bg-white border-2 border-[#8B4513]/30 text-[#8B4513] rounded-lg font-semibold hover:bg-[#F5E9D9] transition-all duration-200 flex items-center gap-2"
-        >
-          <X className="w-4 h-4" />
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={!hasChanges}
-          className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
-            hasChanges
-              ? 'bg-[#D4A574] hover:bg-[#B8935F] text-white shadow-md hover:shadow-lg'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`}
-        >
-          <Save className="w-4 h-4" />
-          {isAdmin 
-            ? (order.status === 'pending' ? 'Save and Approve' : 'Save Changes')
-            : 'Submit Changes'
-          }
-        </button>
+      {/* Footer — same buttons and home-bar spacing as every modal */}
+      <div className="flex-shrink-0 border-t border-neutral-200 bg-white px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
+        <SaveFooter
+          onCancel={onCancel}
+          onSave={handleSave}
+          saveDisabled={!hasChanges}
+          saveLabel={isAdmin ? 'Save Changes' : 'Submit Changes'}
+          saveIcon={<Save className="w-4 h-4" />}
+        />
       </div>
     </div>
   );

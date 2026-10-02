@@ -257,7 +257,7 @@ export function EditCustomerModal({
   if (isLoading) {
     return (
       <StyleModalShell
-        width="4xl"
+        width="xl"
         skinType="default"
         onClose={onClose ?? (() => {})}
         title="EDIT CUSTOMER"
@@ -290,7 +290,7 @@ export function EditCustomerModal({
           editingCustomer.storeName ||
           editingCustomer.contactPerson
         }
-        width="4xl"
+        width="xl"
         headerLeft={
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#D4A574] flex items-center justify-center shadow-lg">
             <Edit3 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />

@@ -40,7 +40,7 @@ export function PaymentSubmittedModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="md"
       skinType="success"
       onClose={onClose || (() => {})}
       title="PAYMENT SUBMITTED"

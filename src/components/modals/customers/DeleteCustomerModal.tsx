@@ -160,7 +160,7 @@ export function DeleteCustomerModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="xl"
       skinType="danger"
       onClose={onCancel || onClose || (() => {})}
       title="DELETE CUSTOMER"
@@ -380,7 +380,7 @@ export function DeleteCustomerModal({
                   <span className="text-neutral-800 font-bold">
                     Archive (Recommended)
                   </span>
-                  <span className="px-2 py-0.5 bg-green-500 text-white text-[10px] font-bold rounded">
+                  <span className="px-2 py-0.5 bg-green-500 text-white text-[11px] font-bold rounded">
                     SAFE
                   </span>
                 </div>
@@ -394,13 +394,13 @@ export function DeleteCustomerModal({
                   </strong>
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[10px] rounded border border-green-200">
+                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[11px] rounded border border-green-200">
                     ✓ Reversible
                   </span>
-                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[10px] rounded border border-green-200">
+                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[11px] rounded border border-green-200">
                     ✓ Data Preserved
                   </span>
-                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[10px] rounded border border-green-200">
+                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[11px] rounded border border-green-200">
                     ✓ Login Disabled
                   </span>
                 </div>
@@ -427,7 +427,7 @@ export function DeleteCustomerModal({
                   <span className="text-neutral-800 font-bold">
                     Permanent Delete
                   </span>
-                  <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded">
+                  <span className="px-2 py-0.5 bg-red-500 text-white text-[11px] font-bold rounded">
                     DANGER
                   </span>
                 </div>
@@ -441,13 +441,13 @@ export function DeleteCustomerModal({
                   login access is permanently revoked.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="px-2 py-1 bg-red-50 text-red-700 text-[10px] rounded border border-red-200">
+                  <span className="px-2 py-1 bg-red-50 text-red-700 text-[11px] rounded border border-red-200">
                     ✗ Irreversible
                   </span>
-                  <span className="px-2 py-1 bg-red-50 text-red-700 text-[10px] rounded border border-red-200">
+                  <span className="px-2 py-1 bg-red-50 text-red-700 text-[11px] rounded border border-red-200">
                     ✗ No Restore
                   </span>
-                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[10px] rounded border border-green-200">
+                  <span className="px-2 py-1 bg-green-50 text-green-700 text-[11px] rounded border border-green-200">
                     ✓ Orders Kept
                   </span>
                 </div>

@@ -103,13 +103,13 @@ export function CompletedOrderInvoiceModal({
           leftAction={onDownloadExcel ? {
             label: "Excel",
             onClick: () => onDownloadExcel(order),
-            variant: "success",
+            variant: "ghost",
             icon: <Download className="w-4 h-4" />,
           } : undefined}
           cancelButton={{
             label: fetchingData ? "Generating..." : "Download PDF",
             onClick: handlePDF,
-            variant: "danger",
+            variant: "ghost",
             disabled: fetchingData,
             loading: fetchingData,
             icon: <Download className="w-4 h-4" />,
@@ -126,7 +126,7 @@ export function CompletedOrderInvoiceModal({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-bold text-green-900 text-[11px] sm:text-xs">✅ Order Completed & Delivered</p>
-            <p className="text-green-700 text-[10px] sm:text-xs mt-0.5">
+            <p className="text-green-700 text-[11px] sm:text-xs mt-0.5">
               Completed on {formatOrderDateWithFallback(order.completedAt || order.updatedAt)}
             </p>
           </div>
@@ -137,22 +137,22 @@ export function CompletedOrderInvoiceModal({
       <div className="bg-[#FFF8F0] border border-[#E8C4A2] rounded-xl overflow-hidden mt-4">
         <div className="flex items-center gap-2 px-4 sm:px-5 py-3 border-b border-[#E8C4A2]">
           <span className="text-[#D4A574]"><FileText className="w-4 h-4" /></span>
-          <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#8B6F47]">
+          <h3 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#8B6F47]">
             Invoice Details
           </h3>
         </div>
         <div className="p-4 sm:p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <p className="text-[9px] sm:text-xs text-gray-500 mb-1">
+              <p className="text-[11px] sm:text-xs text-gray-500 mb-1">
                 Invoice Number
               </p>
-              <p className="text-[10px] sm:text-xs font-bold text-[#333333] font-mono break-all leading-tight">
+              <p className="text-[11px] sm:text-xs font-bold text-[#333333] font-mono break-all leading-tight">
                 {displayInvoiceNumber(order)}
               </p>
             </div>
             <div>
-              <p className="text-[10px] sm:text-xs text-gray-500 mb-1">
+              <p className="text-[11px] sm:text-xs text-gray-500 mb-1">
                 Order Date
               </p>
               <p className="text-xs sm:text-sm text-[#333333] font-semibold">
@@ -162,7 +162,7 @@ export function CompletedOrderInvoiceModal({
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <p className="text-[10px] sm:text-xs text-gray-500 mb-1">
+              <p className="text-[11px] sm:text-xs text-gray-500 mb-1">
                 Payment Status
               </p>
               <div className="flex items-center gap-2">
@@ -173,7 +173,7 @@ export function CompletedOrderInvoiceModal({
               </div>
             </div>
             <div>
-              <p className="text-[10px] sm:text-xs text-gray-500 mb-1">
+              <p className="text-[11px] sm:text-xs text-gray-500 mb-1">
                 Delivery Status
               </p>
               <div className="flex items-center gap-2">

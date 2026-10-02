@@ -9,6 +9,7 @@
  */
 
 import { invalidateCache } from '../../../hooks/useCachedFirebase';
+import { ModalFooterButtons, submitForm } from "../../../ui/modals/ModalFooterButtons";
 import {
   useState,
   useCallback,
@@ -181,13 +182,25 @@ export function SubmitPaymentModal({
       onClose={onClose}
       title="Submit Payment"
       subtitle={`Order ${invoiceNumber}`}
+      footer={
+        <ModalFooterButtons
+          cancelButton={{ label: "Cancel", onClick: onClose, variant: "secondary", disabled: submitting, keyboardShortcut: "Escape" }}
+          confirmButton={{
+            label: submitting ? "Submitting..." : "Submit Payment",
+            onClick: () => submitForm("submit-payment-form"),
+            variant: "primary",
+            loading: submitting,
+            icon: <CheckCircle className="w-4 h-4" />,
+          }}
+        />
+      }
       headerLeft={
         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#D4A574] flex items-center justify-center shadow-lg">
           <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
       }
       headerRight={
-        <div className="flex items-center bg-black/20 rounded px-2 py-1 gap-2">
+        <div className="hidden sm:flex items-center bg-black/20 rounded px-2 py-1 gap-2">
           <span className="text-xs text-white/80 font-medium">
             {displayOrderNumber(order)}
           </span>
@@ -229,10 +242,7 @@ export function SubmitPaymentModal({
           </p>
         </div>
 
-        <form
-          onSubmit={handlePaymentSubmit}
-          className="space-y-4"
-        >
+        <form id="submit-payment-form" onSubmit={handlePaymentSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-neutral-700 mb-1.5">
@@ -263,23 +273,7 @@ export function SubmitPaymentModal({
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-gradient-to-r from-[#D4A574] to-[#E8C4A2] hover:from-[#C49564] hover:to-[#D4A574] text-[#333333] font-semibold py-2.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-md text-sm"
-          >
-            {submitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-[#333]/30 border-t-[#333] rounded-full animate-spin flex-shrink-0" />
-                Submitting...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                Submit Payment
-              </>
-            )}
-          </button>
+        <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
         </form>
       </section>
 

@@ -421,7 +421,7 @@ function AdminAnalyticsDashboardComponent({ user, onLogout }: AdminAnalyticsDash
             </div>
 
             {/* Footer — matches app button style */}
-            <div className="px-5 pb-5 flex gap-3">
+            <div className="px-5 pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] sm:pb-5 flex gap-3">
               <button
                 onClick={() => setShowDateModal(false)}
                 className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"

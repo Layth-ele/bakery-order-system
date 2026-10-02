@@ -7,16 +7,9 @@
  */
 
 import React, { useState } from "react";
-import {
-  ShoppingCart,
-  X,
-  Calendar,
-  CheckCircle,
-  Edit,
-  Loader2,
-} from "lucide-react";
-import { motion } from "motion/react";
-import { BaseModal } from "../../../ui/modals/BaseModal";
+import { ShoppingCart, CheckCircle, Edit } from "lucide-react";
+import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
+import { ModalFooterButtons, CloseFooter } from "../../../ui/modals/ModalFooterButtons";
 import type { Product } from "../../../types";
 import type { DayQuantities } from "../../../types/order-flow";
 import { ProductImagePlaceholder } from "../../shared/ProductImagePlaceholder";
@@ -98,70 +91,47 @@ export function OrderReviewModal({
   // If no items, show error state
   if (safeCartItems.length === 0) {
     return (
-      <BaseModal
-        isOpen={true}
+      <StyleModalShell
+        width="md"
         onClose={onClose}
-        size="xl"
-        ariaLabel="No Items"
-        overlayBlur="md"
+        title="Review Your Order"
+        icon={ShoppingCart}
+        footer={<CloseFooter onClose={onClose} />}
       >
-        <div className="bg-white rounded-2xl border-4 border-[#D4A574] p-6 text-center">
-          <p className="text-neutral-700 mb-4">No items in cart to review.</p>
-          <button
-            onClick={onClose}
-            className="bg-gradient-to-r from-[#D4A574] to-[#C8A882] text-white px-6 py-2 rounded-lg hover:shadow-lg transition-shadow font-bold"
-          >
-            Close
-          </button>
-        </div>
-      </BaseModal>
+        <p className="text-center text-neutral-700">No items in cart to review.</p>
+      </StyleModalShell>
     );
   }
 
   return (
-    <BaseModal
-      isOpen={true}
-      onClose={onClose}
-      size="xl"
-      ariaLabel="Review Your Order"
-      closeOnBackdropClick={false}
-      overlayBlur="md"
+    <StyleModalShell
+      width="5xl"
+      onClose={isSubmitting ? () => {} : onClose}
+      title="Review Your Order"
+      subtitle={`Week ${selectedWeek}, ${selectedYear} • ${weekRange}`}
+      icon={ShoppingCart}
+      footer={
+        <ModalFooterButtons
+          cancelButton={{
+            label: "Go Back & Edit",
+            onClick: onClose,
+            variant: "ghost",
+            disabled: isSubmitting,
+            icon: <Edit className="w-4 h-4" />,
+            keyboardShortcut: "Escape",
+          }}
+          confirmButton={{
+            label: isSubmitting ? "Submitting..." : "Confirm & Submit Order",
+            onClick: handleConfirmClick,
+            variant: "success",
+            loading: isSubmitting,
+            icon: <CheckCircle className="w-4 h-4" />,
+            keyboardShortcut: "Enter",
+          }}
+        />
+      }
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white rounded-2xl border-4 border-[#D4A574] overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#D4A574] to-[#C8A882] px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between border-b-4 border-[#D4A574]/30 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 sm:p-3 rounded-full backdrop-blur-sm">
-              <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-tight text-white">
-                Review Your Order
-              </h2>
-              <div className="flex items-center gap-2 mt-1">
-                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-white/80" />
-                <p className="text-xs sm:text-sm text-white/90 font-medium">
-                  Week {selectedWeek}, {selectedYear} •{" "}
-                  {weekRange}
-                </p>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 p-1.5 sm:p-2 rounded-lg transition-colors flex-shrink-0"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+        <div className="space-y-4">
           {/* Instructions */}
           <div className="bg-gradient-to-r from-neutral-50 to-neutral-100 border-2 border-neutral-200 rounded-xl p-3 sm:p-4">
             <p className="text-neutral-700 text-xs sm:text-sm text-center">
@@ -211,7 +181,7 @@ export function OrderReviewModal({
                           <div className="whitespace-nowrap">
                             {day.label}
                           </div>
-                          <div className="text-[10px] text-[#8B6F47]/70 font-normal">
+                          <div className="text-[11px] text-[#8B6F47]/70 font-normal">
                             {formatShortDate(dayDate)}
                           </div>
                         </th>
@@ -307,10 +277,10 @@ export function OrderReviewModal({
                           key={day.key}
                           className="flex flex-col items-center justify-between p-2 bg-gradient-to-b from-neutral-50 to-neutral-100 rounded border border-[#D4A574]/40 min-h-[68px]"
                         >
-                          <div className="text-[#8B6F47] text-[10px] font-bold">
+                          <div className="text-[#8B6F47] text-[11px] font-bold">
                             {day.label}
                           </div>
-                          <div className="text-[#8B6F47]/60 text-[9px]">
+                          <div className="text-[#8B6F47]/60 text-[11px]">
                             {formattedDate}
                           </div>
                           <div
@@ -328,45 +298,6 @@ export function OrderReviewModal({
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="bg-gradient-to-r from-neutral-50 to-neutral-100 border-t-4 border-[#D4A574]/30 px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row gap-3 flex-shrink-0">
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            data-keyboard-shortcut="Escape"
-            className={`flex-1 sm:flex-none sm:min-w-[160px] px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base transition-all border-2 border-[#D4A574] text-[#D4A574] flex items-center justify-center gap-2 ${
-              isSubmitting
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-[#D4A574]/10"
-            }`}
-          >
-            <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
-            Go Back & Edit
-          </button>
-          <button
-            onClick={handleConfirmClick}
-            disabled={isSubmitting}
-            data-keyboard-shortcut="Enter"
-            className={`flex-1 sm:flex-auto px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base transition-all shadow-lg flex items-center justify-center gap-2 border-2 ${
-              isSubmitting
-                ? "bg-neutral-400 border-neutral-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-[#4CAF50] to-[#45a049] text-white hover:from-[#45a049] hover:to-[#3d8b40] border-[#4CAF50]"
-            }`}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                Confirm & Submit Order
-              </>
-            )}
-          </button>
-        </div>
-      </motion.div>
-    </BaseModal>
+    </StyleModalShell>
   );
 }

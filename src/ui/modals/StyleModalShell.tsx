@@ -8,8 +8,9 @@
  * This component provides ONLY the styled content panel.
  * The overlay/backdrop is handled by BaseModal (via ModalRoot).
  *
- * Scroll Behavior (FEB 21, 2026):
- * - Modal container: max-h-[90vh], overflow-hidden, flex-col
+ * Layout (all devices):
+ * - Phones: bottom sheet, full width, up to the status bar; footer clears
+ *   the home bar (safe-area). sm and up: centred card, max 90dvh.
  * - Header: Fixed at top (flex-shrink-0)
  * - Body: Scrollable (flex-1, overflow-y-auto)
  * - Footer: Fixed at bottom (flex-shrink-0)
@@ -26,9 +27,10 @@
  * That creates double-wrapping and z-index conflicts.
  */
 
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, isValidElement, useEffect, useRef } from "react";
 import { X, LucideIcon } from "lucide-react";
 import { logger } from '../../utils/logger';
+import { useInModalFrame } from './modalFrame';
 
 
 type ModalWidth =
@@ -137,6 +139,8 @@ export function StyleModalShell({
   disableFocusManagement,
 }: StyleModalShellProps): JSX.Element | null {
   const modalRef = useRef<HTMLDivElement>(null);
+  // Inside BaseModal (every registered modal), BaseModal owns Escape and focus.
+  const inFrame = useInModalFrame();
   const previousActiveElement = useRef<HTMLElement | null>(
     null,
   );
@@ -145,14 +149,12 @@ export function StyleModalShell({
   const renderIcon = () => {
     if (!icon) return null;
     
-    // If icon is a function (LucideIcon component), render it as JSX
-    if (typeof icon === 'function') {
-      const IconComponent = icon as LucideIcon;
-      return <IconComponent className="w-5 h-5 sm:w-6 sm:h-6" />;
-    }
-    
-    // Otherwise it's already a ReactNode, render it directly
-    return icon;
+    // Already an element (<Icon className=… />): render as is.
+    if (isValidElement(icon)) return icon;
+
+    // A component (Lucide icons are forwardRef objects, not plain functions).
+    const IconComponent = icon as LucideIcon;
+    return <IconComponent className="w-5 h-5 sm:w-6 sm:h-6" />;
   };
 
   // ⚠️ Warn if deprecated `size` prop is used
@@ -166,18 +168,18 @@ export function StyleModalShell({
 
  // Close on ESC key
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || inFrame) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () =>
       window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, inFrame, onClose]);
 
  // Focus management for accessibility
   useEffect(() => {
-    if (!isOpen || !modalRef.current || disableFocusManagement)
+    if (!isOpen || !modalRef.current || disableFocusManagement || inFrame)
       return;
 
     // Save currently focused element to restore later
@@ -237,7 +239,7 @@ export function StyleModalShell({
         previousActiveElement.current.focus();
       }
     };
-  }, [isOpen, disableFocusManagement]);
+  }, [isOpen, disableFocusManagement, inFrame]);
 
   if (!isOpen) return null;
 
@@ -248,22 +250,28 @@ export function StyleModalShell({
     <div
       ref={modalRef}
       className={[
-        "relative bg-white rounded-2xl shadow-2xl w-full",
+        // Phones: bottom sheet (rounded top, full width, fills up to the
+        // status bar). sm and up: centred card, at most 90% of the screen.
+        "relative bg-white shadow-2xl w-full overflow-hidden flex flex-col",
+        "rounded-t-2xl sm:rounded-2xl",
+        "max-h-[calc(100dvh_-_0.75rem)] sm:max-h-[90dvh]",
         WIDTH[effectiveWidth],
-        "max-h-[90vh] overflow-hidden flex flex-col",
         className,
       ].join(" ")}
       role="dialog"
       aria-modal="true"
+      aria-label={title}
     >
       {/* Header */}
       {!hideHeader && (
         <div
           className={[
             headerColor || SKIN_COLORS[skinType].header,
-            "px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center flex-shrink-0",
+            "relative px-4 sm:px-6 pt-4 pb-3 sm:py-4 flex justify-between items-center gap-3 flex-shrink-0",
           ].join(" ")}
         >
+          {/* Sheet grabber (phones only, decorative) */}
+          <span aria-hidden="true" className="sm:hidden absolute top-1.5 left-1/2 -translate-x-1/2 h-1 w-10 rounded-full bg-black/15" />
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {(icon || headerLeft) && (
               <div className={`flex-shrink-0 ${SKIN_COLORS[skinType].text}`}>
@@ -272,13 +280,13 @@ export function StyleModalShell({
             )}
             <div className="min-w-0 flex-1">
               <h2
-                className={`text-[0.62rem] sm:text-xl font-bold ${SKIN_COLORS[skinType].text} leading-none truncate`}
+                className={`text-base sm:text-xl font-bold uppercase tracking-wide ${SKIN_COLORS[skinType].text} leading-tight truncate`}
               >
                 {title}
               </h2>
               {subtitle ? (
                 <div
-                  className={`text-[5.5px] sm:text-xs ${SKIN_COLORS[skinType].text} opacity-80 break-all leading-tight mt-0.25`}
+                  className={`text-xs sm:text-sm ${SKIN_COLORS[skinType].text} opacity-80 break-words leading-snug mt-0.5`}
                 >
                   {subtitle}
                 </div>
@@ -286,11 +294,11 @@ export function StyleModalShell({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {headerRight}
             <button
               onClick={onClose}
-              className={`${SKIN_COLORS[skinType].text} hover:opacity-80 transition-opacity`}
+              className={`${SKIN_COLORS[skinType].text} -mr-2 flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/10 active:bg-black/15 transition-colors`}
               aria-label="Close"
               type="button"
             >
@@ -300,17 +308,22 @@ export function StyleModalShell({
         </div>
       )}
 
-      {/* Body */}
+      {/* Body — the only part that scrolls */}
       {!hideBody && (
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div
+          className={[
+            "flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6",
+            footer ? "" : "pb-[calc(1rem_+_env(safe-area-inset-bottom))] sm:pb-6",
+          ].join(" ")}
+        >
           {children}
         </div>
       )}
       {hideBody && children}
 
-      {/* Footer */}
+      {/* Footer — always visible; clears the iPhone home bar */}
       {footer ? (
-        <div className="border-t border-neutral-200 bg-white px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
+        <div className="border-t border-neutral-200 bg-white px-4 sm:px-6 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] sm:py-4 flex-shrink-0">
           {footer}
         </div>
       ) : null}

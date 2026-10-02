@@ -201,7 +201,7 @@ export function InvoicePreviewModal({
         </div>
       }
     >
-      <div className="bg-[#f5f3ef] -mx-6 -mb-6 px-3 sm:px-5 py-5">
+      <div className="bg-[#f5f3ef] -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 px-3 sm:px-5 py-5">
         <div id="invoice-preview-content" className="bg-white shadow-lg rounded-2xl overflow-hidden max-w-3xl mx-auto">
 
           {/* ══ BUSINESS HEADER ══════════════════════════════════════════ */}
@@ -227,9 +227,9 @@ export function InvoicePreviewModal({
               {/* Invoice badge */}
               <div className="flex-shrink-0">
                 <div className="bg-gradient-to-br from-[#D4A574] to-[#B8935E] rounded-xl px-5 py-3 text-right min-w-[140px]">
-                  <p className="text-[10px] text-white/70 uppercase tracking-widest mb-1">Invoice</p>
+                  <p className="text-[11px] text-white/70 uppercase tracking-widest mb-1">Invoice</p>
                   <p className="text-sm font-bold text-white font-mono">{invoiceNum}</p>
-                  <p className="text-[10px] text-white/60 mt-1">{invoiceDate}</p>
+                  <p className="text-[11px] text-white/60 mt-1">{invoiceDate}</p>
                 </div>
               </div>
             </div>
@@ -241,7 +241,7 @@ export function InvoicePreviewModal({
             <div className="bg-white px-6 py-4">
               <div className="flex items-center gap-2 mb-3">
                 <Calendar className="w-3.5 h-3.5 text-[#D4A574]" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4A574]">Order Details</span>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#D4A574]">Order Details</span>
               </div>
               <dl className="space-y-2">
                 {[
@@ -260,7 +260,7 @@ export function InvoicePreviewModal({
             <div className="bg-white px-6 py-4">
               <div className="flex items-center gap-2 mb-3">
                 <User className="w-3.5 h-3.5 text-[#D4A574]" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4A574]">Bill To</span>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#D4A574]">Bill To</span>
               </div>
               <p className="text-sm font-bold text-gray-900 mb-2 leading-snug">{order.customerName || '—'}</p>
               <div className="space-y-1.5">
@@ -312,8 +312,8 @@ export function InvoicePreviewModal({
                     <th className="text-left py-2.5 px-3 font-semibold rounded-tl-xl" style={{ width: '26%' }}>Product</th>
                     {DAY_KEYS.map((day, idx) => (
                       <th key={day} className="text-center py-2.5 px-1 font-semibold" style={{ width: '8%' }}>
-                        <span className="block text-[10px] text-[#D4A574]">{DAY_LABELS[day]}</span>
-                        <span className="block text-[9px] text-gray-400 mt-0.5">{dayDates[idx]}</span>
+                        <span className="block text-[11px] text-[#D4A574]">{DAY_LABELS[day]}</span>
+                        <span className="block text-[11px] text-gray-400 mt-0.5">{dayDates[idx]}</span>
                       </th>
                     ))}
                     <th className="text-center py-2.5 px-2 font-semibold" style={{ width: '6%' }}>Qty</th>
@@ -335,7 +335,7 @@ export function InvoicePreviewModal({
                         {/* Category header */}
                         <tr className="bg-[#f0ebe2]">
                           <td colSpan={DAY_KEYS.length + 3} className="py-2 px-3">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8B6F47]">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-[#8B6F47]">
                               {group.cat.name}
                             </span>
                           </td>
@@ -375,20 +375,20 @@ export function InvoicePreviewModal({
 
                         {/* Category subtotal */}
                         <tr className="bg-[#f5f1eb] border-t border-[#D4A574]/20">
-                          <td className="py-2 px-3 text-[10px] font-bold text-[#8B6F47] italic">
+                          <td className="py-2 px-3 text-[11px] font-bold text-[#8B6F47] italic">
                             Subtotal — {group.cat.name}
                           </td>
                           {DAY_KEYS.map(day => {
                             const dTotal = group.items.reduce((s, item) => s + getDayQty(item, day), 0);
                             return (
-                              <td key={day} className="text-center py-2 px-1 text-[10px] font-semibold text-[#8B6F47]">
+                              <td key={day} className="text-center py-2 px-1 text-[11px] font-semibold text-[#8B6F47]">
                                 {dTotal > 0 ? dTotal : ''}
                               </td>
                             );
                           })}
-                          <td className="text-center py-2 px-2 text-[10px] font-bold text-[#8B6F47]">{groupQty}</td>
+                          <td className="text-center py-2 px-2 text-[11px] font-bold text-[#8B6F47]">{groupQty}</td>
                           <td />
-                          <td className="text-right py-2 px-3 text-[10px] font-bold text-[#8B6F47]">
+                          <td className="text-right py-2 px-3 text-[11px] font-bold text-[#8B6F47]">
                             {groupAmt > 0 ? formatCurrency(groupAmt) : ''}
                           </td>
                         </tr>
@@ -404,7 +404,7 @@ export function InvoicePreviewModal({
                       <React.Fragment key="custom-items">
                         <tr className="bg-[#f0ebe2]">
                           <td colSpan={DAY_KEYS.length + 3} className="py-2 px-3">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8B6F47]">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-[#8B6F47]">
                               Custom Items
                             </span>
                           </td>
@@ -438,14 +438,14 @@ export function InvoicePreviewModal({
                           );
                         })}
                         <tr className="bg-[#f5f1eb] border-t border-[#D4A574]/20">
-                          <td className="py-2 px-3 text-[10px] font-bold text-[#8B6F47] italic">Subtotal — Custom Items</td>
+                          <td className="py-2 px-3 text-[11px] font-bold text-[#8B6F47] italic">Subtotal — Custom Items</td>
                           {DAY_KEYS.map(day => {
                             const dTotal = customItems.reduce((s, item) => s + getDayQty(item, day), 0);
-                            return <td key={day} className="text-center py-2 px-1 text-[10px] font-semibold text-[#8B6F47]">{dTotal > 0 ? dTotal : ''}</td>;
+                            return <td key={day} className="text-center py-2 px-1 text-[11px] font-semibold text-[#8B6F47]">{dTotal > 0 ? dTotal : ''}</td>;
                           })}
-                          <td className="text-center py-2 px-2 text-[10px] font-bold text-[#8B6F47]">{groupQty}</td>
+                          <td className="text-center py-2 px-2 text-[11px] font-bold text-[#8B6F47]">{groupQty}</td>
                           <td />
-                          <td className="text-right py-2 px-3 text-[10px] font-bold text-[#8B6F47]">{groupAmt > 0 ? formatCurrency(groupAmt) : ''}</td>
+                          <td className="text-right py-2 px-3 text-[11px] font-bold text-[#8B6F47]">{groupAmt > 0 ? formatCurrency(groupAmt) : ''}</td>
                         </tr>
                       </React.Fragment>
                     );
@@ -455,7 +455,7 @@ export function InvoicePreviewModal({
                 {/* Grand total footer */}
                 <tfoot>
                   <tr className="bg-[#1a1a1a]">
-                    <td className="py-3 px-3 text-[10px] font-bold text-[#D4A574] uppercase tracking-wider">
+                    <td className="py-3 px-3 text-[11px] font-bold text-[#D4A574] uppercase tracking-wider">
                       Grand Total
                     </td>
                     {DAY_KEYS.map(day => {
@@ -542,7 +542,7 @@ export function InvoicePreviewModal({
           <div className="bg-[#f0ebe2] px-6 py-4 text-center border-t border-[#D4A574]/20">
             <p className="text-sm font-semibold text-gray-800 mb-1">Thank you for your business!</p>
             <p className="text-xs text-gray-500">Questions? <span className="font-medium">{bizEmail}</span></p>
-            <p className="text-[10px] text-gray-400 mt-1">Computer-generated · Valid without signature</p>
+            <p className="text-[11px] text-gray-400 mt-1">Computer-generated · Valid without signature</p>
           </div>
 
         </div>

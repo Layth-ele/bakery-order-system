@@ -36,15 +36,15 @@ export function InstallInstructions({ platform, onClose }: InstallInstructionsPr
       role="dialog"
       aria-modal="true"
       aria-labelledby="install-help-title"
-      className="fixed inset-0 z-[1001] flex items-end sm:items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[1001] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
       onClick={onClose}
     >
-      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl bg-white p-5 pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] sm:pb-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between gap-3">
           <h2 id="install-help-title" className="text-lg font-bold text-[#2c2416]">
             {title}
           </h2>
-          <button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-1 text-gray-500 hover:bg-gray-100">
+          <button type="button" aria-label="Close" onClick={onClose} className="-mr-2 -mt-1 flex h-10 w-10 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100">
             <X className="h-5 w-5" />
           </button>
         </div>

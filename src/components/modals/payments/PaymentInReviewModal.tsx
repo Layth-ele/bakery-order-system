@@ -86,7 +86,7 @@ export function PaymentInReviewModal({
 
   return (
     <StyleModalShell
-      width="4xl"
+      width="md"
       skinType="info"
       onClose={onClose || (() => {})}
       title="PAYMENT IN REVIEW"

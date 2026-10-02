@@ -213,7 +213,7 @@ export function CancelOrderModal({
       }
       subtitle={displayOrderNumber(order)}
       hideBody
-      className="h-[90vh]"
+      className="h-[calc(100dvh_-_0.75rem)] sm:h-[90dvh]"
       footer={
         isReadOnly ? (
           <CloseFooter onClose={onClose} />
@@ -238,21 +238,21 @@ export function CancelOrderModal({
                 value="info" 
                 className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-red-400 data-[state=active]:text-white text-red-700 font-bold uppercase text-xs sm:text-sm"
               >
-                <Info className="w-4 h-4 mr-2" />
+                <Info className="w-3.5 h-3.5 mr-1 sm:w-4 sm:h-4 sm:mr-2" />
                 Order Info
               </TabsTrigger>
               <TabsTrigger 
                 value="days" 
                 className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-red-400 data-[state=active]:text-white text-red-700 font-bold uppercase text-xs sm:text-sm"
               >
-                <CalendarIcon className="w-4 h-4 mr-2" />
+                <CalendarIcon className="w-3.5 h-3.5 mr-1 sm:w-4 sm:h-4 sm:mr-2" />
                 Days {selectedDays.size > 0 && `(${selectedDays.size})`}
               </TabsTrigger>
               <TabsTrigger 
                 value="review" 
                 className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-red-400 data-[state=active]:text-white text-red-700 font-bold uppercase text-xs sm:text-sm"
               >
-                <CheckCircle className="w-4 h-4 mr-2" />
+                <CheckCircle className="w-3.5 h-3.5 mr-1 sm:w-4 sm:h-4 sm:mr-2" />
                 Review
               </TabsTrigger>
             </TabsList>
@@ -277,13 +277,13 @@ export function CancelOrderModal({
                       </ul>
                       {cancellationPolicyText && (
                         <div className="mt-3 pt-3 border-t border-red-200">
-                          <p className="text-[10px] font-bold text-red-700 uppercase mb-1">📋 Store Cancellation Policy</p>
+                          <p className="text-[11px] font-bold text-red-700 uppercase mb-1">📋 Store Cancellation Policy</p>
                           <p className="text-xs text-red-800">{cancellationPolicyText}</p>
                         </div>
                       )}
                       {lateCancellationFeeText && (
                         <div className="mt-2">
-                          <p className="text-[10px] text-red-700">
+                          <p className="text-[11px] text-red-700">
                             <strong>Late cancellation fee:</strong> {lateCancellationFeeText}{/^\d+$/.test(lateCancellationFeeText) ? '%' : ''}
                           </p>
                         </div>
@@ -375,7 +375,7 @@ export function CancelOrderModal({
                             <XCircle className="w-4 h-4 text-neutral-400" />
                           )}
                         </div>
-                        <div className={`text-[10px] ${isSelected ? 'text-red-100' : 'text-[#8B6F47]'}`}>
+                        <div className={`text-[11px] ${isSelected ? 'text-red-100' : 'text-[#8B6F47]'}`}>
                           {dayItemCount} items
                         </div>
                         <div className={`text-xs font-bold mt-1 ${isSelected ? 'text-white' : 'text-[#333333]'}`}>
@@ -421,7 +421,7 @@ export function CancelOrderModal({
                       />
                       <span className="text-sm text-neutral-700">% of refund amount</span>
                     </div>
-                    <p className="text-[10px] text-neutral-600 mt-1">
+                    <p className="text-[11px] text-neutral-600 mt-1">
                       {defaultFeePercent > 0
                         ? <>Default fee: <strong>{defaultFeePercent}%</strong>{lateCancellationFeeText ? <> · {lateCancellationFeeText}</> : null} · Enter 0 for no fee, or up to 100%.</>
                         : lateCancellationFeeText
@@ -474,7 +474,7 @@ export function CancelOrderModal({
                       <span className="text-red-900 font-bold">{refundCalculation.paid ? 'CREDIT TO CUSTOMER:' : 'STORE CREDIT RETURNED:'}</span>
                       <span className="font-bold text-lg text-red-900">${refundCalculation.totalCredit.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-[10px]">
+                    <div className="flex justify-between text-[11px]">
                       <span className="text-red-700">Percentage of Order:</span>
                       <span className="font-bold text-red-800">{(refundCalculation.percentageCancelled * 100).toFixed(1)}%</span>
                     </div>
@@ -563,7 +563,7 @@ export function CancelOrderModal({
 
                   {cancellationReason !== "Other" && (
                     <div className="bg-white border border-red-300 rounded-lg p-3">
-                      <p className="text-[10px] uppercase font-bold text-neutral-600 mb-1">
+                      <p className="text-[11px] uppercase font-bold text-neutral-600 mb-1">
                         Selected Reason:
                       </p>
                       <p className="text-sm font-semibold text-neutral-900">
@@ -617,7 +617,7 @@ export function CancelOrderModal({
                 <div className="space-y-4">
                   {/* Days Being Cancelled */}
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-[#8B6F47] mb-2">
+                    <p className="text-[11px] uppercase font-bold text-[#8B6F47] mb-2">
                       Days Being Cancelled:
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -634,7 +634,7 @@ export function CancelOrderModal({
 
                   {/* Reason */}
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-[#8B6F47] mb-2">
+                    <p className="text-[11px] uppercase font-bold text-[#8B6F47] mb-2">
                       Cancellation Reason:
                     </p>
                     <div className="bg-[#F5E9D9] border border-[#E8C4A2] rounded-lg p-3">
@@ -646,7 +646,7 @@ export function CancelOrderModal({
 
                   {/* Financial Details */}
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-[#8B6F47] mb-2">
+                    <p className="text-[11px] uppercase font-bold text-[#8B6F47] mb-2">
                       Financial Details:
                     </p>
                     <div className="bg-[#F5E9D9] border border-[#E8C4A2] rounded-lg p-4 space-y-2 text-sm">

@@ -86,13 +86,13 @@ export function PaidOrderDetailsModal({
           leftAction={onDownloadExcel ? {
             label: "Excel",
             onClick: () => onDownloadExcel(order),
-            variant: "success",
+            variant: "ghost",
             icon: <Download className="w-4 h-4" />,
           } : undefined}
           cancelButton={onDownloadPDF ? {
             label: "Download PDF",
             onClick: () => onDownloadPDF(order),
-            variant: "danger",
+            variant: "ghost",
             icon: <Download className="w-4 h-4" />,
           } : undefined}
           confirmButton={{ label: "Close", onClick: onClose, variant: "primary" }}

@@ -191,7 +191,7 @@ export function CreditHistoryModal({
         onClose={onClose}
         title="CREDIT HISTORY"
         subtitle="Error loading data"
-        width="4xl"
+        width="md"
         headerLeft={
           <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-[#333333]" />
         }
@@ -209,6 +209,7 @@ export function CreditHistoryModal({
 
   return (
     <StyleModalShell
+      footer={<CloseFooter onClose={onClose} />}
       onClose={onClose}
       title="CREDIT HISTORY"
       subtitle={`${formatCreditAmount(creditSummary.availableCredit)} Available`}
@@ -573,26 +574,11 @@ export function CreditHistoryModal({
                 </div>
               </div>
 
-              {/* Download Report */}
-              <button
-                onClick={() => {
-                  // In a real app, this would generate and download a PDF/CSV
-                  toast.info(
-                    "Report download feature coming soon!",
-                  );
-                }}
-                className="w-full px-4 py-3 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700 transition-colors text-sm font-semibold flex items-center justify-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Download Credit Report
-              </button>
             </div>
           )}
         </div>
       </section>
 
-      {/* Close Footer */}
-      <CloseFooter onClose={onClose} />
     </StyleModalShell>
   );
 }

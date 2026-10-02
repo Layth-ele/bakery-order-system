@@ -10,7 +10,7 @@ import type { CreditNote } from '../../../types';
  */
 
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
-import { CloseFooter } from "../../../ui/modals/ModalFooterButtons";
+import { CloseFooter, ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
 import { Wallet, ArrowRight, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { formatCreditAmount } from "../../../services/creditService";
@@ -108,7 +108,7 @@ export function CreditReceivedModal({
   if (isLoading) {
     return (
       <StyleModalShell
-        width="4xl"
+        width="md"
         skinType="success"
         onClose={onClose}
         title="🎉 Congratulations! 🎉"
@@ -131,7 +131,7 @@ export function CreditReceivedModal({
     <>
       {/* Confetti */}
       {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-[10001]">
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-[30000]">
           {[...Array(50)].map((_, i) => (
             <div
               key={i}
@@ -165,21 +165,15 @@ export function CreditReceivedModal({
             <Wallet className="w-6 h-6 text-white" />
           </div>
         }
-        width="4xl"
+        width="md"
         footer={
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              onClick={onViewCredit}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#D4A574] to-[#FFD700] text-white rounded-lg hover:from-[#C49563] hover:to-[#E5C100] transition-all shadow-lg font-bold text-sm group"
-            >
-              <span>View History</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <CloseFooter onClose={onClose} />
-          </div>
+          <ModalFooterButtons
+            cancelButton={{ label: "Close", onClick: onClose, variant: "secondary", keyboardShortcut: "Escape" }}
+            confirmButton={{ label: "View History", onClick: onViewCredit, variant: "primary", icon: <ArrowRight className="w-4 h-4" /> }}
+          />
         }
       >
-        <div className="relative bg-gradient-to-br from-white via-[#FFF8F0] to-[#FFE4C4] rounded-lg p-4 -m-6 mb-0">
+        <div className="relative bg-gradient-to-br from-white via-[#FFF8F0] to-[#FFE4C4] rounded-lg p-4 -m-4 sm:-m-6 mb-0 sm:mb-0">
           <div className="relative space-y-4">
             {/* Hero amount */}
             <div className="bg-gradient-to-r from-[#D4A574] to-[#FFD700] rounded-xl p-4 shadow-xl border-2 border-white">

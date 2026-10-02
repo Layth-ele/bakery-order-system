@@ -180,11 +180,11 @@ export function ProductDetailsModal({
         {/* Price + Min Order — 2 cards */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="bg-white rounded-xl p-3.5 border border-[#D4A574]/30 shadow-sm">
-            <p className="text-[10px] sm:text-xs text-[#8B6F47]/70 font-semibold uppercase tracking-wide mb-1">Unit Price</p>
+            <p className="text-[11px] sm:text-xs text-[#8B6F47]/70 font-semibold uppercase tracking-wide mb-1">Unit Price</p>
             <p className="text-[#8B6F47] text-xl sm:text-2xl font-bold">${price.toFixed(2)}</p>
           </div>
           <div className="bg-white rounded-xl p-3.5 border border-[#D4A574]/30 shadow-sm">
-            <p className="text-[10px] sm:text-xs text-[#8B6F47]/70 font-semibold uppercase tracking-wide mb-1">Daily Minimum</p>
+            <p className="text-[11px] sm:text-xs text-[#8B6F47]/70 font-semibold uppercase tracking-wide mb-1">Daily Minimum</p>
             <p className="text-[#8B6F47] text-xl sm:text-2xl font-bold">{product.dailyMinOrder ?? 0}<span className="text-sm font-normal text-[#8B6F47]/60 ml-1">units</span></p>
           </div>
         </div>
@@ -198,7 +198,7 @@ export function ProductDetailsModal({
 
             {/* ── Day Selector ── */}
             <div className="mb-3">
-              <p className="text-[10px] text-[#8B6F47]/60 mb-1.5 uppercase tracking-wide font-medium">Select Day</p>
+              <p className="text-[11px] text-[#8B6F47]/60 mb-1.5 uppercase tracking-wide font-medium">Select Day</p>
               <div className="grid grid-cols-7 gap-1">
                 {DAYS.map((day, idx) => {
                   const locked   = lockedDaysForWeek[idx] ?? false;
@@ -210,7 +210,7 @@ export function ProductDetailsModal({
                       type="button"
                       disabled={locked}
                       onClick={() => setSelectedDay(day.key)}
-                      className={`relative flex flex-col items-center py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                      className={`relative flex flex-col items-center py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
                         locked
                           ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
                           : justAdded
@@ -223,7 +223,7 @@ export function ProductDetailsModal({
                     >
                       <span className="leading-none">{day.label}</span>
                       {selectedWeek && selectedYear ? (
-                        <span className="text-[8px] leading-none mt-0.5 opacity-75">
+                        <span className="text-[11px] leading-none mt-0.5 opacity-75">
                           {formatShortDate(getWeekDayDate(selectedWeek, idx, selectedYear))}
                         </span>
                       ) : null}
@@ -232,7 +232,7 @@ export function ProductDetailsModal({
                           <Check className="w-2 h-2 text-white" />
                         </span>
                       )}
-                      {locked && !justAdded && <span className="text-[8px] leading-none opacity-60">🔒</span>}
+                      {locked && !justAdded && <span className="text-[11px] leading-none opacity-60">🔒</span>}
                     </button>
                   );
                 })}
@@ -372,18 +372,18 @@ export function ProductDetailsModal({
               ].map(n => (
                 <div key={n.label} className="bg-[#FAF8F5] rounded-lg p-2.5 text-center border border-[#D4A574]/15">
                   <p className={`text-base font-bold ${n.color}`}>{n.value}{n.unit}</p>
-                  <p className="text-[9px] text-[#8B6F47]/60 mt-0.5 uppercase tracking-wide">{n.label}</p>
+                  <p className="text-[11px] text-[#8B6F47]/60 mt-0.5 uppercase tracking-wide">{n.label}</p>
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
                 { label: "Fiber",  value: `${nutrition.fiber}g` },
                 { label: "Sugar",  value: `${nutrition.sugar}g` },
                 { label: "Sodium", value: `${nutrition.sodium}mg` },
               ].map(n => (
                 <div key={n.label} className="flex items-center justify-between bg-[#FAF8F5] rounded-lg px-2.5 py-2 border border-[#D4A574]/15">
-                  <span className="text-[10px] text-[#8B6F47]/60">{n.label}</span>
+                  <span className="text-[11px] text-[#8B6F47]/60">{n.label}</span>
                   <span className="text-xs font-bold text-[#4a3728]">{n.value}</span>
                 </div>
               ))}

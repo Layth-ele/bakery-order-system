@@ -210,7 +210,9 @@ export function ModalRoot(): JSX.Element | null {
             key={modalEntry.id} // Stable key - prevents remount churn
             isOpen={true}
             onClose={isTopModal ? closeModal : () => {}}
-            size={modalEntry.size}
+            // The panel (StyleModalShell `width`) sets each modal's width; the
+            // frame only caps it at the widest size.
+            size="xl"
             overlayBlur={modalEntry.overlayBlur}
             ariaLabel={modalEntry.type.replace(/_/g, " ")}
             closeOnBackdropClick={isTopModal}

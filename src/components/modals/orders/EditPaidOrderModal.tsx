@@ -231,7 +231,7 @@ export function EditPaidOrderModal({
       subtitle={displayOrderNumber(order)}
       onClose={onClose}
       hideBody
-      className="h-[90vh]"
+      className="h-[calc(100dvh_-_0.75rem)] sm:h-[90dvh]"
       footer={
         <SaveFooter
           onCancel={onClose}
@@ -251,21 +251,21 @@ export function EditPaidOrderModal({
                 value="info" 
                 className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#D4A574] data-[state=active]:to-[#E8C4A2] data-[state=active]:text-[#333333] text-[#8B6F47] font-bold uppercase text-xs sm:text-sm"
               >
-                <Info className="w-4 h-4 mr-2" />
+                <Info className="w-3.5 h-3.5 mr-1 sm:w-4 sm:h-4 sm:mr-2" />
                 Order Info
               </TabsTrigger>
               <TabsTrigger 
                 value="edit" 
                 className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#D4A574] data-[state=active]:to-[#E8C4A2] data-[state=active]:text-[#333333] text-[#8B6F47] font-bold uppercase text-xs sm:text-sm"
               >
-                <Edit2 className="w-4 h-4 mr-2" />
+                <Edit2 className="w-3.5 h-3.5 mr-1 sm:w-4 sm:h-4 sm:mr-2" />
                 Edit Items
               </TabsTrigger>
               <TabsTrigger 
                 value="review" 
                 className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#D4A574] data-[state=active]:to-[#E8C4A2] data-[state=active]:text-[#333333] text-[#8B6F47] font-bold uppercase text-xs sm:text-sm"
               >
-                <CheckCircleIcon className="w-4 h-4 mr-2" />
+                <CheckCircleIcon className="w-3.5 h-3.5 mr-1 sm:w-4 sm:h-4 sm:mr-2" />
                 Review {changes.length > 0 && `(${changes.length})`}
               </TabsTrigger>
             </TabsList>
@@ -288,7 +288,7 @@ export function EditPaidOrderModal({
                   disabled={!editPermission.canEdit}
                   className="w-full h-20 px-3 sm:px-4 py-2 sm:py-3 border-2 border-[#D4A574] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8B6F47] text-xs sm:text-sm text-[#333333] disabled:bg-neutral-100 disabled:cursor-not-allowed resize-none"
                 />
-                <p className="text-[10px] text-[#8B6F47] mt-2">
+                <p className="text-[11px] text-[#8B6F47] mt-2">
                   This reason will be visible to the customer in their credit notification.
                 </p>
               </div>
@@ -394,8 +394,9 @@ export function EditPaidOrderModal({
                   </h3>
                 </div>
 
-                <div className="w-full">
-                  <table className="w-full text-xs">
+                {/* Scrolls sideways on phones; 7 day columns need the room */}
+                <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                  <table className="w-full min-w-[560px] text-xs">
                     <thead>
                       <tr className="bg-gradient-to-r from-[#8B6F47] to-[#D4A574] text-white border-b border-[#D4A574]">
                         <th className="px-2 py-2 text-left font-bold">Product</th>
@@ -404,8 +405,8 @@ export function EditPaidOrderModal({
                           return (
                             <th key={d.key} className="px-1 py-2 text-center font-bold">
                               <div className="flex flex-col items-center">
-                                <span className="text-[10px] sm:text-xs">{d.label}</span>
-                                <span className="text-[8px] sm:text-[9px] opacity-70 font-normal hidden sm:block">
+                                <span className="text-[11px] sm:text-xs">{d.label}</span>
+                                <span className="text-[11px] sm:text-[11px] opacity-70 font-normal hidden sm:block">
                                   {formatShortDate(date)}
                                 </span>
                               </div>
@@ -425,12 +426,12 @@ export function EditPaidOrderModal({
                             key={item.productId} 
                             className={`hover:bg-[#F5E9D9]/30 ${hasError ? 'bg-red-50' : ''}`}
                           >
-                            <td className="px-2 py-2 font-semibold text-[#333333] text-[10px] sm:text-xs">
+                            <td className="px-2 py-2 font-semibold text-[#333333] text-[11px] sm:text-xs">
                               <div className="max-w-[100px] sm:max-w-none truncate" title={item.productName}>
                                 {item.productName}
                               </div>
                               {hasError && (
-                                <p className="text-[8px] text-red-600 mt-1">{hasError}</p>
+                                <p className="text-[11px] text-red-600 mt-1">{hasError}</p>
                               )}
                             </td>
                             {activeDays.map(d => (
@@ -468,7 +469,7 @@ export function EditPaidOrderModal({
                                       updateQuantity(item.productId, d.key, newValue);
                                     }}
                                     disabled={!editPermission.canEdit}
-                                    className={`w-10 sm:w-12 text-center border rounded py-0.5 text-[10px] sm:text-xs font-bold ${
+                                    className={`w-10 sm:w-12 text-center border rounded py-0.5 text-[11px] sm:text-xs font-bold ${
                                       editPermission.canEdit
                                         ? 'border-[#D4A574] focus:border-[#8B6F47] focus:ring-1 focus:ring-[#8B6F47] text-[#333333] bg-white' 
                                         : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border-neutral-200'
@@ -487,7 +488,7 @@ export function EditPaidOrderModal({
                                 </div>
                               </td>
                             ))}
-                            <td className="px-2 py-2 text-right font-black text-[#D4A574] text-[10px] sm:text-xs">
+                            <td className="px-2 py-2 text-right font-black text-[#D4A574] text-[11px] sm:text-xs">
                               {getItemTotal(item)}
                             </td>
                           </tr>
@@ -583,7 +584,7 @@ export function EditPaidOrderModal({
                           <p className={`text-xs font-black ${change.quantityChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
                             {change.quantityChange > 0 ? '+' : ''}{change.quantityChange}
                           </p>
-                          <p className={`text-[10px] ${change.priceChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                          <p className={`text-[11px] ${change.priceChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
                             {change.priceChange > 0 ? '+' : ''}${Math.abs(change.priceChange).toFixed(2)}
                           </p>
                         </div>
