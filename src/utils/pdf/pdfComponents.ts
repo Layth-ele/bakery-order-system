@@ -2,6 +2,7 @@
  * PDF Components v2.0 — Luxury A4 Format
  * Reusable HTML builders. Consistent brand across all document types.
  */
+import { gstLabel } from '../orderMoney';
 import { toDate } from '../timestampFormatting';
 
 // Detect raw Firebase UIDs (20+ random chars with no hyphen-separated pattern)
@@ -225,7 +226,7 @@ export const generateTotals = (totals: {
     totals.discount ? `<div class="totals-row discount"><span class="t-label">Discount${totals.discountPercentage ? ` (${totals.discountPercentage}%)` : ''}</span><span class="t-value">−${fmt(totals.discount)}</span></div>` : '',
     totals.deliveryFee !== undefined ? `<div class="totals-row"><span class="t-label">Delivery Fee</span><span class="t-value">${totals.deliveryFee === 0 ? '<span style="color:#2D7A3A">FREE</span>' : fmt(totals.deliveryFee)}</span></div>` : '',
     totals.serviceCharge ? `<div class="totals-row"><span class="t-label">Service Charge</span><span class="t-value">${fmt(totals.serviceCharge)}</span></div>` : '',
-    totals.gst ? `<div class="totals-row"><span class="t-label">GST (5%)</span><span class="t-value">${fmt(totals.gst)}</span></div>` : '',
+    totals.gst ? `<div class="totals-row"><span class="t-label">${gstLabel(totals.gst, (totals.subtotal ?? 0) - (totals.discount ?? 0))}</span><span class="t-value">${fmt(totals.gst)}</span></div>` : '',
     totals.creditApplied ? `<div class="totals-row discount"><span class="t-label">Credit Applied</span><span class="t-value">−${fmt(totals.creditApplied)}</span></div>` : '',
   ].filter(Boolean).join('');
 

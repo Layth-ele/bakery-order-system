@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { scrollToTop } from '../../utils/scrollUtils';
 import { CustomerPageLayout } from './CustomerPageLayout';
 import { AddressAutocomplete } from '../AddressAutocomplete';
-import { getCustomerByEmail, updateCustomer } from '../../services/customersService';
+import { getCustomerById, updateCustomer } from '../../services/customersService';
 
 interface MyProfileProps {
   user: any;
@@ -57,10 +57,10 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfilePr
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
-    if (!user.email) return;
+    if (!user.id) return;
     setIsRefreshing(true);
     try {
-      const freshData = await getCustomerByEmail(user.email);
+      const freshData = await getCustomerById(user.id);
       if (freshData) {
         setContactPerson(freshData.contactPerson || '');
         setStoreName(freshData.storeName || '');
@@ -72,7 +72,7 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfilePr
     } finally {
       setIsRefreshing(false);
     }
-  }, [user.email, onProfileUpdate]);
+  }, [user.id, onProfileUpdate]);
 
   const validateBCPhone = (phoneNumber: string): boolean => {
     // BC phone validation - accepts all BC area codes (236, 250, 604, 672, 778)
@@ -143,17 +143,6 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfilePr
 
     setIsSavingProfile(true);
     try {
-      // Check if email is being changed to one that already exists
-      const emailAlreadyExists = await getCustomerByEmail(email);
-      if (emailAlreadyExists && emailAlreadyExists.id !== user.id) {
-        showAlert({
-          title: 'Email Already Exists',
-          message: 'Another account is already using this email address. Please use a different email.',
-          icon: 'error'
-        });
-        return;
-      }
-
       // Update user data
       // Email is the sign-in identity and isn't changed here.
       const updates = {

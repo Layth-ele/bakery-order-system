@@ -132,6 +132,14 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
           const data = snap.data();
           const newRole = data.customerType === 'admin' ? 'admin' : 'customer';
           const newStatus = data.status;
+          // Suspended / rejected / archived while signed in → sign out now
+          // (the server has already disabled the account's sign-in).
+          if (newRole === 'customer' && ['suspended', 'rejected', 'archived'].includes(newStatus)) {
+            authService.logout().catch(() => {});
+            queryClient.clear();
+            setUser(null);
+            return;
+          }
           setUser((prev) => {
             if (!prev) return prev;
             if (prev.role === newRole && prev.status === newStatus) return prev;

@@ -13,7 +13,7 @@ import { ModalFooterButtons, submitForm } from "../../../ui/modals/ModalFooterBu
 import { useState, useEffect } from "react";
 import { DollarSign, CheckCircle } from "lucide-react";
 import { Order, Product, Category } from "../../../types";
-import { useCachedOrders } from "../../../hooks/useCachedFirebase";
+import { useCachedCustomerOrders } from "../../../hooks/useCachedFirebase";
 import { toast } from 'sonner';
 import { getServerTimestamp } from '../../../utils/timestamps'; // ✅ TIMESTAMP FIX: Import server timestamp utility
 import { useModal } from "../../../contexts/ModalContextNew";
@@ -54,7 +54,7 @@ export function SubmitPaymentModal({
 
   // Load cached orders for real-time updates
  // Fixed destructuring — useCachedOrders returns { data }, not { orders }
-  const { data: orders } = useCachedOrders();
+  const { data: orders } = useCachedCustomerOrders(initialOrder?.customerId || null);
 
   // Sync with cached orders for real-time updates
   useEffect(() => {

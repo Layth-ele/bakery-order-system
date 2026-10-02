@@ -10,6 +10,8 @@
  * ✅ FIX: Day-date sub-row no longer shows "undefined" — built from week+year fallback
  * ✅ FORMAT: Category header rows coloured, data rows lightly tinted — matches reference
  */
+import { discountOn } from '../functions/src/lib/orderRevision';
+import { gstLabel } from './orderMoney';
 import * as XLSX from 'xlsx-js-style';
 import { toDate } from './timestampFormatting';
 import type { Order, Product, Category } from '../types';
@@ -408,7 +410,7 @@ export function exportOrderToExcel(
   const gst      = order.gst ?? 0;
   const delivFee = order.deliveryFee ?? 0;
   const svcChg   = order.serviceCharge ?? 0;
-  const discount = order.discount ?? 0;
+  const discount = discountOn(subtotal, order as any); // flat + percentage
   const total    = order.total ?? 0;
 
   const invData: any[][] = [
@@ -426,7 +428,7 @@ export function exportOrderToExcel(
     [],
     ['FINANCIALS', ''],
     ['Subtotal',      subtotal],
-    ['GST (5%)',      gst],
+    [gstLabel(gst, subtotal - discount), gst],
     ['Delivery Fee',  delivFee],
     ['Service Charge', svcChg],
     ...(discount ? [['Discount', -discount]] : []),

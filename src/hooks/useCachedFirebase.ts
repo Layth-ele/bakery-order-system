@@ -264,7 +264,7 @@ export const useCachedActiveOrders = (enabled: boolean = true) => {
  * The original comment justified it as "avoid Promise-never-resolves bug" but
  * the right fix is to use a real one-shot reader: getOrdersByCustomer.
  */
-export const useCachedCustomerOrders = (customerId: string | null) => {
+export const useCachedCustomerOrders = (customerId: string | null, options?: { refetchInterval?: number }) => {
   return useQuery<Order[]>({
     queryKey: customerId ? QUERY_KEYS.customerOrders(customerId) : ['orders', 'customer', 'null'],
     queryFn: async () => {
@@ -282,6 +282,7 @@ export const useCachedCustomerOrders = (customerId: string | null) => {
     refetchOnMount: true,          // Always refetch when component mounts
     refetchOnWindowFocus: true,    // Refetch when window regains focus
     retry: 2,                      // Retry on error (e.g. after rules deploy)
+    ...(options?.refetchInterval ? { refetchInterval: options.refetchInterval } : {}),
   });
 };
 
@@ -393,7 +394,7 @@ export const useCachedCreditBalance = (
       
       // Calculate available credit from credit notes
       const availableCredit = creditNotes
-        .filter((note) => note.status === 'available' || note.status === 'partially_used')
+        .filter((note) => (note.status === 'available' || note.status === 'partially_used') && !note.payoutRequested)
         .reduce((sum, note) => sum + (note.remainingBalance ?? (note.amount ?? 0)), 0);
       return availableCredit;
     },

@@ -15,9 +15,10 @@
  *    payment (status → 'in_process'), NOT when customer submits payment proof
  */
 
+import { orderAmountDue } from '../../utils/orderMoney';
 import React, { useMemo } from 'react';
 import { AlertCircle, Info, Loader2 } from 'lucide-react';
-import { useCachedOrders } from '../../hooks/useCachedFirebase';
+import { useCachedCustomerOrders } from '../../hooks/useCachedFirebase';
 import { getUnpaidRows } from '../../utils/payments/unpaidSelectors';
 
 // ✅ FEB 17, 2026: Poll every 60 seconds to pick up admin-side changes
@@ -37,7 +38,9 @@ export function BalanceWidget({ customerId, customerEmail, variant = 'full', onN
   // realtime=true ensures we get live Firestore updates
   // ✅ POLLING FIX: 60s refetchInterval so balance updates when admin confirms payment
   // Without this, customer would never see balance change (staleTime=15min, no refetchOnMount)
-  const { data: allOrders = [], isLoading } = useCachedOrders(true, 100, {
+  // The customer's own orders (customers can't list everyone's). Polled so a
+  // payment the admin confirms clears the balance without a refresh.
+  const { data: allOrders = [], isLoading } = useCachedCustomerOrders(customerId || null, {
     refetchInterval: BALANCE_POLL_INTERVAL_MS,
   });
 
@@ -62,8 +65,7 @@ export function BalanceWidget({ customerId, customerEmail, variant = 'full', onN
     // Sum amounts per row kind (same fix as balanceService.ts)
     const balance = unpaidRows.reduce((sum, row) => {
       if (row.kind === 'base_order') {
-        const total = Number(row.order.total);
-        return sum + (Number.isFinite(total) ? total : 0);
+        return sum + orderAmountDue(row.order as any);
       } else if (row.kind === 'adjustment_increase') {
         const adj = row.adjustment;
         const amount = Number(adj?.paid?.amount ?? adj?.deltaTotal ?? 0);
@@ -84,9 +86,10 @@ export function BalanceWidget({ customerId, customerEmail, variant = 'full', onN
   };
 
   const formatAmount = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-CA', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'CAD',
+      currencyDisplay: 'narrowSymbol',
     }).format(amount);
   };
 
@@ -109,7 +112,7 @@ export function BalanceWidget({ customerId, customerEmail, variant = 'full', onN
           <AlertCircle className={`w-3 h-3 md:w-4 md:h-4 ${colorClass}`} />
         )}
         <span className={`text-xs md:text-sm font-medium ${colorClass}`}>
-          {isLoading ? '...' : `${formatAmount(outstandingBalance)} ${hasBalance ? 'Due' : 'Owed'}`}
+          {isLoading ? '...' : `${formatAmount(outstandingBalance)} Owed`}
         </span>
       </button>
     );

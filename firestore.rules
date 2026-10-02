@@ -126,7 +126,10 @@ service cloud.firestore {
       // — this allowed any approved customer to run collection().get() and read every order.
       allow get:  if isAnyAdmin() ||
                      (isApproved() && resource.data.customerId == request.auth.uid);
-      allow list: if isAnyAdmin();
+      // Customers may query only their own orders (the query must filter
+      // on customerId == their uid); admins may list everything.
+      allow list: if isAnyAdmin() ||
+                     (isApproved() && resource.data.customerId == request.auth.uid);
       
       // Orders are created and changed ONLY by Cloud Functions (placeOrder,
       // approve/reject/cancel, editOrder/editPaidOrder, payments, credit,

@@ -1,3 +1,4 @@
+import { gstLabel } from '../../../utils/orderMoney';
 import React from "react";
 /**
  * OrderSummaryCard — Shared component used by all order modals.
@@ -127,7 +128,7 @@ export function OrderSummaryCard({
         )}
 
         {gst > 0 && (
-          <Row label="GST (5%)" value={`$${gst.toFixed(2)}`} />
+          <Row label={gstLabel(gst, subtotal - (discount ?? 0))} value={`$${gst.toFixed(2)}`} />
         )}
 
         {showCredit && (

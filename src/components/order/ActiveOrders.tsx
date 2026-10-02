@@ -215,27 +215,6 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
     if (csv) { downloadCSV(csv, orderFilename(order, order.customerName, 'csv')); }
   };
 
-  const handleEditOrder = (order: Order) => {
-    
-    // Create a named callback function (not inline arrow function)
-    const onSaveCallback = (result: any) => {
-      
-      // Close modal and refetch orders
-      closeModal();
-      refetch();
-    };
-    
-    
-    // ❌ REMOVED: UPDATE_PAID_ORDER modal - Feature disabled (dead code)
-    // Customer order change requests are no longer supported
-    // Show a helpful message instead
-    toast.error(
-      'Order changes are no longer supported after approval. ' +
-      'Please contact support if you need to modify your order.',
-      { duration: 5000 }
-    );
-  };
-
   // Define action buttons for active orders
   const actionButtonSections: ActionButtonSection[] = [
     {
@@ -245,22 +224,6 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
           icon: Eye,
           onClick: handleViewOrder,
           variant: 'view',
-        },
-        {
-          label: 'Edit',
-          icon: Edit2,
-          onClick: handleEditOrder,
-          variant: 'edit',
-          show: (order) => {
- // CUSTOMER - Can ONLY edit PENDING orders (before approval)
-            // Once approved, customer CANNOT edit (only admin can)
-            return order.status === 'pending';
-          },
-          disabled: (order) => {
-            // Disable if payment pending
-            return isPaymentPending(order);
-          },
-          tooltip: 'Edit order quantities',
         },
       ],
       layout: 'spread' as const,
@@ -339,7 +302,7 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
                     ))}
                 </ul>
                 <p className="text-xs text-neutral-600 mt-3 leading-relaxed">
-                  ℹ️ These orders will be automatically removed from this view after <strong>48 hours</strong> and moved to "Order Invoices" for permanent record. 
+                  ℹ️ These orders will be automatically removed from this view after <strong>48 hours</strong> and moved to the Invoices tab. 
                   For questions, please contact the bakery office.
                 </p>
               </div>
@@ -354,20 +317,16 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
           <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4A574] flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <h3 className="text-[#8B6F47] font-bold text-sm sm:text-base mb-2 sm:mb-3">
-              Order Edit Policy
+              Changes &amp; Cancellations
             </h3>
             <div className="text-neutral-700 space-y-1.5 sm:space-y-2.5">
               <p className="text-sm leading-relaxed">
-                <strong className="text-[#F57C00]">🔒 Edit Policy:</strong> Only <strong>PENDING orders</strong> can be edited. Once approved, the order is locked.
+                <strong className="text-[#F57C00]">Need a change?</strong> Contact the bakery — they can adjust
+                quantities or delivery days for you, before or after approval.
               </p>
               <p className="text-sm leading-relaxed">
-                <strong className="text-[#388E3C]">Need Changes After Approval?</strong> Contact the bakery 
-                directly by phone or email. Admin may be able to adjust quantities and issue credit if needed.
-              </p>
-              <p className="text-sm leading-relaxed">
-                <strong className="text-[#D32F2F]">To cancel an order:</strong>{" "}
-                Please contact the bakery office directly by phone or email. 
-                Cancellation fees may apply if the order is cancelled less than 2 days before delivery.
+                <strong className="text-[#D32F2F]">To cancel:</strong> contact the bakery. If you've already paid,
+                the cancelled part comes back as store credit (a fee may apply close to delivery).
               </p>
             </div>
           </div>

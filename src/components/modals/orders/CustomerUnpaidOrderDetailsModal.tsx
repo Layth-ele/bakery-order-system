@@ -1,3 +1,4 @@
+import { orderAmountDue } from '../../../utils/orderMoney';
 import { displayOrderNumber } from '../../../utils/displayId';
 import { CreditCard } from 'lucide-react';
 /**
@@ -44,7 +45,7 @@ export function CustomerUnpaidOrderDetailsModal({
 
   // Calculate order total
   const orderTotal = order.total || 0;
-  const amountDue = order.amountDue || orderTotal;
+  const amountDue = orderAmountDue(order as any);
 
   return (
     <StyleModalShell

@@ -4,6 +4,7 @@
  * Functionality unchanged from original.
  */
 
+import { discountOn } from '../../functions/src/lib/orderRevision';
 import { getPDFStyles } from "./pdfStyles";
 import { toDate } from '../timestampFormatting';
 import {
@@ -128,7 +129,8 @@ export const buildPDFTemplate = (
 
   const totals = {
     subtotal: order.subtotal || 0,
-    discount: order.discount,
+    // Flat + percentage, as the server charged it (one discount line).
+    discount: discountOn(order.subtotal ?? 0, order as any) || undefined,
     discountPercentage: order.discountPercentage,
     deliveryFee: order.deliveryFee,
     serviceCharge: order.serviceCharge,

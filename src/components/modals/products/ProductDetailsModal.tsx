@@ -4,6 +4,7 @@
  * ✅ Sticky quick-add bar, horizontal related products scroll
  */
 
+import { unitPriceFor } from '../../../functions/src/lib/orderPlacement';
 import { useState, useEffect } from "react";
 import {
   Package, AlertCircle, ShoppingCart, Minus, Plus,
@@ -25,6 +26,8 @@ interface ProductDetailsModalProps {
   lockedDaysForWeek?: boolean[];
   selectedWeek?: number;
   selectedYear?: number;
+  /** Customer's account type — decides wholesale vs retail price. */
+  customerType?: string;
 }
 
 interface NutritionalInfo {
@@ -64,6 +67,7 @@ export function ProductDetailsModal({
   lockedDaysForWeek = [],
   selectedWeek,
   selectedYear,
+  customerType,
 }: ProductDetailsModalProps): JSX.Element | null {
   // Guard: product may be undefined if opened before data loads
   if (!product) return null;
@@ -84,7 +88,7 @@ export function ProductDetailsModal({
       product_id: product.id,
       product_name: product.name ?? "",
       product_category: product.categoryId,
-      product_price: product.retail ?? product.price ?? 0,
+      product_price: unitPriceFor(product as any, customerType === 'commercial' ? 'commercial' : 'individual'),
       daily_min_order: product.dailyMinOrder ?? 0,
     });
   }, [product]);
@@ -110,7 +114,8 @@ export function ProductDetailsModal({
   };
 
   const minQty = (product.dailyMinOrder ?? 0) || 1;
-  const price  = product.retail ?? 0;
+  // Same price the order screen and the server use for this customer.
+  const price  = unitPriceFor(product as any, customerType === 'commercial' ? 'commercial' : 'individual');
 
   return (
     <StyleModalShell

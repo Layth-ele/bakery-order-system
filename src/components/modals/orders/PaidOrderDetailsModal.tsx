@@ -12,6 +12,7 @@
  *              ActiveOrders page (in_process + completed orders)
  */
 
+import { orderAmountDue } from '../../../utils/orderMoney';
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
 import {
@@ -53,7 +54,7 @@ export function PaidOrderDetailsModal({
 
   const orderTotal     = order.total || 0;
   const creditApplied  = (order as any).creditApplied || 0;
-  const amountDue      = creditApplied > 0 ? Math.max(0, orderTotal - creditApplied) : orderTotal;
+  const amountDue      = orderAmountDue(order as any);
 
   // ✅ FIX: Fall back to order fields when editDetails is missing/incomplete
   const creditAmount   = editDetails?.creditAmount || (order as any).creditIssued || (order as any).creditApplied || 0;
