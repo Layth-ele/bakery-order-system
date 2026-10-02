@@ -81,23 +81,6 @@ export const getOrderEditHistory = async (orderId: string): Promise<OrderEditHis
 // WRITE OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Create order edit history entry
- * ✅ RETURNS: Document ID only
- */
-export const createOrderEditHistory = async (
-  data: Omit<OrderEditHistory, 'id' | 'editedAt'>
-): Promise<string> => {
-  return wrapFirestoreOperation(async () => {
-    const docRef = await addDoc(collection(db, 'orderEditHistory'), {
-      ...data,
-      editedAt: serverTimestamp() as any,
-    });
-    
-    return docRef.id;
-  }, 'createOrderEditHistory');
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 // REAL-TIME SUBSCRIPTIONS
 // ═══════════════════════════════════════════════════════════════════════════

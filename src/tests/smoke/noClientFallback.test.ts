@@ -16,6 +16,11 @@ const { updateOrder, cf } = vi.hoisted(() => ({
     submitPaymentProofViaCloudFunction: vi.fn(),
     applyOrderCreditViaCloudFunction: vi.fn(),
     completeOrderViaCloudFunction: vi.fn(),
+    editOrderViaCloudFunction: vi.fn(),
+    editPaidOrderViaCloudFunction: vi.fn(),
+    sendPaymentReminderViaCloudFunction: vi.fn(),
+    issueStoreCreditViaCloudFunction: vi.fn(),
+    requestCreditPayoutViaCloudFunction: vi.fn(),
   },
 }));
 
@@ -44,7 +49,9 @@ import { callableErrorMessage } from '../../services/firebase/cloudFunctions';
 import { approveOrder, rejectOrder } from '../../services/ordersService';
 import { rejectOrderAction, cancelOrderAction } from '../../services/orderActionService';
 import { confirmPaymentAction, submitPaymentAction } from '../../services/orders/paymentActionService';
-import { applyCreditToOrder } from '../../services/creditService';
+import { applyCreditToOrder, requestCreditPayout } from '../../services/creditService';
+import { saveOrderEdit, savePaidOrderReduction } from '../../services/orders/orderEdits';
+import { remindCustomerToPay } from '../../services/orders/paymentReminders';
 import { completeOrderNow } from '../../services/orderCompletion/completeOrderNow';
 
 const order = { id: 'o1', customerId: 'c1', orderNumber: 'ORD-1', status: 'pending', subtotal: 100, total: 105 } as any;
@@ -82,7 +89,7 @@ describe('no client-side fallback', () => {
   });
 
   it('cancel (with store credit)', async () => {
-    const r = await cancelOrderAction({ ...order, status: 'approved' }, admin, 'closed', undefined, undefined, 50);
+    const r = await cancelOrderAction({ ...order, status: 'approved' }, admin, 'closed', undefined, 10);
     expect(r.success).toBe(false);
     expect(r.message).toMatch(/cancel this order/);
     expect(updateOrder).not.toHaveBeenCalled();
@@ -119,6 +126,14 @@ describe('no client-side fallback', () => {
     cf.completeOrderViaCloudFunction.mockResolvedValue({ status: 'completed', orderId: 'o1', invoiceId: 'o1', invoiceNumber: 'DBH-1' });
     expect(await completeOrderNow(order)).toEqual({ success: true, invoiceId: 'o1', invoiceNumber: 'DBH-1' });
     expect(cf.approveOrderViaCloudFunction).toHaveBeenCalledWith({ orderId: 'o1', deliveryFee: 10 });
+    expect(updateOrder).not.toHaveBeenCalled();
+  });
+
+  it('order edits, reminders and credit payouts fail loudly and write nothing', async () => {
+    await expect(saveOrderEdit(order, { editedItems: { p1: { monday: 2 } } })).rejects.toBeTruthy();
+    await expect(savePaidOrderReduction({ ...order, status: 'in_process' }, [{ productId: 'p1', monday: 1 }], 'short')).rejects.toBeTruthy();
+    await expect(remindCustomerToPay({ ...order, status: 'approved' })).rejects.toBeTruthy();
+    await expect(requestCreditPayout('c1', 'n1')).rejects.toThrow(/request the payout/);
     expect(updateOrder).not.toHaveBeenCalled();
   });
 });

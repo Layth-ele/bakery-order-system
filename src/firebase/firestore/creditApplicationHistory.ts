@@ -71,23 +71,6 @@ export const getCreditApplicationHistory = async (
 // WRITE OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Create credit application record
- * ✅ RETURNS: Document ID only
- */
-export const createCreditApplication = async (
-  data: Omit<CreditApplicationRecord, 'id' | 'appliedAt'>
-): Promise<string> => {
-  return wrapFirestoreOperation(async () => {
-    const docRef = await addDoc(collection(db, 'creditApplicationHistory'), {
-      ...data,
-      appliedAt: serverTimestamp() as any,
-    });
-    
-    return docRef.id;
-  }, 'createCreditApplication');
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 // REAL-TIME SUBSCRIPTIONS
 // ═══════════════════════════════════════════════════════════════════════════

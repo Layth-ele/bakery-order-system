@@ -10,6 +10,13 @@
  */
 
 import type { Order, OrderItem } from '../types';
+import {
+  effectiveGstRate,
+  normalizeItems,
+  orderTotals,
+  planCancellation,
+  round2,
+} from '../functions/src/lib/orderRevision';
 
 export type DayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
@@ -57,74 +64,74 @@ export function calculateDayItemCount(items: OrderItem[], selectedDays: Set<DayK
   return total;
 }
 
-/**
- * Calculate credit amount based on original order and cancelled days
- * This accounts for GST, delivery fees, service charges, and cancellation fees proportionally
- */
-export function calculateRefundAmount(
-  order: Order,
-  cancelledDays: Set<DayKey>,
-  cancellationFeePercentage: number = 0
-): {
+export interface RefundPreview {
+  /** Payment was received: the customer is refunded (as store credit). */
+  paid: boolean;
+  /** Every delivery day is cancelled → the whole order is cancelled. */
+  full: boolean;
   subtotalRefund: number;
   gstRefund: number;
   deliveryFeeRefund: number;
   serviceChargeRefund: number;
   cancellationFee: number;
   totalRefund: number;
+  /** Store credit the customer receives (paid: refund − fee; unpaid: store credit returned). */
   totalCredit: number;
+  /** Unpaid orders: what the customer still owes afterwards. */
+  newAmountDue: number;
   percentageCancelled: number;
-} {
-  // Calculate original totals
-  const originalSubtotal = order.subtotal || 0;
-  
-  // Calculate cancelled subtotal
-  const cancelledSubtotal = calculateDaySubtotal(order.items, cancelledDays);
-  
-  // Calculate percentage of order being cancelled
-  const percentageCancelled = originalSubtotal > 0 
-    ? cancelledSubtotal / originalSubtotal 
-    : 0;
-  
-  // Calculate proportional refunds
-  const gstRefund = (order.gst || 0) * percentageCancelled;
-  const deliveryFeeRefund = (order.deliveryFee || 0) * percentageCancelled;
-  const serviceChargeRefund = order.serviceChargeWaived 
-    ? 0 
-    : (order.serviceCharge || 0) * percentageCancelled;
-  
-  // 🔍 DEBUG: Log service charge calculation
+}
 
-  
-  // Calculate gross refund before cancellation fee
-  const grossRefund = cancelledSubtotal + gstRefund + deliveryFeeRefund + serviceChargeRefund;
-  
-  // Calculate cancellation fee
-  const cancellationFee = grossRefund * (cancellationFeePercentage / 100);
-  
-  // Net refund after cancellation fee
-  const netRefund = grossRefund - cancellationFee;
+/**
+ * What cancelling `cancelledDays` will do — computed with the exact rules
+ * the cancelOrder Cloud Function applies (lib/orderRevision.planCancellation),
+ * so the preview always equals the result.
+ */
+export function calculateRefundAmount(
+  order: Order,
+  cancelledDays: Set<DayKey>,
+  cancellationFeePercentage: number = 0
+): RefundPreview {
+  const days = [...cancelledDays];
+  const paid = (order as any).paymentReceived === true;
+  const empty: RefundPreview = {
+    paid, full: false, subtotalRefund: 0, gstRefund: 0, deliveryFeeRefund: 0, serviceChargeRefund: 0,
+    cancellationFee: 0, totalRefund: 0, totalCredit: 0, newAmountDue: Number((order as any).amountDue ?? order.total ?? 0),
+    percentageCancelled: 0,
+  };
+  let plan;
+  try {
+    plan = planCancellation(order as any, days, cancellationFeePercentage, FALLBACK_GST_RATE);
+  } catch {
+    return empty;
+  }
+  const items = normalizeItems(order.items);
+  const before = orderTotals(items, order as any, effectiveGstRate(order as any, FALLBACK_GST_RATE));
+  const after = plan.totals;
+  const base = (t: { subtotal: number; discountAmount: number }) => t.subtotal - t.discountAmount;
+  const subtotalRefund = round2(base(before) - (after ? base(after) : 0));
+  const percentageCancelled = base(before) > 0 ? subtotalRefund / base(before) : 0;
 
-  // ✅ FIX: If customer had previously applied credit, that credit was never actually
-  // paid — it came from their balance. We must subtract the proportional credit portion
-  // so we don't issue double-credit (credit that was applied + new credit for the same amount).
-  const creditApplied = (order as any).creditApplied || 0;
-  const creditPortion = creditApplied * percentageCancelled;
-  // Only subtract credit portion that came from credit (not real money payment)
-  const totalRefund = Math.max(0, netRefund - creditPortion);
-  const totalCredit = totalRefund; // Credit amount is the net refund (minus already-credited portion)
-  
+  if (!paid) {
+    return { ...empty, full: plan.full, totalCredit: plan.credit, newAmountDue: plan.amountDue, percentageCancelled };
+  }
   return {
-    subtotalRefund: cancelledSubtotal,
-    gstRefund,
-    deliveryFeeRefund,
-    serviceChargeRefund,
-    cancellationFee,
-    totalRefund,
-    totalCredit,
+    paid,
+    full: plan.full,
+    subtotalRefund,
+    gstRefund: round2((order.gst ?? 0) - (after ? after.gst : 0)),
+    deliveryFeeRefund: plan.full ? round2(order.deliveryFee ?? 0) : 0,
+    serviceChargeRefund: plan.full && !order.serviceChargeWaived ? round2(order.serviceCharge ?? 0) : 0,
+    cancellationFee: plan.fee,
+    totalRefund: round2(plan.credit + plan.fee),
+    totalCredit: plan.credit,
+    newAmountDue: plan.amountDue,
     percentageCancelled,
   };
 }
+
+/** Only used for orders that carry no GST of their own. */
+const FALLBACK_GST_RATE = 0.05;
 
 /**
  * Get active days (days with items ordered) for an order

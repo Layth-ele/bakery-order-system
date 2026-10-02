@@ -108,7 +108,6 @@ function ApprovedOrdersPageComponent({
   const {
     editOrder,
     sendPaymentReminder,
-    migrateOrders,
   } = useOrderActions();
 
   // FIX BUG 2 (CRITICAL): Import the full payment-confirmation flow so the
@@ -123,24 +122,11 @@ function ApprovedOrdersPageComponent({
   // LOCAL STATE (UI only)
   // ============================================================================
   
-  // ✅ Migration tracking (run once)
-  const migrationCompleted = useRef(false);
   
   // ============================================================================
   // EFFECTS
   // ============================================================================
   
-  // ✅ One-time migration effect
-  useEffect(() => {
-    if (migrationCompleted.current || !isActive || inProcessOrders.length === 0) {
-      return;
-    }
-    
-    (async () => {
-      await migrateOrders(inProcessOrders);
-      migrationCompleted.current = true;
-    })();
-  }, [isActive, inProcessOrders, migrateOrders]);
   
   // ============================================================================
   // HANDLERS (Orchestration)
@@ -214,22 +200,19 @@ function ApprovedOrdersPageComponent({
                 
                 // Extract cancellation details
                 const cancellationFeePercentage = cancellationData?.cancellationFeePercentage || 0;
-                const creditAmount = cancellationData?.creditAmount;
                 
-                // Execute cancellation
+                // Execute cancellation (server computes the credit)
                 const result = await cancelOrderAction(
                   order,
                   adminInfo,
                   reason,
                   cancelledDays as any,
-                  cancellationFeePercentage,
-                  creditAmount
+                  cancellationFeePercentage
                 );
                 
                 if (result.success) {
-                  // Success notification
-                  toast.success('Order cancelled successfully', {
-                    description: `Order ${displayOrderNumber(order)} has been cancelled. ${creditAmount ? `Credit of $${creditAmount.toFixed(2)} issued.` : ''} Customer has been notified.`,
+                  toast.success(result.data?.full === false ? 'Days cancelled' : 'Order cancelled', {
+                    description: result.message,
                     duration: 5000,
                   });
                   
@@ -276,16 +259,9 @@ function ApprovedOrdersPageComponent({
       products,
       categories,
       adminEmail: (user.email ?? ""),
-      onConfirm: async (data: any) => {
-        try {
-          await editOrder(order, data);
-          closeModal();
-        } catch (error) {
-          // Error already handled in hook
-        }
-      },
+      // The modal saves through the editPaidOrder Cloud Function itself.
     });
-  }, [openModal, closeModal, editOrder, products, categories, user.email]);
+  }, [openModal, products, categories, user.email]);
   
   /**
    * Edit unpaid order - opens modal (full edit)
@@ -298,31 +274,8 @@ function ApprovedOrdersPageComponent({
       isAdmin: true,
       onSave: async (adminChanges: any) => {
         try {
-          // ✅ Convert editedItems Record<productId, DayQtys> → OrderItem[]
-          const editedMap: Record<string, any> = adminChanges.editedItems || {};
-          const updatedItems = Object.entries(editedMap).map(([productId, qtys]: [string, any]) => {
-            const originalItem = order.items?.find(i => i.productId === productId);
-            const total = (qtys.monday || 0) + (qtys.tuesday || 0) + (qtys.wednesday || 0) +
-                         (qtys.thursday || 0) + (qtys.friday || 0) + (qtys.saturday || 0) + (qtys.sunday || 0);
-            return {
-              productId,
-              productName: qtys.productName || originalItem?.productName || '',
-              price: qtys.price ?? originalItem?.price ?? 0,
-              monday: qtys.monday || 0, tuesday: qtys.tuesday || 0,
-              wednesday: qtys.wednesday || 0, thursday: qtys.thursday || 0,
-              friday: qtys.friday || 0, saturday: qtys.saturday || 0,
-              sunday: qtys.sunday || 0, total,
-            };
-          });
-          const orderData = {
-            updatedItems,
-            updatedTotal: adminChanges.total,
-            deliveryFee: adminChanges.deliveryFee,
-            discount: adminChanges.discount,
-            discountNote: adminChanges.discountNote || '',
-            discountType: adminChanges.discountType,
-          };
-          await editOrder(order, orderData);
+          // The server reprices the order (editOrder Cloud Function).
+          await editOrder(order, adminChanges);
           closeModal();
         } catch (error) {
           // Error already handled in hook

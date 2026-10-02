@@ -136,6 +136,7 @@ export function AdminNotificationsModal({
     PAYMENT_SUBMITTED: { icon: "💰", label: "Review Payment", style: "bg-green-50 hover:bg-green-100 text-green-600" },
     PAYMENT_CONFIRMED_ADMIN: { icon: "✅", label: "View Details", style: "bg-emerald-50 hover:bg-emerald-100 text-emerald-600" },
     NEW_REGISTRATION: { icon: "🆕", label: "Review Request", style: "bg-orange-50 hover:bg-orange-100 text-orange-600" },
+    CREDIT_PAYOUT_REQUESTED: { icon: "💸", label: "View Request", style: "bg-amber-50 hover:bg-amber-100 text-amber-700" },
   };
   const DEFAULT_UI = { icon: "🔔", label: "View", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" };
   const uiFor = (type: string) => ADMIN_TYPE_UI[normalizeNotificationType(type) ?? ""] ?? DEFAULT_UI;

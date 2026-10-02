@@ -88,9 +88,6 @@ export {
   getOrders,
   getOrder,
   getOrdersByCustomer,
-  createOrder,
-  updateOrder,
-  deleteOrder,
   subscribeToOrders,
   subscribeToCustomerOrders,
   subscribeToOrder,
@@ -117,8 +114,6 @@ export {
 
 export {
   getCreditNotes,
-  createCreditNote,
-  updateCreditNote,
   subscribeToCreditNotes,
 } from './creditNotes';
 
@@ -128,7 +123,6 @@ export {
 
 export {
   getOrderEditHistory,
-  createOrderEditHistory,
   subscribeToOrderEditHistory,
 } from './orderEditHistory';
 
@@ -140,7 +134,6 @@ export type { OrderEditHistory } from './orderEditHistory';
 
 export {
   getCreditApplicationHistory,
-  createCreditApplication,
   subscribeToCreditApplicationHistory,
 } from './creditApplicationHistory';
 
@@ -151,7 +144,6 @@ export type { CreditApplicationRecord } from './creditApplicationHistory';
 // ═══════════════════════════════════════════════════════════════════════════
 
 export {
-  addOrderSnapshot,
   getOrderSnapshots,
   getLatestOrderSnapshot,
 } from './snapshots';

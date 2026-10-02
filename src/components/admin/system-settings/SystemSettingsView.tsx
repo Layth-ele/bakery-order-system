@@ -70,7 +70,6 @@ export interface SystemSettingsViewProps {
   loading: boolean;
   saving: boolean;
   cleanupRunning: boolean;
-  timestampFixRunning?: boolean;
   // ❌ REMOVED MAR 14, 2026: serverCleanupRunning (Firebase cleanup button removed)
   
   // UI state
@@ -81,7 +80,6 @@ export interface SystemSettingsViewProps {
   onSettingsChange: (settings: SystemSettings) => void;
   onSave: () => void;
   onCleanup: () => void;
-  onFixTimestamps?: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
   // ❌ REMOVED MAR 14, 2026: onFirebaseCleanup (Firebase cleanup button removed)
@@ -237,14 +235,12 @@ export function SystemSettingsView({
   loading,
   saving,
   cleanupRunning,
-  timestampFixRunning,
   // ❌ REMOVED MAR 14, 2026: serverCleanupRunning (Firebase cleanup button removed)
   notification,
   notificationType,
   onSettingsChange,
   onSave,
   onCleanup,
-  onFixTimestamps,
   onRefresh,
   isRefreshing = false,
   // ❌ REMOVED MAR 14, 2026: onFirebaseCleanup (Firebase cleanup button removed)
@@ -480,24 +476,6 @@ export function SystemSettingsView({
                 {cleanupRunning ? 'Running Cleanup...' : 'Run Client Cleanup'}
               </button>
             </div>
-
-            {isFirebaseConfigured && onFixTimestamps && (
-              <div className="bg-[#FFF3E0] border-2 border-[#FF9800] rounded-lg p-4">
-                <p className="text-sm text-[#333333]">
-                  <strong>Fix Order Timestamps:</strong> Repair invalid timestamp formats in Firestore order documents
-                </p>
-                <button
-                  onClick={onFixTimestamps}
-                  disabled={timestampFixRunning}
-                  className="mt-3 px-4 py-2 bg-[#FF9800] text-white rounded-lg hover:bg-[#F57C00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Wrench
-                    className={`w-4 h-4 ${timestampFixRunning ? 'animate-spin' : ''}`}
-                  />
-                  {timestampFixRunning ? 'Fixing Timestamps...' : 'Fix Order Timestamps'}
-                </button>
-              </div>
-            )}
 
             {/* ❌ REMOVED MAR 14, 2026: Firebase Cleanup button */}
             {/* The runFirestoreCleanup() function was a stub that returned { totalCleaned: 0 } */}

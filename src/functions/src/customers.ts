@@ -14,7 +14,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Query } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getStorage } from "firebase-admin/storage";
-import { getNextDailyId } from "./idGenerator";
+import { reserveDailyId } from "./idGenerator";
 
 const db = getFirestore();
 
@@ -25,97 +25,79 @@ interface CreateCustomerInput {
   contactPerson?: string;
   phone?: string;
   storeAddress?: string;
+  customerType?: "individual" | "commercial";
 }
 
+const clean = (v: unknown, max = 300): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+/**
+ * Self-registration: create the new user's customer profile (status
+ * "pending", sequential customer code) and the admin's NEW_REGISTRATION
+ * notification — in one transaction, so every registration is announced
+ * exactly once. The web app calls this right after creating the Auth user.
+ */
 export const createCustomerWithCode = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in to create a customer profile.");
   }
 
-  const data = request.data as CreateCustomerInput;
-  if (!data?.uid || typeof data.uid !== "string") {
+  const data = (request.data ?? {}) as CreateCustomerInput;
+  if (!data.uid || typeof data.uid !== "string") {
     throw new HttpsError("invalid-argument", "uid is required.");
   }
-  if (!data?.email || typeof data.email !== "string") {
-    throw new HttpsError("invalid-argument", "email is required.");
-  }
-  if (!data?.storeName || typeof data.storeName !== "string") {
-    throw new HttpsError("invalid-argument", "storeName is required.");
-  }
-
   // Caller can only create their own profile
   if (request.auth.uid !== data.uid) {
     throw new HttpsError("permission-denied", "You can only create a customer profile for yourself.");
   }
+  const email = clean(request.auth.token.email ?? data.email).toLowerCase();
+  const storeName = clean(data.storeName, 200);
+  if (!email) throw new HttpsError("invalid-argument", "email is required.");
+  if (!storeName) throw new HttpsError("invalid-argument", "storeName is required.");
+  const customerType = data.customerType === "commercial" ? "commercial" : "individual";
 
-  // Check if customer already exists
-  const existingCustomer = await db.collection("customers").doc(data.uid).get();
-  if (existingCustomer.exists) {
-    throw new HttpsError("already-exists", "Customer profile already exists for this user.");
-  }
-
-  // Generate sequential customer code
-  const customerCode = await getNextDailyId("CUST");
-
-  // Create customer document
   const customerRef = db.collection("customers").doc(data.uid);
-  await customerRef.set(
-    {
+  const notifRef = db.collection("notifications").doc("admin").collection("items").doc(`registration_${data.uid}`);
+
+  const customerCode = await db.runTransaction(async (tx) => {
+    const existing = await tx.get(customerRef);
+    if (existing.exists) {
+      throw new HttpsError("already-exists", "Customer profile already exists for this user.");
+    }
+    const code = await reserveDailyId(tx, "CUST");
+    tx.set(customerRef, {
       id: data.uid,
-      customerCode,
-      email: (data.email ?? "").trim().toLowerCase(),
-      storeName: data.storeName,
-      contactPerson: data.contactPerson ?? "",
-      phone: data.phone ?? "",
-      storeAddress: data.storeAddress ?? "",
+      customerCode: code,
+      email,
+      storeName,
+      contactPerson: clean(data.contactPerson, 200),
+      phone: clean(data.phone, 50),
+      storeAddress: clean(data.storeAddress, 500),
       role: "customer",
-      customerType: "individual",
+      customerType,
       status: "pending",
+      registeredAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+    });
+    tx.set(notifRef, {
+      id: notifRef.id,
+      type: "NEW_REGISTRATION", // see src/types/notification-contract.ts
+      title: "🆕 New Registration Request",
+      message: `New customer registration: ${storeName} (${email})`,
+      orderId: "",
+      customerId: data.uid,
+      customerName: storeName,
+      actions: [{ type: "VIEW_REGISTRATION", label: "Review Request" }],
+      source: "server",
+      metadata: { customerId: data.uid, customerEmail: email, customerName: storeName, customerType },
+      read: false,
+      createdAt: FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
+    });
+    return code;
+  });
 
-  // ALSO create the admin notification HERE (server-side), since the previous
-  // client-side call after signOut() always failed. This is the H5 fix.
-  try {
-    const notifId = `reg-${data.uid}-${Date.now()}`;
-    await db
-      .collection("notifications")
-      .doc("admin")
-      .collection("items")
-      .doc(notifId)
-      .set({
-        id: notifId,
-        type: "NEW_REGISTRATION", // see src/types/notification-contract.ts
-        title: "🆕 New Registration Request",
-        message: `New customer registration: ${data.storeName} (${data.email})`,
-        orderId: "",
-        customerId: data.uid,
-        customerName: data.storeName,
-        actions: [{ type: "VIEW_REGISTRATION", label: "Review Request" }],
-        source: "server",
-        metadata: {
-          customerId: data.uid,
-          customerEmail: data.email,
-          customerName: data.storeName,
-          registeredAt: new Date().toISOString(),
-        },
-        read: false,
-        createdAt: FieldValue.serverTimestamp(),
-        timestamp: FieldValue.serverTimestamp(),
-      });
-  } catch (err) {
-    console.warn("[createCustomerWithCode] Failed to create admin notification:", err);
-    // Non-fatal — registration still succeeded
-  }
-
-  // FIX C4: Return both fields the docstring promised.
-  return {
-    id: data.uid,
-    customerCode,
-  };
+  return { id: data.uid, customerCode };
 });
 
 /**

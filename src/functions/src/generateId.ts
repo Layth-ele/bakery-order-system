@@ -14,9 +14,9 @@
  * a tax-compliance requirement; unexplained gaps are an audit red flag.
  *
  * Now requires:
- *   - 'invoices' (DBH prefix): admin only — matches createInvoiceWithCustomId
+ *   - 'invoices' (DBH prefix): admin only — invoice numbers
  *   - 'orders' (ORD prefix): approved customer or admin — matches
- *     createOrderWithCustomId's customer-status check
+ *     placeOrder's customer-status check
  *   - 'customers' (CUST prefix): admin or self-registration during signup —
  *     matches createCustomerWithCode's caller-uid-must-equal-data.uid check.
  *     We allow any authenticated user here because this is called during
@@ -68,8 +68,7 @@ export const generateId = onCall(async (request) => {
   const isApprovedCustomer = callerData?.status === "approved";
 
   if (type === "invoices") {
-    // Invoice number generation is admin-only — matches the admin check in
-    // createInvoiceWithCustomId.
+    // Invoice number generation is admin-only.
     if (!isAdmin) {
       throw new HttpsError(
         "permission-denied",

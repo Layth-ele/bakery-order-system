@@ -288,41 +288,8 @@ function PendingOrdersPageComponent({
         isAdmin: true,
         onSave: async (adminChanges: any) => {
           try {
-            // ✅ Convert editedItems Record<productId, DayQtys> → OrderItem[]
-            // editedItems from EditOrderPage is a map keyed by productId
-            // editOrder expects updatedItems as an array
-            const editedMap: Record<string, any> = adminChanges.editedItems || {};
-            const updatedItems = Object.entries(editedMap).map(([productId, qtys]: [string, any]) => {
-              // Look up product name + price from original order items
-              const originalItem = order.items?.find(i => i.productId === productId);
-              const total = (qtys.monday || 0) + (qtys.tuesday || 0) + (qtys.wednesday || 0) +
-                           (qtys.thursday || 0) + (qtys.friday || 0) + (qtys.saturday || 0) + (qtys.sunday || 0);
-              return {
-                productId,
-                productName: qtys.productName || originalItem?.productName || '',
-                price: qtys.price ?? originalItem?.price ?? 0,
-                monday: qtys.monday || 0,
-                tuesday: qtys.tuesday || 0,
-                wednesday: qtys.wednesday || 0,
-                thursday: qtys.thursday || 0,
-                friday: qtys.friday || 0,
-                saturday: qtys.saturday || 0,
-                sunday: qtys.sunday || 0,
-                total,
-              };
-            });
-            
-            // Build the correct EditOrderData shape
-            const orderData = {
-              updatedItems,
-              updatedTotal: adminChanges.total,
-              deliveryFee: adminChanges.deliveryFee,
-              discount: adminChanges.discount,
-              discountNote: adminChanges.discountNote || '',
-              discountType: adminChanges.discountType,
-            };
-            
-            await editOrder(order, orderData);
+            // The server reprices the order (editOrder Cloud Function).
+            await editOrder(order, adminChanges);
             closeModal();
           } catch (error: any) {
             console.error('Failed to save order:', error);

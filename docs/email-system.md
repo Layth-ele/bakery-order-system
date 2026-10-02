@@ -12,8 +12,8 @@ Customer emails are sent through [Resend](https://resend.com). Cloud Functions s
 | Order cancelled (with reason) | Order cancelled (`cancelled`) | `onOrderLifecycle` (automatic) |
 | Payment received, in production | Admin confirms payment (`in_process`) | `onOrderLifecycle` (automatic) |
 | Order complete, invoice ready | Order completed, manually or by the weekly auto-complete (`completed`) | `onOrderLifecycle` (automatic) |
-| Payment reminder #N | Admin clicks **Send reminder** (Approved or Unpaid orders) | `sendPaymentReminderEmail` |
-| Order updated | Admin edits an order with "notify customer" on | `sendOrderUpdatedEmail` |
+| Payment reminder #N | Admin clicks **Send reminder** (Approved or Unpaid orders) — also writes the in-app reminder | `sendPaymentReminder` |
+| Order updated | Admin edits an approved, unpaid order — also writes the in-app notice | `editOrder` |
 | Reset your password | **Forgot password**, or admin sends a reset link | `sendPasswordResetEmail` |
 | Test email | Admin → System Settings → **Send test email** | `sendTestEmail` |
 
@@ -87,7 +87,7 @@ If email isn't configured (no real key or no sender), nothing breaks:
 
 ```bash
 firebase functions:log --only onOrderLifecycle
-firebase functions:log --only sendPaymentReminderEmail
+firebase functions:log --only sendPaymentReminder
 ```
 
 | Log / message | Cause | Fix |

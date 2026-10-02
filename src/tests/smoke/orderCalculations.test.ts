@@ -2,7 +2,7 @@
  * Order calculation smoke tests
  */
 import { describe, it, expect } from 'vitest';
-import { calculateOrderTotals } from '../../services/orderWorkflowService';
+import { calculateOrderTotals } from '../../services/orders/deliveryFeeService';
 import { calculateGST } from '../../services/calculators/orderCalculator';
 
 describe('calculateGST', () => {

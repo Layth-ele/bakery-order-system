@@ -3,8 +3,9 @@
  * (src/functions/src/emails.ts), which render the branded templates and
  * deliver through Resend. Nothing is rendered or sent from the browser.
  *
- * Automatic order-status emails (placed / approved / rejected / cancelled /
- * paid / delivered) need no client call — a Firestore trigger sends them.
+ * Order-status emails come from a Firestore trigger; payment-reminder and
+ * order-updated emails from the sendPaymentReminder / editOrder functions.
+ * The browser only asks for a test email and password resets.
  *
  * Setup and troubleshooting: docs/email-system.md
  */
@@ -38,16 +39,6 @@ export function describeEmailResult(r: EmailSendResult): string {
       : `Email not sent: ${r.reason ?? 'skipped'}`;
   }
   return `Email delivery failed: ${r.reason ?? 'unknown error'}`;
-}
-
-/** Admin: email a payment reminder for an unpaid order. */
-export function sendPaymentReminderEmail(orderId: string, reminderNumber: number): Promise<EmailSendResult> {
-  return call('sendPaymentReminderEmail', { orderId, reminderNumber });
-}
-
-/** Admin: tell the customer their order was changed. */
-export function sendOrderUpdatedEmail(orderId: string): Promise<EmailSendResult> {
-  return call('sendOrderUpdatedEmail', { orderId });
 }
 
 /** Admin: send a test email (defaults to the admin's own address). */

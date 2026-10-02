@@ -13,6 +13,7 @@ import {
 } from '../orderLifecycle';
 import { buildOrderNotifications, ORDER_NOTIFICATION_TYPES, notificationId } from '../orderNotifications';
 import { EMAILED_STATUSES } from '../emailContent';
+import { ACCOUNT_NOTIFICATION_TYPES } from '../accountNotifications';
 import { NOTIFICATION_TYPES } from '../../../../types/notification-contract';
 import { orderStatusSchema } from '../../../../schemas/order/orderEnums.schema';
 
@@ -84,6 +85,7 @@ describe('lifecycle notifications', () => {
 
   it('every server notification type exists in the web app contract', () => {
     for (const t of ORDER_NOTIFICATION_TYPES) expect(clientTypes).toContain(t);
+    for (const t of ACCOUNT_NOTIFICATION_TYPES) expect(clientTypes).toContain(t);
     // Written by createCustomerWithCode (customers.ts).
     expect(clientTypes).toContain('NEW_REGISTRATION');
   });

@@ -2,7 +2,7 @@
  * Credit system smoke tests
  */
 import { describe, it, expect } from 'vitest';
-import { calculateCreditFromReduction, validateItemEdit } from '../../services/creditService';
+import { validateItemEdit } from '../../services/creditService';
 import type { OrderItem } from '../../types';
 import { Timestamp } from 'firebase/firestore';
 
@@ -15,21 +15,6 @@ const mockItem: OrderItem = {
   monday: 10, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0,
   total: 10,
 };
-
-describe('calculateCreditFromReduction', () => {
-  it('calculates credit for order reduction', () => {
-    const credit = calculateCreditFromReduction(100, 75);
-    expect(credit).toBeCloseTo(25);
-  });
-
-  it('returns 0 when totals are equal', () => {
-    expect(calculateCreditFromReduction(100, 100)).toBe(0);
-  });
-
-  it('returns 0 when new total is higher', () => {
-    expect(calculateCreditFromReduction(100, 120)).toBe(0);
-  });
-});
 
 describe('validateItemEdit', () => {
   it('accepts valid quantity reduction', () => {

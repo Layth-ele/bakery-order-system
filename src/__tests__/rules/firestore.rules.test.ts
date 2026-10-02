@@ -81,9 +81,9 @@ async function seedAdminAndCustomer() {
 describe('Credit notes (C1)', () => {
   beforeEach(seedAdminAndCustomer);
 
-  test('admin can create a credit note', async () => {
+  test('admin CANNOT create a credit note from the browser (issueStoreCredit does it)', async () => {
     const admin = testEnv.authenticatedContext('admin-uid').firestore();
-    await assertSucceeds(
+    await assertFails(
       admin.collection('creditNotes').add({
         customerId: 'cust-uid',
         amount: 100,
@@ -330,9 +330,9 @@ describe('Snapshot create ownership (R10 lock-in for S1-F18)', () => {
     });
   });
 
-  test('owner CAN create snapshot in their own order', async () => {
+  test('owner CANNOT create snapshot (server-only)', async () => {
     const cust = testEnv.authenticatedContext('cust-uid').firestore();
-    await assertSucceeds(
+    await assertFails(
       cust.collection('orders').doc('cust-order').collection('snapshots').add({
         customerId: 'cust-uid',
         orderId: 'cust-order',
@@ -358,9 +358,9 @@ describe('Snapshot create ownership (R10 lock-in for S1-F18)', () => {
     );
   });
 
-  test('admin CAN create snapshot in any order', async () => {
+  test('admin CANNOT create snapshot from the browser (server-only)', async () => {
     const admin = testEnv.authenticatedContext('admin-uid').firestore();
-    await assertSucceeds(
+    await assertFails(
       admin.collection('orders').doc('cust-order').collection('snapshots').add({
         customerId: 'cust-uid',
         orderId: 'cust-order',
@@ -438,9 +438,9 @@ describe('Credit application history (T2R7-C2: server-only writer)', () => {
     });
   }
 
-  test('admin CAN create a history record (manual correction)', async () => {
+  test('admin CANNOT create a history record from the browser (server-only)', async () => {
     const admin = testEnv.authenticatedContext('admin-uid').firestore();
-    await assertSucceeds(admin.collection('creditApplicationHistory').add({ customerId: 'cust-uid', amount: 50 }));
+    await assertFails(admin.collection('creditApplicationHistory').add({ customerId: 'cust-uid', amount: 50 }));
   });
 });
 
@@ -544,5 +544,70 @@ describe('Public business card (publicProfile)', () => {
 
   test('private settings stay private to signed-out visitors', async () => {
     await assertFails(testEnv.unauthenticatedContext().firestore().doc('settings/general').get());
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server-only order lifecycle: the browser never writes orders, credit,
+// edit history or notifications — not even an admin.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Server-only order lifecycle', () => {
+  beforeEach(async () => {
+    await seedAdminAndCustomer();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('orders').doc('o-approved').set({
+        customerId: 'cust-uid',
+        status: 'approved',
+        subtotal: 100,
+        total: 105,
+        amountDue: 105,
+        paymentSubmitted: false,
+      });
+    });
+  });
+
+  const order = { customerId: 'cust-uid', items: [], subtotal: 100, total: 105, status: 'pending' };
+
+  test('customer CANNOT create an order directly (placeOrder only)', async () => {
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertFails(cust.collection('orders').doc('x').set(order));
+  });
+
+  test('admin CANNOT create, update or delete an order from the browser', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertFails(admin.collection('orders').doc('y').set(order));
+    await assertFails(admin.collection('orders').doc('o-approved').update({ total: 1 }));
+    await assertFails(admin.collection('orders').doc('o-approved').update({ status: 'in_process' }));
+    await assertFails(admin.collection('orders').doc('o-approved').delete());
+  });
+
+  test('customer CANNOT self-submit payment fields (submitPaymentProof only)', async () => {
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertFails(
+      cust.collection('orders').doc('o-approved').update({ paymentSubmitted: true, paymentReference: 'ET-1' }),
+    );
+  });
+
+  test('admin CANNOT write notifications, edit history or voided invoices from the browser', async () => {
+    const admin = testEnv.authenticatedContext('admin-uid').firestore();
+    await assertFails(admin.doc('notifications/user_cust-uid/items/fake').set({ type: 'CREDIT_ISSUED', read: false }));
+    await assertFails(admin.doc('notifications/admin/items/fake').set({ type: 'ORDER_PLACED_TRACKING', read: false }));
+    await assertFails(admin.collection('orderEditHistory').add({ orderId: 'o-approved', customerId: 'cust-uid' }));
+    await assertFails(admin.doc('voidedInvoices/DBH-1').set({ invoiceNumber: 'DBH-1', customerId: 'cust-uid' }));
+  });
+
+  test('a new user CANNOT create their own profile (createCustomerWithCode only)', async () => {
+    const fresh = testEnv.authenticatedContext('new-uid').firestore();
+    await assertFails(fresh.collection('customers').doc('new-uid').set({ email: 'n@x.com', status: 'pending', customerType: 'individual' }));
+  });
+
+  test('customer CAN still read their own order and mark notifications read', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('notifications/user_cust-uid/items/n1').set({ type: 'PAYMENT_REMINDER', read: false });
+    });
+    const cust = testEnv.authenticatedContext('cust-uid').firestore();
+    await assertSucceeds(cust.collection('orders').doc('o-approved').get());
+    await assertSucceeds(cust.doc('notifications/user_cust-uid/items/n1').update({ read: true }));
   });
 });

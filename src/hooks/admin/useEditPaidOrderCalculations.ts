@@ -1,28 +1,18 @@
 /**
- * useEditPaidOrderCalculations
- *
- * Pass 7 component-decomposition extraction from EditPaidOrderModal.tsx.
- *
- * Computes the new order totals (subtotal, GST, delivery, service, total)
- * given an edited items map, plus the credit amount that would be issued
- * and a structured list of per-item changes.
- *
- * The legacy-GST detection logic is preserved intact — some orders in the
- * production data have GST excluded from `total` due to a 2025 bug. We
- * detect the source order's pattern and apply the same convention to the
- * recomputed total to keep behavior consistent.
+ * Preview for the "edit paid order" modal: new totals and the store credit
+ * the reduction will issue. Uses the exact rules the editPaidOrder Cloud
+ * Function applies (src/functions/src/lib/orderRevision.ts), so the preview
+ * always equals the result.
  */
-
 import { useMemo } from 'react';
 import type { Order, OrderItem } from '../../types';
-import { calculateCreditFromReduction } from '../../services/creditService';
-
-const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
-type DayKey = (typeof DAY_KEYS)[number];
-
-function getItemTotal(item: OrderItem): number {
-  return DAY_KEYS.reduce((sum, day) => sum + ((item[day] as number | undefined) ?? 0), 0);
-}
+import {
+  diffItems,
+  effectiveGstRate,
+  normalizeItems,
+  orderTotals,
+  round2,
+} from '../../functions/src/lib/orderRevision';
 
 export interface OrderTotals {
   subtotal: number;
@@ -46,94 +36,27 @@ export interface UseEditPaidOrderCalculationsResult {
   changes: ItemChange[];
 }
 
+/** Fallback GST rate if the order carries none (never used for taxed orders). */
+const FALLBACK_GST_RATE = 0.05;
+
 export function useEditPaidOrderCalculations(
   order: Order,
   editedItems: { [productId: string]: OrderItem },
 ): UseEditPaidOrderCalculationsResult {
-  const calculatedTotals = useMemo<OrderTotals>(() => {
-    const items = Object.values(editedItems);
-    const subtotal = items.reduce((sum, item) => {
-      return sum + getItemTotal(item) * (item.price ?? 0);
-    }, 0);
-
-    // Apply discount from original order
-    let discount = 0;
-    if (order.discountPercentage) {
-      discount = subtotal * (order.discountPercentage / 100);
-    } else if (order.discount) {
-      discount = order.discount;
-    }
-    const discountedSubtotal = subtotal - discount;
-
-    const originalSubtotal = order.subtotal || 0;
-    const originalGst = order.gst || 0;
-    const originalDeliveryFee = order.deliveryFee || 0;
-    const originalServiceCharge = order.serviceChargeWaived ? 0 : (order.serviceCharge || 0);
-    const originalDiscount = order.discount || 0;
-
-    // Detect legacy GST handling: some orders had GST stored separately from total
-    const reconstructedTotalWithGst =
-      originalSubtotal + originalGst + originalDeliveryFee + originalServiceCharge - originalDiscount;
-    const reconstructedTotalWithoutGst =
-      originalSubtotal + originalDeliveryFee + originalServiceCharge - originalDiscount;
-    const orderTotal = order.total ?? 0;
-    const gstWasNotIncludedInOriginalTotal =
-      Math.abs(reconstructedTotalWithoutGst - orderTotal) < 0.01 &&
-      Math.abs(reconstructedTotalWithGst - orderTotal) >= 0.01;
-
-    let gst: number;
-    let total: number;
-    if (gstWasNotIncludedInOriginalTotal) {
-      gst = 0;
-      total = discountedSubtotal + originalDeliveryFee + originalServiceCharge;
-    } else {
-      gst = discountedSubtotal * 0.05;
-      total = discountedSubtotal + gst + originalDeliveryFee + originalServiceCharge;
-    }
-
+  return useMemo(() => {
+    const before = normalizeItems(order.items);
+    const after = normalizeItems(Object.values(editedItems)).filter((it) => it.total > 0);
+    const t = orderTotals(after, order, effectiveGstRate(order, FALLBACK_GST_RATE));
     return {
-      subtotal,
-      gst,
-      deliveryFee: originalDeliveryFee,
-      serviceCharge: originalServiceCharge,
-      total,
+      calculatedTotals: {
+        subtotal: t.subtotal,
+        gst: t.gst,
+        deliveryFee: t.deliveryFee,
+        serviceCharge: t.serviceCharge,
+        total: t.total,
+      },
+      creditAmount: Math.max(0, round2((order.total ?? 0) - t.total)),
+      changes: diffItems(before, after),
     };
-  }, [
-    editedItems,
-    order.deliveryFee,
-    order.serviceCharge,
-    order.serviceChargeWaived,
-    order.discount,
-    order.discountPercentage,
-    order.total,
-    order.subtotal,
-    order.gst,
-  ]);
-
-  const creditAmount = useMemo(() => {
-    return calculateCreditFromReduction(order.total ?? 0, calculatedTotals.total);
-  }, [order.total, calculatedTotals.total]);
-
-  const changes = useMemo<ItemChange[]>(() => {
-    const list: ItemChange[] = [];
-    order.items.forEach((originalItem) => {
-      const editedItem = editedItems[originalItem.productId];
-      if (!editedItem) return;
-      const newQty = getItemTotal(editedItem);
-      const originalQty = originalItem.quantity || getItemTotal(originalItem);
-      if (newQty !== originalQty) {
-        const qtyChange = newQty - originalQty;
-        list.push({
-          productName: originalItem.productName,
-          originalQuantity: originalQty,
-          newQuantity: newQty,
-          quantityChange: qtyChange,
-          priceChange: qtyChange * (originalItem.price ?? 0),
-        });
-      }
-    });
-    return list;
-  }, [editedItems, order.items]);
-
-  return { calculatedTotals, creditAmount, changes };
+  }, [order, editedItems]);
 }

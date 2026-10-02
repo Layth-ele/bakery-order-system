@@ -1,344 +1,225 @@
 /**
- * Order Cloud Functions — HARDENED (Pass 1)
+ * placeOrder — the ONLY way an order is created.
  *
- * Fixes from audit:
- *   - C3: Server now recalculates prices from products collection. Client-supplied
- *     subtotal/gst/total are validated against server-computed values; mismatch
- *     beyond rounding tolerance throws (and logs as suspicious_activity).
- *   - C4: Function now RETURNS { id } as documented.
- *   - Added: ownership check (customerId must match request.auth.uid unless admin).
- *   - Added: customer status check (must be approved).
- *   - Added: Zod-style runtime validation of items array.
+ * The browser sends just what the customer chose (products + quantities per
+ * day, week, note, credit to use). Everything that matters is decided here,
+ * from server data:
+ *   - who the customer is and that their account is approved
+ *   - that every delivery day in the order is still open (48 h before noon)
+ *   - prices from the live catalogue (wholesale vs retail by account type,
+ *     product discount) — the same prices the order screen shows
+ *   - GST, service charge and estimated delivery fee from Settings
+ *   - the sequential order number, and any store credit (FIFO)
+ * all in ONE transaction, so an order is never half-created and never
+ * created twice: the client's requestId is the order's document id, making
+ * retries return the original order.
+ *
+ * Money rules: see lib/orderPlacement.ts (total excludes credit;
+ * amountDue = total − creditApplied).
  */
-
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { getNextDailyId } from "./idGenerator";
-import { getTaxRate } from "./_shared";
+import { reserveDailyId } from "./idGenerator";
+import { requireApprovedCustomer } from "./_shared";
+import {
+  PlacementError,
+  allocateCredit,
+  amountDueOf,
+  closedDaysInOrder,
+  parsePlaceOrderInput,
+  priceOrder,
+  type CatalogProduct,
+  type CreditNoteBalance,
+  type PriceTier,
+} from "./lib/orderPlacement";
+import {
+  resolveDeliveryFee,
+  resolveFreeDeliveryMin,
+  resolveServiceCharge,
+  resolveTaxRate,
+} from "./lib/settingsValues";
 
 const db = getFirestore();
 
-// ─── Pricing tolerance ──────────────────────────────────────────────────────
-// Allow up to 1 cent of drift between client and server total (legitimate
-// floating-point differences from adding GST). Anything more is tampering.
-const PRICE_TOLERANCE_CENTS = 1;
+const DAY_LABELS: Record<string, string> = {
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
+};
 
-interface OrderItemInput {
-  productId: string;
-  quantity: number;
-  // unitPrice from client is informational only; server recomputes from products.
-  unitPrice?: number;
-  // optional weekly breakdown for daily delivery scheduling
-  daily?: Record<string, number>;
-}
-
-interface CreateOrderInput {
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  items: OrderItemInput[];
-  subtotal: number;
-  gst: number;
+export interface PlaceOrderResult {
+  orderId: string;
+  orderNumber: string;
   total: number;
-  status?: string;
-  weekRange?: string;
-  deliveryDays?: any[];
-  orderNote?: string;
+  creditApplied: number;
+  amountDue: number;
+  /** true when this requestId had already created the order (a retry). */
+  duplicate: boolean;
 }
 
-/**
- * Validate input shape and types defensively (no zod dep in CF runtime).
- */
-function assertValidInput(data: any): asserts data is CreateOrderInput {
-  if (!data || typeof data !== "object") {
-    throw new HttpsError("invalid-argument", "Request body is required.");
-  }
-  if (typeof data.customerId !== "string" || !data.customerId) {
-    throw new HttpsError("invalid-argument", "customerId is required.");
-  }
-  if (typeof data.customerName !== "string" || !data.customerName) {
-    throw new HttpsError("invalid-argument", "customerName is required.");
-  }
-  if (typeof data.customerEmail !== "string" || !data.customerEmail) {
-    throw new HttpsError("invalid-argument", "customerEmail is required.");
-  }
-  if (!Array.isArray(data.items) || data.items.length === 0) {
-    throw new HttpsError("invalid-argument", "items must be a non-empty array.");
-  }
-  if (typeof data.subtotal !== "number" || data.subtotal <= 0) {
-    throw new HttpsError("invalid-argument", "subtotal must be a positive number.");
-  }
-  if (typeof data.total !== "number" || data.total <= 0) {
-    throw new HttpsError("invalid-argument", "total must be a positive number.");
-  }
-  if (typeof data.gst !== "number" || data.gst < 0) {
-    throw new HttpsError("invalid-argument", "gst must be a non-negative number.");
-  }
-  for (const item of data.items) {
-    if (!item || typeof item !== "object") {
-      throw new HttpsError("invalid-argument", "Each item must be an object.");
-    }
-    if (typeof item.productId !== "string" || !item.productId) {
-      throw new HttpsError("invalid-argument", "Each item must have a productId.");
-    }
-    if (typeof item.quantity !== "number" || item.quantity <= 0 || !Number.isFinite(item.quantity)) {
-      throw new HttpsError("invalid-argument", "Each item must have a positive quantity.");
-    }
-  }
-}
+const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 
-/**
- * Look up the caller's customer profile (used for role check & price tier).
- */
-async function getCallerProfile(uid: string) {
-  const snap = await db.collection("customers").doc(uid).get();
-  if (!snap.exists) {
-    throw new HttpsError("permission-denied", "Customer profile not found.");
-  }
-  return snap.data() as {
-    customerType?: "admin" | "commercial" | "individual";
-    status?: string;
-  };
-}
+export const placeOrder = onCall(async (request): Promise<PlaceOrderResult> => {
+  const caller = await requireApprovedCustomer(request);
 
-/**
- * Server-side recalculation of order totals.
- *
- * SECURITY: This is the authoritative source of truth for prices. Client values
- * are compared, NOT trusted.
- */
-async function recalculateOrder(
-  items: OrderItemInput[],
-  customerType: "admin" | "commercial" | "individual",
-  taxRate: number,
-): Promise<{ subtotal: number; gst: number; total: number; resolvedItems: any[] }> {
-  // Read products in parallel
-  const productSnaps = await Promise.all(
-    items.map(item => db.collection("products").doc(item.productId).get())
-  );
-
-  let subtotal = 0;
-  const resolvedItems: any[] = [];
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const snap = productSnaps[i];
-    if (!snap.exists) {
-      throw new HttpsError("not-found", `Product not found: ${item.productId}`);
-    }
-    const product = snap.data() as {
-      name: string;
-      retail: number;
-      wholesale: number;
-      cost: number;
-      minQty?: number;
-      // PASS 9 FIX: discount is a percentage (0-100) applied to retail/wholesale
-      // on the customer side. Without including it here the server would
-      // reject every discounted-product order as PRICE_TAMPERING_ATTEMPT.
-      discount?: number;
-    };
-
-    // Pick price tier from customer type
-    const basePrice = customerType === "commercial" ? product.wholesale : product.retail;
-    if (typeof basePrice !== "number" || basePrice <= 0) {
-      throw new HttpsError("internal", `Invalid price for product: ${item.productId}`);
-    }
-
-    // PASS 9 FIX: Apply percentage discount to mirror the client formula
-    // (CustomerDashboardMain.calculatePrice). Discount must be a valid
-    // percentage in [0, 100); anything else is treated as no discount.
-    const rawDiscount = typeof product.discount === "number" ? product.discount : 0;
-    const discountPct = rawDiscount > 0 && rawDiscount < 100 ? rawDiscount : 0;
-    const unitPrice = discountPct > 0
-      ? basePrice * (1 - discountPct / 100)
-      : basePrice;
-
-    // Enforce minimum quantity if set
-    if (product.minQty && item.quantity < product.minQty) {
-      throw new HttpsError(
-        "invalid-argument",
-        `Product ${product.name} requires minimum quantity of ${product.minQty}.`
-      );
-    }
-
-    const lineTotal = unitPrice * item.quantity;
-    subtotal += lineTotal;
-
-    // FIX R5-S6-F4 / S6-F5 (CRITICAL): The CF was writing items in a custom shape
-    // — unitPrice / lineTotal / quantity / daily — which does NOT match the
-    // canonical orderItemSchema (price, monday..sunday, total).  Result:
-    // every server-side-created order failed Zod validation on the next read,
-    // got silently dropped by parseArrayPartial, and disappeared from admin
-    // dashboards.  Now writes the schema-correct shape.
-    //
-    // The `daily` field on input is { mon: n, tue: n, ... } — convert to the
-    // monday/tuesday/... keys the schema expects.  Sum daily into `total`.
-    const daily = item.daily ?? {};
-    const dayKey = (k: string): number => {
-      const v = (daily as any)[k];
-      return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : 0;
-    };
-    const monday = dayKey('monday') || dayKey('mon');
-    const tuesday = dayKey('tuesday') || dayKey('tue');
-    const wednesday = dayKey('wednesday') || dayKey('wed');
-    const thursday = dayKey('thursday') || dayKey('thu');
-    const friday = dayKey('friday') || dayKey('fri');
-    const saturday = dayKey('saturday') || dayKey('sat');
-    const sunday = dayKey('sunday') || dayKey('sun');
-    const dailySum = monday + tuesday + wednesday + thursday + friday + saturday + sunday;
-    // If caller provided no daily breakdown, treat the entire quantity as
-    // delivered on Monday so the schema's "total === sum of days" invariant
-    // holds.  Better-behaved clients should supply explicit per-day quantities.
-    const totalQty = dailySum > 0 ? dailySum : item.quantity;
-    const fillMonday = dailySum === 0 ? item.quantity : monday;
-
-    resolvedItems.push({
-      // Schema-required fields
-      productId: item.productId,
-      productName: product.name,
-      price: unitPrice,
-      monday: fillMonday,
-      tuesday,
-      wednesday,
-      thursday,
-      friday,
-      saturday,
-      sunday,
-      total: totalQty,
-      // Legacy convenience (kept for back-compat readers)
-      quantity: totalQty,
-      // Audit metadata — admin reports use these to show original list price
-      // vs. what the customer paid.  Outside the canonical schema but tolerated
-      // by Zod's default .strip() behavior (and useful for debugging).
-      basePrice,
-      discount: discountPct,
-      lineTotal,
-    });
+  let input;
+  try {
+    input = parsePlaceOrderInput(request.data);
+  } catch (err) {
+    if (err instanceof PlacementError) throw new HttpsError(err.code, err.message);
+    throw err;
   }
 
-  // Round to 2 decimals
-  subtotal = Math.round(subtotal * 100) / 100;
-  const gst = Math.round(subtotal * taxRate * 100) / 100;
-  const total = Math.round((subtotal + gst) * 100) / 100;
-
-  return { subtotal, gst, total, resolvedItems };
-}
-
-/**
- * Create order with server-generated sequential ID and server-computed totals.
- */
-export const createOrderWithCustomId = onCall(async (request) => {
-  // ── 1. Authentication ────────────────────────────────────────────────────
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "You must be signed in to create orders.");
-  }
-  const callerUid = request.auth.uid;
-
-  // ── 2. Input validation ──────────────────────────────────────────────────
-  assertValidInput(request.data);
-  const data = request.data;
-
-  // ── 3. Authorization & profile check ─────────────────────────────────────
-  const profile = await getCallerProfile(callerUid);
-
-  // FIX C3: Customers can only create orders for themselves.
-  // Admins can create orders for any customer.
-  const isAdmin = profile.customerType === "admin";
-  if (!isAdmin && data.customerId !== callerUid) {
-    throw new HttpsError(
-      "permission-denied",
-      "You can only create orders for your own account."
-    );
-  }
-  if (!isAdmin && profile.status !== "approved") {
-    throw new HttpsError(
-      "permission-denied",
-      "Your account must be approved before placing orders."
-    );
-  }
-
-  // For admins acting on behalf of a customer, look up that customer's tier.
-  let priceTier: "admin" | "commercial" | "individual" = profile.customerType ?? "individual";
-  if (isAdmin && data.customerId !== callerUid) {
-    const target = await db.collection("customers").doc(data.customerId).get();
-    if (!target.exists) {
-      throw new HttpsError("not-found", "Target customer not found.");
-    }
-    priceTier = (target.data() as any).customerType ?? "individual";
-  }
-
-  // ── 4. Server-side price recalculation ───────────────────────────────────
-  const taxRate = await getTaxRate();
-  const computed = await recalculateOrder(data.items, priceTier, taxRate);
-
-  // FIX C3: Compare client-supplied totals against server-computed values.
-  // Drift beyond tolerance is treated as tampering: reject and log.
-  const subtotalDrift = Math.abs(computed.subtotal - data.subtotal) * 100;
-  const totalDrift = Math.abs(computed.total - data.total) * 100;
-  if (subtotalDrift > PRICE_TOLERANCE_CENTS || totalDrift > PRICE_TOLERANCE_CENTS) {
-    // Log to security_alerts (admin-readable) for review
-    try {
-      await db.collection("security_alerts").add({
-        type: "PRICE_TAMPERING_ATTEMPT",
-        severity: "HIGH",
-        callerUid,
-        customerId: data.customerId,
-        clientSubtotal: data.subtotal,
-        serverSubtotal: computed.subtotal,
-        clientTotal: data.total,
-        serverTotal: computed.total,
-        driftCents: { subtotal: subtotalDrift, total: totalDrift },
-        timestamp: FieldValue.serverTimestamp(),
-      });
-    } catch {
-      // Non-fatal — still reject the order
-    }
+  const closed = closedDaysInOrder(input, new Date());
+  if (closed.length > 0) {
+    const days = closed.map((d) => DAY_LABELS[d]).join(", ");
     throw new HttpsError(
       "failed-precondition",
-      "Order totals do not match. Please refresh and try again."
+      `Ordering has closed for ${days} of week ${input.week}. Please remove ${closed.length > 1 ? "those days" : "that day"} or choose another week.`
     );
   }
 
-  // ── 5. Generate sequential order ID ──────────────────────────────────────
-  const orderId = await getNextDailyId("ORD");
+  // Reads that don't need transactional isolation.
+  const [customerSnap, generalSnap, legacySnap, productSnaps] = await Promise.all([
+    db.doc(`customers/${caller.uid}`).get(),
+    db.doc("settings/general").get(),
+    db.doc("settings/default").get(),
+    db.getAll(...input.items.map((it) => db.doc(`products/${it.productId}`))),
+  ]);
+  const customer = customerSnap.data() ?? {};
+  const general = generalSnap.data();
+  const legacy = legacySnap.data();
+  const catalog = new Map<string, CatalogProduct | undefined>(
+    productSnaps.map((s) => [s.id, s.exists ? (s.data() as CatalogProduct) : undefined])
+  );
 
-  // ── 6. Create order document with SERVER-COMPUTED totals ─────────────────
-  const orderRef = db.collection("orders").doc(orderId);
+  let priced;
+  try {
+    priced = priceOrder(input, catalog, {
+      tier: (customer.customerType === "commercial" ? "commercial" : "individual") as PriceTier,
+      gstRate: resolveTaxRate(general, legacy),
+      serviceCharge: resolveServiceCharge(general, legacy),
+      deliveryFee: resolveDeliveryFee(general, legacy),
+      freeDeliveryMin: resolveFreeDeliveryMin(general, legacy),
+    });
+  } catch (err) {
+    if (err instanceof PlacementError) throw new HttpsError(err.code, err.message);
+    throw err;
+  }
 
-  await orderRef.set({
-    id: orderId,
-    orderNumber: orderId,
-    customerId: data.customerId,
-    customerName: data.customerName,
-    customerEmail: data.customerEmail,
+  const orderRef = db.collection("orders").doc(input.requestId);
+  const creditQuery = db
+    .collection("creditNotes")
+    .where("customerId", "==", caller.uid)
+    .where("status", "in", ["available", "partially_used"]);
 
-    // Items & pricing — using server-computed values, NOT client-supplied
-    items: computed.resolvedItems,
-    subtotal: computed.subtotal,
-    gst: computed.gst,
-    total: computed.total,
+  const result = await db.runTransaction(async (tx): Promise<PlaceOrderResult> => {
+    // ── Reads (all before any write) ──
+    const existing = await tx.get(orderRef);
+    if (existing.exists) {
+      const o = existing.data() ?? {};
+      if (o.customerId !== caller.uid) {
+        throw new HttpsError("already-exists", "This request id is already in use.");
+      }
+      return {
+        orderId: existing.id,
+        orderNumber: String(o.orderNumber ?? ""),
+        total: Number(o.total ?? 0),
+        creditApplied: Number(o.creditApplied ?? 0),
+        amountDue: Number(o.amountDue ?? o.total ?? 0),
+        duplicate: true,
+      };
+    }
 
-    // Status — always starts pending; admins approve via separate Cloud Function
-    status: "pending",
+    let credit = { applied: 0, deductions: [] as Array<{ id: string; used: number; newBalance: number }> };
+    if (input.creditToApply > 0) {
+      const notesSnap = await tx.get(creditQuery);
+      // Credit with a payout requested is reserved for the payout.
+      const notes: CreditNoteBalance[] = notesSnap.docs.filter((d) => d.data().payoutRequested !== true).map((d) => ({
+        id: d.id,
+        remaining: Number(d.data().remainingBalance ?? d.data().amount ?? 0),
+        createdAtMs: d.data().createdAt?.toMillis?.() ?? 0,
+      }));
+      try {
+        credit = allocateCredit(notes, input.creditToApply, priced.total);
+      } catch (err) {
+        if (err instanceof PlacementError) throw new HttpsError(err.code, err.message);
+        throw err;
+      }
+    }
 
-    // Delivery
-    weekRange: data.weekRange ?? "",
-    deliveryDays: data.deliveryDays ?? [],
+    const orderNumber = await reserveDailyId(tx, "ORD"); // reads + writes the counter
 
-    // Optional
-    orderNote: data.orderNote ?? "",
+    // ── Writes ──
+    for (const d of credit.deductions) {
+      tx.update(db.doc(`creditNotes/${d.id}`), {
+        remainingBalance: d.newBalance,
+        status: d.newBalance <= 0 ? "fully_used" : "partially_used",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    if (credit.applied > 0) {
+      tx.set(db.collection("creditApplicationHistory").doc(), {
+        orderId: orderRef.id,
+        orderNumber,
+        customerId: caller.uid,
+        amount: credit.applied,
+        appliedNotes: credit.deductions.map((d) => ({ id: d.id, amountUsed: d.used, newBalance: d.newBalance })),
+        appliedBy: caller.uid,
+        appliedAt: FieldValue.serverTimestamp(),
+      });
+    }
 
-    // Audit
-    createdBy: callerUid,
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
+    const amountDue = amountDueOf(priced.total, credit.applied);
+    const now = new Date();
+    tx.set(orderRef, {
+      orderNumber,
+      customerId: caller.uid,
+      ...(str(customer.customerCode) ? { customerCode: str(customer.customerCode) } : {}),
+      customerName: str(customer.storeName) || str(customer.contactPerson) || caller.email,
+      customerEmail: str(customer.email) || caller.email,
+      customerAddress: str(customer.storeAddress) || str(customer.address) || "Address not provided",
+      customerContactPerson: str(customer.contactPerson) || str(customer.storeName),
+      customerPhone: str(customer.phone),
+      week: input.week,
+      year: input.year,
+      weekRange: `Week ${input.week}, ${input.year}`,
+      yearMonth: `${input.year}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`,
+      items: priced.items,
+      subtotal: priced.subtotal,
+      gst: priced.gst,
+      deliveryFee: priced.deliveryFee,
+      serviceCharge: priced.serviceCharge,
+      serviceChargeWaived: false,
+      total: priced.total,
+      creditApplied: credit.applied,
+      amountDue,
+      status: "pending",
+      paymentReceived: false,
+      paymentSubmitted: false,
+      note: input.note,
+      placedByCustomer: true,
+      createdBy: caller.uid,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return {
+      orderId: orderRef.id,
+      orderNumber,
+      total: priced.total,
+      creditApplied: credit.applied,
+      amountDue,
+      duplicate: false,
+    };
   });
 
-  // FIX C4: Return the generated ID so callers don't have to scrape the doc.
-  return {
-    id: orderId,
-    subtotal: computed.subtotal,
-    gst: computed.gst,
-    total: computed.total,
-  };
+  if (!result.duplicate) {
+    console.log(`[placeOrder] ${result.orderNumber} (${result.orderId}) by ${caller.uid}: total ${result.total}, credit ${result.creditApplied}`);
+  }
+  return result;
 });

@@ -35,6 +35,7 @@ import type { User } from '../hooks/useAuth';
 import type { CartItem } from './useCartManagement';
 import { 
   createCustomerOrder,
+  newOrderRequestId,
   validateCartForOrder,
   type CreateOrderParams,
   type OrderCartItem
@@ -93,6 +94,10 @@ export function useOrderSubmission({
     setSubmitError(null);
   }, []);
 
+  // One id per submission, shared by its automatic retries: the server makes
+  // it the order's id, so a retry after a dropped response can't duplicate.
+  const requestIdRef = useRef<string>('');
+
   /**
    * Create order operation (wrapped with retry)
    */
@@ -143,6 +148,7 @@ export function useOrderSubmission({
       total,
       note: orderNote,
       creditToApply: applyCreditEnabled ? creditToApply : undefined,
+      requestId: requestIdRef.current || (requestIdRef.current = newOrderRequestId()),
     };
 
     // Delegate to service
@@ -252,6 +258,7 @@ export function useOrderSubmission({
     // Synchronous guard — wins races against React's state update batching.
     if (inFlightRef.current || isSubmitting) return;
     inFlightRef.current = true;
+    requestIdRef.current = newOrderRequestId();
     localAttemptCountRef.current += 1; // BUG 9 FIX: increment before execute
     setSubmitError(null);
     try {

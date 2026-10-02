@@ -6,8 +6,8 @@
  *                             approved / rejected / cancelled / paid
  *                             (in_process) / completed → customer email.
  *                             Once per order + status.
- *   sendPaymentReminderEmail  Admin callable: "Send reminder" button.
- *   sendOrderUpdatedEmail     Admin callable: after an admin edits an order.
+ *   emailPaymentReminder      Sent by sendPaymentReminder (adminActions.ts).
+ *   emailOrderUpdated         Sent by editOrder (orderRevisions.ts).
  *   sendPasswordResetEmail    Public callable: branded reset link, rate
  *                             limited, same response whether or not the
  *                             account exists.
@@ -57,15 +57,6 @@ export interface EmailCallResult {
 const toCallResult = (to: string, r: SendResult): EmailCallResult =>
   r.state === "sent" ? { state: "sent", to } : { state: r.state, to, reason: r.reason };
 
-async function loadOrderOr404(orderId: unknown) {
-  if (typeof orderId !== "string" || !orderId || orderId.includes("/")) {
-    throw new HttpsError("invalid-argument", "orderId is required.");
-  }
-  const snap = await db.doc(`orders/${orderId}`).get();
-  if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
-  return { id: snap.id, raw: snap.data() ?? {} };
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Order status emails (automatic)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,70 +94,56 @@ export async function sendOrderStatusEmail(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Payment reminder (admin)
+// Payment reminder / order updated — sent by the sendPaymentReminder and
+// editOrder Cloud Functions (adminActions.ts, orderRevisions.ts) after they
+// have committed the change. Never throw: the caller reports the result.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const sendPaymentReminderEmail = onCall<{ orderId: string; reminderNumber: number }>(
-  WITH_EMAIL,
-  async (request): Promise<EmailCallResult> => {
-    const admin = await requireAdmin(request);
-    const { id, raw } = await loadOrderOr404(request.data?.orderId);
-
-    const reminderNumber = Number(request.data?.reminderNumber);
-    if (!Number.isInteger(reminderNumber) || reminderNumber < 1 || reminderNumber > 50) {
-      throw new HttpsError("invalid-argument", "reminderNumber must be a whole number from 1 to 50.");
-    }
-    if (raw.paymentReceived === true || !["approved", "in_process", "delivered", "completed"].includes(raw.status)) {
-      throw new HttpsError("failed-precondition", "This order has no outstanding payment.");
-    }
-
-    const to = await resolveCustomerEmail(raw);
-    if (!to) throw new HttpsError("failed-precondition", "This customer has no email address on file.");
-
-    // One reminder per order per minute — absorbs double-clicks and the two
-    // admin screens (Approved / Unpaid) that each keep their own counter.
-    if (!(await allowSend(`reminder_${id}`, 60_000, 1))) {
-      throw new HttpsError("resource-exhausted", "A reminder was just sent for this order. Please wait a minute.");
-    }
-
+export async function emailPaymentReminder(
+  orderId: string,
+  raw: Record<string, unknown>,
+  reminderNumber: number,
+  triggeredBy: string
+): Promise<EmailCallResult> {
+  const to = await resolveCustomerEmail(raw);
+  if (!to) return { state: "failed", to: "", reason: "This customer has no email address on file." };
+  try {
     const ctx = await loadEmailContext();
-    const email = buildPaymentReminderEmail(normalizeOrder(raw, id), reminderNumber, ctx.brand, ctx.pay);
+    const email = buildPaymentReminderEmail(normalizeOrder(raw, orderId), reminderNumber, ctx.brand, ctx.pay);
     const result = await sendLoggedOnce(
-      `reminder_${id}_${Date.now()}`,
-      { kind: "payment_reminder", to, subject: email.subject, orderId: id, triggeredBy: admin.email },
+      `reminder_${orderId}_${reminderNumber}`,
+      { kind: "payment_reminder", to, subject: email.subject, orderId, triggeredBy },
       { to, ...email, replyTo: ctx.brand.email, bcc: orderBcc(ctx.settings), category: "payment_reminder" }
     );
     return toCallResult(to, result);
+  } catch (err) {
+    console.error(`[emailPaymentReminder] ${orderId}:`, err);
+    return { state: "failed", to, reason: "The email could not be sent." };
   }
-);
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Order updated (admin)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const sendOrderUpdatedEmail = onCall<{ orderId: string }>(
-  WITH_EMAIL,
-  async (request): Promise<EmailCallResult> => {
-    const admin = await requireAdmin(request);
-    const { id, raw } = await loadOrderOr404(request.data?.orderId);
-
-    const to = await resolveCustomerEmail(raw);
-    if (!to) throw new HttpsError("failed-precondition", "This customer has no email address on file.");
-
-    if (!(await allowSend(`updated_${id}`, 10 * 60_000, 5))) {
-      throw new HttpsError("resource-exhausted", "Too many update emails for this order. Please wait a few minutes.");
-    }
-
+export async function emailOrderUpdated(
+  orderId: string,
+  raw: Record<string, unknown>,
+  editId: string,
+  triggeredBy: string
+): Promise<EmailCallResult> {
+  const to = await resolveCustomerEmail(raw);
+  if (!to) return { state: "failed", to: "", reason: "This customer has no email address on file." };
+  try {
     const ctx = await loadEmailContext();
-    const email = buildOrderUpdatedEmail(normalizeOrder(raw, id), ctx.brand);
+    const email = buildOrderUpdatedEmail(normalizeOrder(raw, orderId), ctx.brand);
     const result = await sendLoggedOnce(
-      `updated_${id}_${Date.now()}`,
-      { kind: "order_updated", to, subject: email.subject, orderId: id, triggeredBy: admin.email },
+      `updated_${orderId}_${editId}`,
+      { kind: "order_updated", to, subject: email.subject, orderId, triggeredBy },
       { to, ...email, replyTo: ctx.brand.email, bcc: orderBcc(ctx.settings), category: "order_updated" }
     );
     return toCallResult(to, result);
+  } catch (err) {
+    console.error(`[emailOrderUpdated] ${orderId}:`, err);
+    return { state: "failed", to, reason: "The email could not be sent." };
   }
-);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Password reset (public)

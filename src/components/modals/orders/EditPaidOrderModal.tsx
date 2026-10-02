@@ -15,11 +15,9 @@ import { toast } from 'sonner';
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../../components/ui/tabs';
 import { SaveFooter } from '../../../ui/modals/ModalFooterButtons'; // ✅ FEB 21, 2026
-import { 
-  canEditPaidOrder, 
-  validateItemEdit, 
-  adminEditPaidOrder 
-} from '../../../services/creditService'; // Add all missing imports
+import { canEditPaidOrder, validateItemEdit } from '../../../services/creditService';
+import { savePaidOrderReduction } from '../../../services/orders/orderEdits';
+import { callableErrorMessage } from '../../../services/firebase/cloudFunctions';
 // ✅ PASS 7: Calculation logic extracted to a hook (was inlined as 80 LOC of useMemo).
 import { useEditPaidOrderCalculations } from '../../../hooks/admin/useEditPaidOrderCalculations';
 import { 
@@ -187,47 +185,24 @@ export function EditPaidOrderModal({
     setSubmitting(true);
 
     try {
-      // Convert edited items to array
-      const updatedItems: OrderItem[] = Object.values(editedItems).map(item => {
-        const totalQty = getItemTotal(item);
-        return {
-          ...item,
-          quantity: totalQty,
-          total: totalQty, // ✅ FIX: total = sum of daily quantities (per schema)
-        };
-      }).filter(item => (item.quantity ?? item.total) > 0);
+      // The full edited order (products at 0 are removed by the server).
+      const updatedItems = Object.values(editedItems);
 
-      // Call admin edit function
-      const result = await adminEditPaidOrder(
-        order,
-        updatedItems,
-        adminEmail,
-        reason.trim()
+      // editPaidOrder Cloud Function: validates reductions per day, reprices,
+      // issues the store credit and notifies the customer — atomically.
+      const result = await savePaidOrderReduction(order, updatedItems, reason.trim());
+
+      await invalidateCache.orders();
+      invalidateCache.credit(order.customerId);
+      toast.success(
+        `✅ Order updated! $${result.creditIssued.toFixed(2)} credit issued to customer.`,
+        { duration: 5000 }
       );
-
-      if (result.success) {
-        // Invalidate cache
-        await invalidateCache.orders();
-
-        // Show success
-        toast.success(
-          `✅ Order updated! $${result.creditIssued.toFixed(2)} credit issued to customer.`,
-          { duration: 5000 }
-        );
-
-        // Callback
-        if (onSave) {
-          onSave(result);
-        }
-
-        // Close modal
-        onClose();
-      } else {
-        toast.error(result.error || 'Failed to update order');
-      }
+      onSave?.({ success: true, creditIssued: result.creditIssued });
+      onClose();
     } catch (error) {
       console.error('Error updating paid order:', error);
-      toast.error(error instanceof Error ? (error as any).message : 'Failed to update order');
+      toast.error(callableErrorMessage(error, 'update the order'));
     } finally {
       setSubmitting(false);
     }

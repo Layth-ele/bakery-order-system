@@ -42,37 +42,6 @@ import { db, serverTimestamp, wrapFirestoreOperation } from './shared';
 // WRITE OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Add snapshot to order's snapshots subcollection
- * ✅ INPUT VALIDATED: Input is validated before write
- * ✅ SUBCOLLECTION: Uses orders/{orderId}/snapshots/{snapId}
- */
-export const addOrderSnapshot = async (
-  orderId: string,
-  snapshot: Omit<OrderSnapshot, 'createdAt'>
-): Promise<void> => {
-  return wrapFirestoreOperation(async () => {
-    // ✅ SCHEMA PROTECTION: Validate input (partial validation for creation)
-    const validatedInput = parseOrThrow(
-      orderSnapshotSchema.omit({ createdAt: true }), 
-      snapshot, 
-      'CreateSnapshotInput'
-    );
-    
-    const snapshotsRef = collection(db, 'orders', orderId, 'snapshots');
-    
-    // ✅ Strip undefined values — Firestore rejects any field with value undefined
-    const cleanData = Object.fromEntries(
-      Object.entries(validatedInput).filter(([_, v]) => v !== undefined)
-    );
-    
-    await addDoc(snapshotsRef, {
-      ...cleanData,
-      createdAt: serverTimestamp() as any,
-    });
-  }, `addOrderSnapshot(${orderId})`);
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 // READ OPERATIONS
 // ═══════════════════════════════════════════════════════════════════════════

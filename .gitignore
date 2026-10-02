@@ -65,3 +65,6 @@ coverage/
 
 # Misc
 .cache/
+
+# Emulator-only secrets (Firebase)
+.secret.local

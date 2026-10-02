@@ -10,10 +10,11 @@
  *    document itself (src/functions/src/lib/orderNotifications.ts). New
  *    registration alerts come from createCustomerWithCode.
  *
- *    WRITE (admin, in the browser)
- *    The three admin-initiated notices that aren't status changes:
- *    notifyPaymentReminder, notifyCreditIssued, notifyOrderEdited
- *    (./domain/orderNotifications.ts).
+ *    Admin actions that aren't status changes — payment reminders, store
+ *    credit, order edits / partial cancellations, credit payout requests —
+ *    are written by the Cloud Function performing the action, in the same
+ *    transaction (src/functions/src/lib/accountNotifications.ts).
+ *    The browser never writes a notification; Firestore rules deny it.
  *
  *    Paths: notifications/admin/items/{id}, notifications/user_{uid}/items/{id}
  *    (./utils/paths.ts). Types: src/types/notification-contract.ts.
@@ -39,13 +40,6 @@ export { useAdminNotificationsSafe, useCustomerNotificationsSafe } from './conte
 // Click handling
 export { useNotificationActions } from './hooks/notificationActions';
 export { getModalForNotification } from './types/notification-modal-mapping';
-
-// Admin-initiated notifications (not tied to an order status change)
-export {
-  notifyPaymentReminder,
-  notifyCreditIssued,
-  notifyOrderEdited,
-} from './domain/orderNotifications';
 
 // Paths
 export { getCustomerNotificationPath, getAdminNotificationPath } from './utils/paths';

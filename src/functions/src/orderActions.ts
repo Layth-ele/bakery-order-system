@@ -15,9 +15,23 @@
  */
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { amountDueOf } from "./lib/orderPlacement";
+import { buildCreditNote } from "./lib/creditNotes";
 import {
-  requireAuth,
+  DAYS,
+  RevisionError,
+  activeDays,
+  diffItems,
+  normalizeItems,
+  orderTotals,
+  planCancellation,
+  type Day,
+} from "./lib/orderRevision";
+import { orderReducedNotification } from "./lib/accountNotifications";
+import { createNotificationInTx } from "./notify";
+import { orderRefFields } from "./orderRevisions";
+import {
   requireAdmin,
   loadOrder,
   assertTransitionAllowed,
@@ -51,21 +65,16 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
   const { ref, data: order } = await loadOrder(orderId, admin);
   assertTransitionAllowed(order.status, "approved");
 
-  // ─── Compute final totals server-side ────────────────────────────────────
-  // Mirrors the logic in services/ordersService.ts:approveOrder but with
-  // server-authoritative settings.
-  const flatDiscount = order.discount ?? 0;
-  const pctDiscount = order.discountPercentage
-    ? (order.subtotal ?? 0) * order.discountPercentage / 100
-    : 0;
-  const totalDiscount = flatDiscount + pctDiscount;
-  const discountedBase = Math.max(0, (order.subtotal ?? 0) - totalDiscount);
-  const gst = round2(discountedBase * (await getTaxRate()));
+  // ─── Compute final totals server-side (lib/orderRevision rules) ──────────
+  const gstRate = await getTaxRate();
+  const items = normalizeItems(order.items);
+  const beforeFee = orderTotals(items, order, gstRate, { deliveryFee: 0 });
+  const discountedBase = round2(beforeFee.subtotal - beforeFee.discountAmount);
 
   // Resolve delivery fee
   let finalDeliveryFee: number;
   const freeDeliveryMin = await getFreeDeliveryMin();
-  if (typeof providedFee === "number" && providedFee >= 0) {
+  if (typeof providedFee === "number" && Number.isFinite(providedFee) && providedFee >= 0) {
     finalDeliveryFee = round2(providedFee);
   } else if (discountedBase >= freeDeliveryMin) {
     finalDeliveryFee = 0;
@@ -75,40 +84,61 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
       `Order does not qualify for free delivery (subtotal $${discountedBase} < $${freeDeliveryMin}). Please provide deliveryFee.`
     );
   }
-
-  const effectiveServiceCharge = order.serviceChargeWaived ? 0 : (order.serviceCharge ?? 0);
-  const creditApplied = order.creditApplied ?? 0;
-  const newTotal = round2(
-    Math.max(0, discountedBase + gst + finalDeliveryFee + effectiveServiceCharge - creditApplied)
-  );
+  const totals = orderTotals(items, order, gstRate, { deliveryFee: finalDeliveryFee });
+  const newTotal = totals.total;
 
   // ─── Atomic update + audit log ───────────────────────────────────────────
   const fromStatus = order.status;
-  await db.runTransaction(async (tx) => {
-    // Re-read inside transaction to detect concurrent modifications
+  const { amountDue, creditReturned } = await db.runTransaction(async (tx) => {
     const fresh = await tx.get(ref);
     if (!fresh.exists) {
       throw new HttpsError("not-found", "Order disappeared mid-transaction.");
     }
-    const freshStatus = fresh.data()?.status as string;
-    if (freshStatus !== fromStatus) {
+    const freshData = fresh.data() as OrderDoc;
+    if (freshData.status !== fromStatus) {
       throw new HttpsError(
         "aborted",
-        `Order status changed concurrently (was "${fromStatus}", is now "${freshStatus}"). Please refresh.`
+        `Order status changed concurrently (was "${fromStatus}", is now "${freshData.status}"). Please refresh.`
       );
     }
 
+    // total is the invoice total; store credit reduces only amountDue (see
+    // lib/orderPlacement.ts money rules). Credit beyond the final total goes
+    // back to the customer.
+    const creditBefore = round2(freshData.creditApplied ?? 0);
+    const creditApplied = round2(Math.min(creditBefore, newTotal));
+    const returned = round2(creditBefore - creditApplied);
+    const creditNoteId =
+      returned > 0 && freshData.customerId
+        ? returnCreditNote(tx, {
+            customerId: freshData.customerId,
+            orderId,
+            amount: returned,
+            reason: "Order approved — store credit beyond the order total returned",
+            type: "refund",
+            createdBy: admin.email,
+            gstRate,
+          })
+        : null;
+    const due = amountDueOf(newTotal, creditApplied);
+
     tx.update(ref, {
       status: "approved",
-      gst,
+      items,
+      subtotal: totals.subtotal,
+      gst: totals.gst,
       total: newTotal,
+      creditApplied,
+      amountDue: due,
       deliveryFee: finalDeliveryFee,
+      ...(creditNoteId ? { creditReturnedNoteId: creditNoteId } : {}),
       approvedBy: admin.email,
       approvedAt: FieldValue.serverTimestamp(),
       updateRequested: false,
       updateRequestedAt: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     });
+    return { amountDue: due, creditReturned: returned };
   });
 
   await logStatusChange({
@@ -117,7 +147,7 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
     toStatus: "approved",
     actorUid: admin.uid,
     actorEmail: admin.email,
-    metadata: { deliveryFee: finalDeliveryFee, total: newTotal, gst },
+    metadata: { deliveryFee: finalDeliveryFee, total: newTotal, gst: totals.gst, amountDue, creditReturned },
   });
 
   // Customer notification + email: onOrderLifecycle trigger.
@@ -126,10 +156,27 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
     success: true,
     orderId,
     total: newTotal,
-    gst,
+    gst: totals.gst,
+    amountDue,
     deliveryFee: finalDeliveryFee,
   };
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Store credit returned when an unpaid order is rejected or cancelled
+// ─────────────────────────────────────────────────────────────────────────────
+
+function returnCreditNote(
+  tx: FirebaseFirestore.Transaction,
+  input: { customerId: string; orderId: string; amount: number; reason: string; type: "refund" | "cancellation"; createdBy: string; gstRate: number }
+): string {
+  const ref = db.collection("creditNotes").doc();
+  tx.set(ref, {
+    ...buildCreditNote({ id: ref.id, ...input, now: new Date() }),
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // rejectOrder
@@ -150,33 +197,43 @@ export const rejectOrder = onCall<RejectOrderInput>(async (request) => {
 
   const { ref, data: order } = await loadOrder(orderId, admin);
   assertTransitionAllowed(order.status, "rejected");
+  const gstRate = await getTaxRate();
 
   const fromStatus = order.status;
-  await db.runTransaction(async (tx) => {
+  const creditReturned = await db.runTransaction(async (tx) => {
     const fresh = await tx.get(ref);
     if (!fresh.exists) {
       throw new HttpsError("not-found", "Order disappeared mid-transaction.");
     }
-    const freshStatus = fresh.data()?.status as string;
-    if (freshStatus !== fromStatus) {
-      throw new HttpsError(
-        "aborted",
-        `Order status changed concurrently. Please refresh.`
-      );
+    const freshData = fresh.data() as OrderDoc;
+    if (freshData.status !== fromStatus) {
+      throw new HttpsError("aborted", `Order status changed concurrently. Please refresh.`);
     }
+    // Store credit used on the order goes back to the customer.
+    const credit = round2(freshData.creditApplied ?? 0);
+    const creditNoteId =
+      credit > 0 && freshData.customerId
+        ? returnCreditNote(tx, {
+            customerId: freshData.customerId,
+            orderId,
+            amount: credit,
+            reason: "Order not accepted — store credit returned",
+            type: "refund",
+            createdBy: admin.email,
+            gstRate,
+          })
+        : null;
     tx.update(ref, {
       status: "rejected",
       rejectedBy: admin.email,
       rejectedAt: FieldValue.serverTimestamp(),
       rejectionReason: reason ?? null,
-      // FIX T2R6-C2 (CRITICAL — PIPEDA compliance): Delete e-transfer
-      // security answer on terminal status transitions.  Same rationale as
-      // the cancelOrder fix — if a customer submitted payment proof and
-      // the admin then rejects the order without confirming payment, the
-      // transferPassword must not persist indefinitely on the doc.
+      ...(creditNoteId ? { creditAmount: credit, creditNoteId, creditApplied: 0, amountDue: 0 } : {}),
+      // Data minimization: the e-transfer answer is never needed again.
       transferPassword: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     });
+    return creditNoteId ? credit : 0;
   });
 
   await logStatusChange({
@@ -186,170 +243,195 @@ export const rejectOrder = onCall<RejectOrderInput>(async (request) => {
     actorUid: admin.uid,
     actorEmail: admin.email,
     reason,
+    metadata: { creditReturned },
   });
 
   // Customer notification + email: onOrderLifecycle trigger.
 
-  return { success: true, orderId };
+  return { success: true, orderId, creditReturned };
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// cancelOrder
+// cancelOrder — whole order, or some of its delivery days
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface CancelOrderInput {
   orderId: string;
   reason: string;
+  /** Days to cancel; omitted = every day (the whole order). */
   cancelledDays?: string[];
   cancellationFeePercentage?: number;
+  /** Ignored — the credit is computed here (lib/orderRevision.planCancellation). */
   creditAmount?: number;
 }
 
-export const cancelOrder = onCall<CancelOrderInput>(async (request) => {
+export interface CancelOrderResult {
+  success: true;
+  orderId: string;
+  full: boolean;
+  credit: number;
+  fee: number;
+  creditNoteId: string | null;
+}
+
+export const cancelOrder = onCall<CancelOrderInput>(async (request): Promise<CancelOrderResult> => {
   const admin = await requireAdmin(request);
 
-  const { orderId, reason, cancelledDays, cancellationFeePercentage, creditAmount } =
-    request.data ?? {};
+  const { orderId, reason: rawReason, cancelledDays, cancellationFeePercentage } = request.data ?? {};
   if (!orderId) {
     throw new HttpsError("invalid-argument", "orderId is required.");
   }
-  if (!reason || typeof reason !== "string") {
+  const reason = typeof rawReason === "string" ? rawReason.trim().slice(0, 500) : "";
+  if (!reason) {
     throw new HttpsError("invalid-argument", "Cancellation reason is required.");
+  }
+  if (
+    cancellationFeePercentage !== undefined &&
+    (typeof cancellationFeePercentage !== "number" ||
+      !Number.isFinite(cancellationFeePercentage) ||
+      cancellationFeePercentage < 0 ||
+      cancellationFeePercentage > 100)
+  ) {
+    throw new HttpsError("invalid-argument", "cancellationFeePercentage must be a number between 0 and 100.");
+  }
+  if (cancelledDays !== undefined && (!Array.isArray(cancelledDays) || cancelledDays.some((d) => !DAYS.includes(d as Day)))) {
+    throw new HttpsError("invalid-argument", "cancelledDays must be a list of weekday names.");
   }
 
   const { ref, data: order } = await loadOrder(orderId, admin);
   assertTransitionAllowed(order.status, "cancelled");
-
-  // FIX T2R6-H1 (HIGH — defensive bounds on financial inputs): Was no
-  // validation on creditAmount or cancellationFeePercentage. Admin (or one
-  // with a typo: 100000 instead of 100) could issue credit far exceeding
-  // the order total, or set a fee >100% / negative.
-  //
-  // Bounds:
-  //   - creditAmount: 0 <= x <= order.total + small slack for taxes
-  //   - cancellationFeePercentage: 0 <= x <= 100
-  // Outside these, reject the call with a clear error rather than committing
-  // a potentially-mistaken financial state.
-  if (creditAmount !== undefined) {
-    if (typeof creditAmount !== "number" || !Number.isFinite(creditAmount)) {
-      throw new HttpsError("invalid-argument", "creditAmount must be a finite number.");
-    }
-    if (creditAmount < 0) {
-      throw new HttpsError("invalid-argument", "creditAmount cannot be negative.");
-    }
-    // 1.05× order.total caps slack for any tax-included edge cases. Anything
-    // larger is almost certainly a typo or attack.
-    const maxAllowed = (order.total ?? 0) * 1.05;
-    if (creditAmount > maxAllowed) {
-      throw new HttpsError(
-        "invalid-argument",
-        `creditAmount ${creditAmount} exceeds order total ${order.total ?? 0}. ` +
-        `Maximum permitted: ${maxAllowed.toFixed(2)}.`
-      );
-    }
-  }
-  if (cancellationFeePercentage !== undefined) {
-    if (
-      typeof cancellationFeePercentage !== "number" ||
-      !Number.isFinite(cancellationFeePercentage) ||
-      cancellationFeePercentage < 0 ||
-      cancellationFeePercentage > 100
-    ) {
-      throw new HttpsError(
-        "invalid-argument",
-        "cancellationFeePercentage must be a number between 0 and 100."
-      );
-    }
-  }
-
+  const gstRate = await getTaxRate();
   const fromStatus = order.status;
 
-  // Single transaction: status flip + voided invoice record (atomic)
-  await db.runTransaction(async (tx) => {
+  const outcome = await db.runTransaction(async (tx) => {
     const fresh = await tx.get(ref);
     if (!fresh.exists) {
       throw new HttpsError("not-found", "Order disappeared mid-transaction.");
     }
     const freshData = fresh.data() as OrderDoc;
     if (freshData.status !== fromStatus) {
-      throw new HttpsError(
-        "aborted",
-        "Order status changed concurrently. Please refresh."
-      );
+      throw new HttpsError("aborted", "Order status changed concurrently. Please refresh.");
     }
 
-    // 1) Optional credit note — created in the SAME transaction as the
-    //    status change, so a cancellation can never commit without the
-    //    credit it promises (the lifecycle notification announces it).
-    const issuesCredit = !!(creditAmount && creditAmount > 0 && freshData.customerId);
-    const creditRef = issuesCredit ? db.collection("creditNotes").doc() : null;
-    if (creditRef) {
-      tx.set(creditRef, {
-        customerId: freshData.customerId,
-        orderId,
-        amount: creditAmount,
-        remainingBalance: creditAmount,
-        status: "available",
-        reason: `Order cancellation: ${reason}`,
-        sourceType: "cancellation",
-        createdBy: admin.email,
-        createdAt: FieldValue.serverTimestamp(),
+    const days = (cancelledDays as Day[] | undefined) ?? activeDays(normalizeItems(freshData.items));
+    let plan;
+    try {
+      plan = planCancellation(freshData, days, cancellationFeePercentage ?? 0, gstRate);
+    } catch (err) {
+      if (err instanceof RevisionError) throw new HttpsError(err.code, err.message);
+      throw err;
+    }
+    const paid = freshData.paymentReceived === true;
+    const customerId = freshData.customerId;
+
+    // 1) Store credit — in the SAME transaction as the change it pays for.
+    const creditNoteId =
+      plan.credit > 0 && customerId
+        ? returnCreditNote(tx, {
+            customerId,
+            orderId,
+            amount: plan.credit,
+            reason: `${plan.full ? "Order cancelled" : "Delivery days cancelled"}: ${reason}`,
+            type: paid ? "cancellation" : "refund",
+            createdBy: admin.email,
+            gstRate,
+          })
+        : null;
+
+    if (plan.full) {
+      // 2a) Whole order: status → cancelled (the lifecycle trigger notifies).
+      tx.update(ref, {
+        status: "cancelled",
+        ...(creditNoteId && { creditNoteId }),
+        cancelledAt: FieldValue.serverTimestamp(),
+        cancelledBy: admin.email,
+        cancellationReason: reason,
+        cancelledDays: days,
+        cancellationFeePercentage: paid ? cancellationFeePercentage ?? 0 : 0,
+        creditAmount: plan.credit,
+        ...(!paid && { creditApplied: plan.creditApplied, amountDue: 0 }),
+        // Data minimization: the e-transfer answer is never needed again.
+        transferPassword: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
-    }
 
-    // 2) Flip status
-    tx.update(ref, {
-      status: "cancelled",
-      ...(creditRef && { creditNoteId: creditRef.id }),
-      cancelledAt: FieldValue.serverTimestamp(),
-      cancelledBy: admin.email,
-      cancellationReason: reason,
-      ...(cancelledDays && { cancelledDays }),
-      ...(cancellationFeePercentage !== undefined && { cancellationFeePercentage }),
-      ...(creditAmount !== undefined && { creditAmount }),
-      // FIX T2R6-C2 (CRITICAL — PIPEDA compliance): If the customer had
-      // submitted payment proof with `transferPassword` (the e-transfer
-      // security answer), it must be deleted on terminal status transitions
-      // — same data-minimization principle as R5-S5-F16 applied to payment
-      // confirmation.  Previously, cancelling an order that had a payment
-      // proof submitted left the transferPassword on the doc indefinitely.
-      transferPassword: FieldValue.delete(),
-      updatedAt: FieldValue.serverTimestamp(),
+      // 3) Void the invoice number, atomically.
+      if (freshData.invoiceNumber) {
+        tx.set(db.collection("voidedInvoices").doc(freshData.invoiceNumber), {
+          invoiceNumber: freshData.invoiceNumber,
+          orderId,
+          customerId,
+          voidReason: "cancelled",
+          adminEmail: admin.email,
+          details: reason,
+          originalTotal: freshData.total ?? 0,
+          voidedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    } else {
+      // 2b) Some days: the order continues with fewer items.
+      const t = plan.totals!;
+      const historyRef = db.collection("orderEditHistory").doc();
+      tx.update(ref, {
+        items: plan.items,
+        subtotal: t.subtotal,
+        gst: t.gst,
+        total: t.total,
+        ...(paid
+          ? { creditIssued: round2((freshData.creditIssued ?? 0) + plan.credit), cancellationFee: t.cancellationFee }
+          : { creditApplied: plan.creditApplied, amountDue: plan.amountDue }),
+        cancelledDays: FieldValue.arrayUnion(...days),
+        editedBy: admin.email,
+        editedAt: FieldValue.serverTimestamp(),
+        editCount: FieldValue.increment(1),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      tx.set(historyRef, {
+        orderId,
+        customerId,
+        kind: "partial_cancel",
+        status: freshData.status,
+        editedBy: admin.email,
+        editedAt: FieldValue.serverTimestamp(),
+        reason,
+        changesSummary: `Cancelled ${days.join(", ")}`,
+        originalTotal: round2(freshData.total ?? 0),
+        newTotal: t.total,
+        creditIssued: plan.credit,
+        cancellationFee: plan.fee,
+        ...(creditNoteId ? { creditNoteId } : {}),
+        itemsChanged: diffItems(normalizeItems(freshData.items), plan.items),
+      });
+      if (customerId) {
+        createNotificationInTx(
+          tx,
+          orderReducedNotification(orderRefFields(orderId, freshData), historyRef.id, {
+            credit: plan.credit,
+            reason,
+            cancelledDays: days,
+          })
+        );
+      }
+    }
+    return { full: plan.full, credit: plan.credit, fee: plan.fee, creditNoteId, days };
+  });
+
+  if (outcome.full) {
+    await logStatusChange({
+      orderId,
+      fromStatus,
+      toStatus: "cancelled",
+      actorUid: admin.uid,
+      actorEmail: admin.email,
+      reason,
+      metadata: {
+        cancelledDays: outcome.days,
+        cancellationFeePercentage: cancellationFeePercentage ?? null,
+        creditAmount: outcome.credit,
+      },
     });
+  }
+  console.log(`[cancelOrder] ${orderId} ${outcome.full ? "cancelled" : `days ${outcome.days.join(",")} cancelled`}; credit ${outcome.credit}, fee ${outcome.fee}`);
 
-    // 3) If the order had an invoice number, record void atomically
-    if (freshData.invoiceNumber) {
-      const voidRef = db.collection("voidedInvoices").doc(freshData.invoiceNumber);
-      tx.set(voidRef, {
-        invoiceNumber: freshData.invoiceNumber,
-        orderId,
-        customerId: freshData.customerId,
-        voidReason: "cancelled",
-        adminEmail: admin.email,
-        details: reason,
-        originalTotal: freshData.total ?? 0,
-        voidedAt: FieldValue.serverTimestamp(),
-      });
-    }
-  });
-
-  // Status change audit (immutable)
-  await logStatusChange({
-    orderId,
-    fromStatus,
-    toStatus: "cancelled",
-    actorUid: admin.uid,
-    actorEmail: admin.email,
-    reason,
-    metadata: {
-      cancelledDays: cancelledDays ?? null,
-      cancellationFeePercentage: cancellationFeePercentage ?? null,
-      creditAmount: creditAmount ?? null,
-    },
-  });
-
-  // Customer notification + email: onOrderLifecycle trigger.
-
-  // Credit (if any) was issued atomically with the status change above.
-  return { success: true, orderId, creditNoteIssued: true };
+  return { success: true, orderId, full: outcome.full, credit: outcome.credit, fee: outcome.fee, creditNoteId: outcome.creditNoteId };
 });

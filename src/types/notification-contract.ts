@@ -52,6 +52,8 @@ export const ADMIN_NOTIFICATION_TYPES = {
   PAYMENT_CONFIRMED_ADMIN: 'PAYMENT_CONFIRMED_ADMIN',
   /** A new customer registered and awaits approval. */
   NEW_REGISTRATION: 'NEW_REGISTRATION',
+  /** A customer asked for a store-credit note to be paid out. */
+  CREDIT_PAYOUT_REQUESTED: 'CREDIT_PAYOUT_REQUESTED',
 } as const;
 
 export const NOTIFICATION_TYPES = {
