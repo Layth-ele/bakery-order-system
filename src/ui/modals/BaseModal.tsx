@@ -144,7 +144,13 @@ export function BaseModal({
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
 
-    if (focusableElements && focusableElements.length > 0) {
+    // Focus the panel itself (StyleModalShell is tabIndex -1), not its first
+    // button — so nothing (copy, close) lights up with a focus ring on open;
+    // Tab still moves straight to the controls.
+    const panel = dialogRef.current?.querySelector<HTMLElement>('[role="dialog"][tabindex="-1"]');
+    if (panel) {
+      panel.focus({ preventScroll: true });
+    } else if (focusableElements && focusableElements.length > 0) {
       focusableElements[0].focus();
     }
 

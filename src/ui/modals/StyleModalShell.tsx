@@ -197,14 +197,8 @@ export function StyleModalShell({
       return Array.from(elements);
     };
 
-    // Focus first focusable element
-    const focusableElements = getFocusableElements();
-    if (focusableElements.length > 0) {
-      // Small delay to ensure modal is fully rendered
-      setTimeout(() => {
-        focusableElements[0]?.focus();
-      }, 10);
-    }
+    // Focus the panel (not its first button, which would show a focus ring)
+    setTimeout(() => modalRef.current?.focus({ preventScroll: true }), 10);
 
     // Trap focus within modal
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -247,6 +241,10 @@ export function StyleModalShell({
   // Order (ORD-…) or invoice (DBH-…) number shown in the subtitle, if any.
   const subtitleId =
     typeof subtitle === "string" ? subtitle.match(/\b(?:ORD|DBH)-[0-9A-Z-]+\b/)?.[0] ?? null : null;
+  // Text before the first " · " holds the number; anything after is a status.
+  const [subtitleIdLine, ...statusParts] =
+    subtitleId && typeof subtitle === "string" ? subtitle.split(" · ") : [""];
+  const subtitleStatus = statusParts.join(" · ");
 
   // Use `width` if provided, otherwise fallback to deprecated `size`
   const effectiveWidth = width || size || "4xl";
@@ -257,7 +255,7 @@ export function StyleModalShell({
       className={[
         // Phones: bottom sheet (rounded top, full width, fills up to the
         // status bar). sm and up: centred card, at most 90% of the screen.
-        "relative bg-white shadow-2xl w-full overflow-hidden flex flex-col",
+        "relative bg-white shadow-2xl w-full overflow-hidden flex flex-col outline-none",
         "rounded-t-2xl sm:rounded-2xl",
         "max-h-[calc(100dvh_-_0.75rem)] sm:max-h-[90dvh]",
         WIDTH[effectiveWidth],
@@ -266,6 +264,7 @@ export function StyleModalShell({
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      tabIndex={-1}
     >
       {/* Header */}
       {!hideHeader && (
@@ -289,19 +288,27 @@ export function StyleModalShell({
               >
                 {title}
               </h2>
-              {subtitle ? (
-                <div className={`mt-0.5 flex min-w-0 items-center gap-1 ${SKIN_COLORS[skinType].text}`}>
-                  <div className="min-w-0 truncate text-xs sm:text-sm opacity-80 leading-snug">
-                    {subtitle}
-                  </div>
-                  {/* An order / invoice number in the subtitle gets a copy button. */}
-                  {subtitleId && (
+              {subtitle && subtitleId ? (
+                // "ORD-… · Awaiting payment" → number + copy on one line,
+                // status on the next, so neither gets cut off on phones.
+                <div className={`mt-0.5 min-w-0 ${SKIN_COLORS[skinType].text}`}>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span className="min-w-0 truncate font-mono text-xs sm:text-sm tracking-tight opacity-90 leading-snug">
+                      {subtitleIdLine}
+                    </span>
                     <CopyButton
                       text={subtitleId}
                       label={subtitleId.startsWith('DBH') ? 'Invoice number' : 'Order number'}
                       className="-my-1.5 opacity-80 hover:opacity-100 hover:bg-black/10"
                     />
+                  </div>
+                  {subtitleStatus && (
+                    <div className="truncate text-xs sm:text-sm opacity-80 leading-snug">{subtitleStatus}</div>
                   )}
+                </div>
+              ) : subtitle ? (
+                <div className={`mt-0.5 min-w-0 truncate text-xs sm:text-sm ${SKIN_COLORS[skinType].text} opacity-80 leading-snug`}>
+                  {subtitle}
                 </div>
               ) : null}
             </div>
