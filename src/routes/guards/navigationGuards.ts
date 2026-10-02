@@ -136,12 +136,29 @@ export function saveLastVisitedPage(path: string, user: User) {
   else if (path.startsWith('/customer')) sessionStorage.setItem(STORAGE_KEYS.LAST_VISITED_CUSTOMER, path);
 }
 
-export async function rootLoader() {
+/**
+ * Firebase's built-in emails (used while branded email isn't set up) link
+ * to the site root with `?mode=resetPassword&oobCode=…`. Send any such link
+ * to the app's reset page, keeping the code. Returns null when not needed.
+ */
+export function authActionRedirect(requestUrl: string): string | null {
+  const url = new URL(requestUrl);
+  if (url.pathname === '/reset-password') return null;
+  if (url.searchParams.get('mode') !== 'resetPassword' || !url.searchParams.get('oobCode')) return null;
+  return `/reset-password${url.search}`;
+}
+
+export async function rootLoader({ request }: LoaderFunctionArgs) {
+  const to = authActionRedirect(request.url);
+  if (to) throw redirect(to);
   const user = await getCurrentUser();
   return { user };
 }
 
 export async function publicGuard({ request }: LoaderFunctionArgs) {
+  // A reset link wins over "already signed in → dashboard".
+  const to = authActionRedirect(request.url);
+  if (to) return redirect(to);
   const user = await getCurrentUser();
   if (!user) return null;
   
