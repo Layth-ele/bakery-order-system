@@ -10,7 +10,7 @@ import type { CreditNote } from '../../../types';
  */
 
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
-import { CloseFooter, ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
+import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
 import { Wallet, ArrowRight, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { formatCreditAmount } from "../../../services/creditService";

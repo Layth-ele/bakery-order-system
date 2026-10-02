@@ -8,13 +8,13 @@
 
 import { CloseFooter } from '../../../ui/modals/ModalFooterButtons';
 import { ModalThreeSections } from './ModalOrderSections';
-import { XCircle, User, Calendar, MapPin, AlertTriangle } from 'lucide-react'; // Icon imports
+import { XCircle } from 'lucide-react'; // Icon imports
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { CancelConfirmFooter } from '../../../ui/modals/ModalFooterButtons'; // ✅ FEB 21, 2026
 import type { Order, Product } from '../../../types';
 import { useState } from 'react';
-import { toDate } from '../../../utils/timestampFormatting';
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+
+import { displayOrderNumber } from '../../../utils/displayId';
 
 interface RejectOrderModalProps {
   onClose: () => void;
@@ -31,6 +31,7 @@ export function RejectOrderModal({
 }: RejectOrderModalProps): JSX.Element | null {
   const [rejectionReason, setRejectionReason] = useState(order?.rejectionReason || 'Insufficient minimum order');
   const [customReason, setCustomReason] = useState('');
+  const [reasonError, setReasonError] = useState('');
 
   // ✅ REMOVED: isOpen check - BaseModal handles open/close state
   // Modal is only rendered when in the modal stack
@@ -50,25 +51,19 @@ export function RejectOrderModal({
     'Other'
   ];
 
+  const finalReason = (rejectionReason === 'Other' ? customReason : rejectionReason).trim();
+
   const handleConfirm = () => {
-    const finalReason = rejectionReason === 'Other' ? customReason : rejectionReason;
-    if (!finalReason.trim()) {
-      alert('Please provide a rejection reason');
+    if (!finalReason) {
+      setReasonError('Please give a reason — the customer sees it.');
       return;
     }
     onConfirm && onConfirm(finalReason);
   };
 
-  // Calculate order totals
-  const orderTotal = order.total || 0;
-  const productCount = order.items?.length || 0;
-  const totalItems = order.items?.reduce((sum, item) => {
-    return sum + (item.monday + item.tuesday + item.wednesday + item.thursday + item.friday + item.saturday + item.sunday);
-  }, 0) || 0;
-
   return (
     <StyleModalShell
-      width="md"
+      width="4xl"
       skinType="danger"
       onClose={onClose}
       title="Reject Order"
@@ -81,12 +76,41 @@ export function RejectOrderModal({
           <CancelConfirmFooter
             onCancel={onClose}
             onConfirm={handleConfirm}
-            confirmLabel="REJECT ORDER"
+            confirmLabel="Reject Order"
             confirmVariant="danger"
           />
         )
       }
     >
+      {!isReadOnly && (
+        <section className="mb-4 rounded-xl border-2 border-red-200 bg-red-50/60 p-4">
+          <label htmlFor="reject-reason" className="mb-2 block text-sm font-semibold text-red-900">
+            Reason for rejecting <span className="font-normal text-red-700">(sent to the customer)</span>
+          </label>
+          <select
+            id="reject-reason"
+            value={rejectionReason}
+            onChange={(e) => { setRejectionReason(e.target.value); setReasonError(''); }}
+            className="w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+          >
+            {predefinedReasons.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+          {rejectionReason === 'Other' && (
+            <textarea
+              value={customReason}
+              onChange={(e) => { setCustomReason(e.target.value); setReasonError(''); }}
+              rows={3}
+              maxLength={500}
+              placeholder="Explain why the order can't be accepted…"
+              className="mt-3 w-full resize-none rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+            />
+          )}
+          {reasonError && <p className="mt-2 text-sm font-medium text-red-700">{reasonError}</p>}
+        </section>
+      )}
+
       <ModalThreeSections order={order} products={products} summaryLabel="Order Total">
       </ModalThreeSections>
 </StyleModalShell>

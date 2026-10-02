@@ -27,12 +27,11 @@
 import { ModalThreeSections } from './ModalOrderSections';
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { CancelConfirmFooter } from '../../../ui/modals/ModalFooterButtons'; // Standardized footer
-import { CheckCircle, AlertTriangle, DollarSign, Calendar, User, Package, MapPin, Edit2 } from 'lucide-react'; // ✅ FEB 21, 2026
-import { toDate } from '../../../utils/timestampFormatting';
+import { CheckCircle } from 'lucide-react'; // ✅ FEB 21, 2026
+
 import type { Order, Product, Category } from '../../../types';
 import { useState } from 'react';
-import { formatCurrency } from '../../../utils/helpers'; // Using canonical formatCurrency
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+ // Using canonical formatCurrency
 
 interface ConfirmApproveOrderModalProps {
   onClose: () => void;
@@ -53,46 +52,25 @@ export function ConfirmApproveOrderModal({
   onConfirm,
   onReviewDetails
 }: ConfirmApproveOrderModalProps): JSX.Element | null {
-  const [deliveryFee, setDeliveryFee] = useState(initialDeliveryFee);
-  const [isEditingDeliveryFee, setIsEditingDeliveryFee] = useState(false);
+  const [feeInput, setFeeInput] = useState(String(initialDeliveryFee ?? order?.deliveryFee ?? 0));
+  const [feeError, setFeeError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!order) return null;
 
-  // Calculate order totals
-  const subtotal = order.subtotal || 0;
-  const gst = order.gst || 0;
-  const serviceFee = order.serviceFee || 0;
-  const total = subtotal + gst + serviceFee + deliveryFee;
-  
-  const productCount = order.items?.length || 0;
-  const totalItems = order.items?.reduce((sum, item) => {
-    return sum + (item.monday + item.tuesday + item.wednesday + item.thursday + item.friday + item.saturday + item.sunday);
-  }, 0) || 0;
-
-  // Format delivery date
-  const deliveryDate = order.deliveryDate 
-    ? (() => {
-        const dt = toDate(order.deliveryDate);
-        return dt
-          ? dt.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
-          : 'Not specified';
-      })()
-    : 'Not specified';
-
   const handleConfirm = async () => {
-    if (deliveryFee < 0) {
-      alert('Delivery fee cannot be negative');
+    const fee = Number(feeInput);
+    if (feeInput.trim() === '' || !Number.isFinite(fee) || fee < 0) {
+      setFeeError('Enter a delivery fee of $0 or more.');
       return;
     }
-
     setIsProcessing(true);
     try {
-      await onConfirm(deliveryFee);
+      // The approveOrder Cloud Function recomputes GST and totals with this fee.
+      await onConfirm(Math.round(fee * 100) / 100);
       onClose();
     } catch (error) {
       console.error('❌ Failed to approve order:', error);
-      alert('Failed to approve order. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -100,7 +78,7 @@ export function ConfirmApproveOrderModal({
 
   return (
     <StyleModalShell
-      width="md"
+      width="4xl"
       skinType="success"
       onClose={onClose}
       title="Approve Order"
@@ -116,6 +94,29 @@ export function ConfirmApproveOrderModal({
         />
       }
     >
+
+      <section className="mb-4 rounded-xl border-2 border-green-200 bg-green-50/60 p-4">
+        <label htmlFor="approve-fee" className="mb-2 block text-sm font-semibold text-green-900">
+          Delivery fee
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-semibold text-neutral-600">$</span>
+          <input
+            id="approve-fee"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            value={feeInput}
+            onChange={(e) => { setFeeInput(e.target.value); setFeeError(''); }}
+            className="w-full max-w-[10rem] rounded-lg border border-green-300 bg-white px-3 py-2.5 text-sm font-semibold focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-200"
+          />
+        </div>
+        <p className="mt-2 text-xs text-green-800">
+          Pre-filled with the estimate the customer saw. Change it if needed — GST and the total are recalculated on approval.
+        </p>
+        {feeError && <p className="mt-2 text-sm font-medium text-red-700">{feeError}</p>}
+      </section>
 
       <ModalThreeSections order={order} products={products} summaryLabel="Order Total">
       </ModalThreeSections>

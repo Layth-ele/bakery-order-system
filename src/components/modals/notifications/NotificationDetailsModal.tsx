@@ -22,16 +22,7 @@
 
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { CloseFooter } from "../../../ui/modals/ModalFooterButtons"; // ✅ FEB 21, 2026
-import {
-  Bell,
-  X,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  Clock,
-  FileText,
-  Package,
-} from "lucide-react";
+import { Bell, AlertCircle, Info, FileText, Package } from "lucide-react";
 import type { NotificationItem } from "../../../types/notification-contract"; // Changed to relative path for consistency
 import { toDate } from '../../../utils/timestampFormatting';
 

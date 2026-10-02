@@ -20,8 +20,8 @@
 import {useState, useEffect} from 'react'
 import {Package, Eye, Edit2, XCircle, Clock, Upload, CheckCircle, AlertTriangle, Ban} from 'lucide-react'
 import { useModal } from '../../contexts/ModalContextNew'; // ✅ FIX: Add missing import
-import { useCachedOrders, useCachedCustomerOrders } from '../../hooks/useCachedFirebase';
-import { OrderLifecycleTimer } from './OrderLifecycleTimer';
+import { useCachedCustomerOrders } from '../../hooks/useCachedFirebase';
+
 import { useCachedProducts } from '../../hooks/useCachedProducts';
 import { useCachedCategories } from '../../hooks/useCachedCategories';
 import { toast } from 'sonner';
@@ -33,7 +33,6 @@ import { toDate } from '../../utils/timestampFormatting';
 import { downloadOrderPDF } from '../../utils/pdf';
 import { CustomerPageLayout, StatCard } from '../customer/CustomerPageLayout';
 import { UnifiedOrderList, ActionButtonSection } from './UnifiedOrderList';
-import { OrderUpdateSuccessModal } from '../modals/orders/OrderUpdateSuccessModal';
 import type { User } from '../../hooks/useAuth';
 import type {Order} from '../../types'
 import { displayOrderNumber, orderFilename } from '../../utils/displayId';
@@ -55,8 +54,6 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [creditBalance, setCreditBalance] = useState<number>(0);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   
   // ✅ STEP 6: REMOVED - State for old direct modal rendering
   // const [showPendingModal, setShowPendingModal] = useState(false);
@@ -151,8 +148,6 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
       return false;
     }
   );
-
-
 
   const handleViewOrder = (order: Order) => {
     // ✅ STEP 6: Use modal registry for all modals (eliminates duplicate systems)
@@ -418,12 +413,6 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
         </div>
       </div>
       {/* Success Modal */}
-      {showSuccessModal && (
-        <OrderUpdateSuccessModal
-          message={successMessage}
-          onClose={() => setShowSuccessModal(false)}
-        />
-      )}
     </CustomerPageLayout>
   );
 }

@@ -8,25 +8,15 @@
  * ✅ NOW SUPPORTS: Regular order payments AND adjustment payments
  */
 
-import React, { useState, useEffect } from "react";
-import {
-  Clock,
-  CheckCircle,
-  Package,
-  DollarSign,
-  Calendar,
-  MapPin,
-  User,
-  AlertTriangle,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Clock } from "lucide-react";
 import type { Order, Product, Category, OrderAdjustment } from "../../../types"; // Import proper types
-import { getWeekRange } from "../../../utils/weekUtils";
+
 import { isFirebaseConfigured } from "../../../firebase/config";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { CloseFooter } from "../../../ui/modals/ModalFooterButtons"; // ✅ FEB 21, 2026
-import { formatTimestamp } from "../../../utils/timestampFormatting"; // 🔥 TIMESTAMP FIX: Use new utility
+ // 🔥 TIMESTAMP FIX: Use new utility
 import { ModalThreeSections } from '../orders/ModalOrderSections';
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
 
 interface PaymentInReviewModalProps {
   order: Order;
@@ -66,27 +56,9 @@ export function PaymentInReviewModal({
       );
   }, [order.id]);
 
-  // Calculate order total (either base order or adjustment)
-  const paymentAmount = adjustment
-    ? adjustment.paid?.amount || Math.abs(adjustment.deltaTotal)
-    : order.total || 0;
-
-  // Get week range
-  const weekRange =
-    order.weekRange ||
-    getWeekRange(Number(order.weekYear) || 0, Number(order.isoWeek) || 0);
-
-  // Determine payment type and status
-  const isAdjustmentPayment = !!adjustment;
-  const paymentStatus = isAdjustmentPayment
-    ? adjustment.paid?.status || "unpaid"
-    : order.paymentSubmitted
-      ? "submitted"
-      : "unpaid";
-
   return (
     <StyleModalShell
-      width="md"
+      width="4xl"
       skinType="info"
       onClose={onClose || (() => {})}
       title="PAYMENT IN REVIEW"

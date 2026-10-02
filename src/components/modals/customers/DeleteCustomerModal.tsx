@@ -188,6 +188,7 @@ export function DeleteCustomerModal({
               : "Customer (Permanently)"
           }
           isDeleting={false}
+          deleteDisabled={isConfirmDisabled}
         />
       }
     >

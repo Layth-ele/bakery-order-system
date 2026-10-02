@@ -10,22 +10,8 @@
 
 import { invalidateCache } from '../../../hooks/useCachedFirebase';
 import { ModalFooterButtons, submitForm } from "../../../ui/modals/ModalFooterButtons";
-import {
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-} from "react";
-import {
-  X,
-  Upload,
-  DollarSign,
-  AlertTriangle,
-  CheckCircle,
-  Image as ImageIcon,
-  Copy,
-  Check,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { DollarSign, CheckCircle, Copy, Check } from "lucide-react";
 import { Order, Product, Category } from "../../../types";
 import { useCachedOrders } from "../../../hooks/useCachedFirebase";
 import { toast } from 'sonner';
@@ -35,12 +21,12 @@ import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 // ✅ FEB 17, 2026: CRITICAL FIX - Import from weekUtils (NOT dateUtils)
 // weekUtils exports: getWeekRange, getWeekDayDate, formatShortDate, etc.
 // dateUtils exports: getWeekDates, formatRelativeDate, getWeekDayNames only
-import { getWeekRange } from "../../../utils/weekUtils";
+
 import { copyToClipboard } from "../../../utils/clipboardUtils";
 import { submitPaymentAction } from "../../../services/orders/paymentActionService";
-import { formatTimestamp } from "../../../utils/timestampFormatting"; // 🔥 TIMESTAMP FIX: Use new utility
+ // 🔥 TIMESTAMP FIX: Use new utility
 import { ModalThreeSections } from '../orders/ModalOrderSections';
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+import { displayOrderNumber, displayInvoiceNumber } from '../../../utils/displayId';
 
 interface SubmitPaymentModalProps {
   order: Order;
@@ -152,28 +138,6 @@ export function SubmitPaymentModal({
       setSubmitting(false);
     }
   };
-
-  const computedWeekRange =
-    order.week && order.year
-      ? getWeekRange(order.week, order.year)
-      : order.weekRange || "N/A";
-
-  const days = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
-
-  // Defensive calculations
-  const subtotal = order.subtotal ?? 0;
-  const gst = order.gst ?? 0;
-  const deliveryFee = order.deliveryFee ?? 0;
-  const serviceCharge = order.serviceCharge ?? 0;
-  const total = order.total ?? 0;
 
   return (
     <StyleModalShell

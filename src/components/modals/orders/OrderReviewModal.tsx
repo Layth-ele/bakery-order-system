@@ -6,7 +6,7 @@
  * Premium black and gold aesthetic matching the bakery theme.
  */
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { ShoppingCart, CheckCircle, Edit } from "lucide-react";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons, CloseFooter } from "../../../ui/modals/ModalFooterButtons";
@@ -19,7 +19,6 @@ import {
   getWeekRange,
 } from "../../../utils/weekUtils";
 import { logger } from '../../../utils/logger';
-
 
 interface CartItem {
   product: Product;

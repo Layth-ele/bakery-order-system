@@ -8,27 +8,14 @@
  * ✅ FEB 18, 2026: Converted to RejectStyleModalShell for consistency
  */
 
-import { useMemo } from "react"; // 🚀 PERFORMANCE: Memoize expensive computations
+ // 🚀 PERFORMANCE: Memoize expensive computations
 import { formatTimestamp, toDate } from '../../../utils/timestampFormatting';
 import { ModalThreeSections } from './ModalOrderSections';
-import {
-  Package,
-  User,
-  Calendar,
-  Truck,
-  Clock,
-  DollarSign,
-  Info,
-  AlertCircle,
-  CheckCircle2 as CheckCircle,
-  XCircle,
-  FileText,
-  Copy,
-} from "lucide-react";
+import { Clock, DollarSign, AlertCircle, CheckCircle2 as CheckCircle, XCircle, FileText, Copy } from "lucide-react";
 import type { Order, Product, Category } from "../../../types";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from '../../../ui/modals/ModalFooterButtons';
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+import { displayOrderNumber, displayInvoiceNumber } from '../../../utils/displayId';
 
 interface AdminOrderViewModalProps {
   order: Order;
@@ -82,8 +69,6 @@ export function AdminOrderViewModal({
   const isInProcess = order.status === "in_process";
   const isPending = order.status === "pending";
 
-  // Calculate order info
-  const orderTotal = order.total || 0;
   // 🚀 PERFORMANCE: Memoize expensive category grouping operation
   // This prevents recalculation on every render (was 30-50ms, now <1ms)
   return (

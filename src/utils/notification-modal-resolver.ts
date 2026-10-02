@@ -4,10 +4,9 @@ import type { User } from '../services/firebase/authService';
 import type { ModalType, ModalProps } from '../types/modals';
 import type { ModalSize, OverlayBlur } from '../ui/modals/BaseModal';
 
-import { fetchOrder, fetchInvoice, fetchInvoiceByOrderId, fetchProducts, fetchCategories, fetchCustomer, resolvePendingOrderDetailsProps } from "./notification-modal-fetchers";
-import { toast } from 'sonner';
-import { logger } from './logger';
+import { fetchOrder, fetchProducts, fetchCategories, fetchCustomer } from "./notification-modal-fetchers";
 
+import { logger } from './logger';
 
 // ─── Typed modal payload ──────────────────────────────────────────────────────
 // All resolver functions return this shape. The modal registry maps each field
@@ -311,142 +310,6 @@ async function resolveCompletedOrderInvoiceProps(
 }
 
 /**
- * 5. INVOICE_DETAIL - Invoice viewing (final/updated)
- * ✅ TRIPLE-STRATEGY RESOLUTION:
- *    1. notification.invoiceId (direct)
- *    2. order.finalInvoiceId (from order data)
- *    3. Query by orderId (fallback search)
- * 
- * ✅ FALLBACK: If no invoice found, redirect to COMPLETED_ORDER_INVOICE with order data
- * 
- * Modal expects:
- * - invoice: Invoice (from invoicing service)
- * - onClose: () => void
- */
-async function resolveInvoiceDetailProps(
-  notification: NotificationItem,
-  context: AppContext
-): Promise<ModalPayload> {
-  
-  let invoiceId = notification.invoiceId;
-  let invoice = null;
-  let order = null;
-  
-  // ══════════════════════════════════════════════════════════════════════════
-  // STRATEGY 1: Try notification.invoiceId (direct reference)
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (invoiceId) {
-    invoice = fetchInvoice(invoiceId);
-    
-    if (invoice) {
-      return {
-        invoice,
-        onClose: () => {}
-      };
-    } else {
-      logger.warn(`⚠️ [Strategy 1] FAILED - Invoice ${invoiceId} not found in storage`);
-      // Don't return yet, try other strategies
-    }
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // STRATEGY 2: Try order.finalInvoiceId or order.latestInvoiceId
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (!invoice && notification.orderId) {
-    order = await fetchOrder(notification.orderId, context);
-    
-    if (order) {
-      // Check both finalInvoiceId and latestInvoiceId (different systems may use different fields)
-      const orderInvoiceId = order.finalInvoiceId || order.invoiceId;
-      
-      if (orderInvoiceId) {
-        invoice = fetchInvoice(orderInvoiceId);
-        
-        if (invoice) {
-          return {
-            invoice,
-            onClose: () => {}
-          };
-        } else {
-          logger.warn(`⚠️ [Strategy 2] FAILED - Invoice ${orderInvoiceId} not found in storage`);
-        }
-      } else {
-      }
-    } else {
-      logger.warn(`⚠️ [Strategy 2] FAILED - Order ${notification.orderId} not found`);
-    }
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // STRATEGY 3: Query invoices by orderId (fallback)
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (!invoice && notification.orderId) {
-    invoice = fetchInvoiceByOrderId(notification.orderId);
-    
-    if (invoice) {
-      return {
-        invoice,
-        onClose: () => {}
-      };
-    } else {
-      logger.warn(`⚠️ [Strategy 3] FAILED - No invoice found for orderId ${notification.orderId}`);
-    }
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // STRATEGY 4 (NEW): Fallback to order data for COMPLETED_ORDER_INVOICE modal
-  // ══════════════════════════════════════════════════════════════════════════
-  // ✅ PHASE 1 FIX (Feb 9, 2026): Remove legacy 'paid' status
-  if (!invoice && order && (order.status === 'completed' || order.status === 'in_process')) {
-    
-    const products = fetchProducts(context);
-    const categories = fetchCategories(context);
-    
-    // ✅ Return props for COMPLETED_ORDER_INVOICE modal with a special flag
-    return {
-      _modalRedirect: 'COMPLETED_ORDER_INVOICE', // Special flag for resolver to change modal type
-      order,
-      products,
-      categories,
-      onClose: () => {}
-    };
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // STRATEGY 5 (NEW): Handle in-progress orders without invoices
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (!invoice && order && (order.status === 'pending' || order.status === 'approved')) {
-    
-    // Return error with helpful message
-    return {
-      invoice: null,
-      notification,
-      error: 'Invoice not yet available',
-      reason: `This order is currently ${order.status}. Invoices are only generated when orders are completed and paid.`,
-      order, // Include order for fallback display
-      onClose: () => {}
-    };
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ALL STRATEGIES FAILED - Return error fallback
-  // ═══════════════════════════════════════════════════════════════════════════
-  console.error(`❌ [ModalResolver] ALL STRATEGIES FAILED - Could not find invoice`);
-  console.error(`   Tried:`);
-  console.error(`   ✗ Strategy 1: notification.invoiceId = ${notification.invoiceId || 'N/A'}`);
-  console.error(`   ✗ Strategy 2: order.finalInvoiceId = ${order ? (order.finalInvoiceId || 'N/A') : 'order not found'}`);
-  console.error(`   ✗ Strategy 3: query by orderId = ${notification.orderId || 'N/A'}`);
-  console.error(`   ✗ Strategy 4: order fallback = ${order ? `order found but status=${order.status}` : 'order not found'}`);
-  
-  return {
-    invoice: null, // ✅ Explicitly set to null
-    notification,
-    error: 'Invoice not found using any strategy (notification.invoiceId, order.finalInvoiceId, or orderId query)',
-    onClose: () => {}
-  };
-}
-
-/**
  * 6. CREDIT_RECEIVED - Credit issued notification
  * 
  * Modal expects ONLY:
@@ -641,33 +504,6 @@ async function resolveAdminOrderViewProps(
 }
 
 /**
- * 8. PAYMENT_RECEIVED_SUCCESS - Payment confirmed (admin)
- */
-async function resolvePaymentReceivedSuccessProps(
-  notification: NotificationItem,
-  context: AppContext
-): Promise<ModalPayload> {
-  
-  const orderId = notification.orderId;
-  const amount = notification.amount || notification.metadata?.amount || 0;
-  const paymentDate = notification.metadata?.paymentDate || notification.createdAt;
-  
-  // Optionally fetch order for additional details
-  let order = null;
-  if (orderId) {
-    order = await fetchOrder(orderId, context);
-  }
-  
-  return {
-    orderId,
-    amount,
-    paymentDate,
-    order, // May be null
-    onClose: () => {} // Will be overridden by modal system
-  };
-}
-
-/**
  * 9. PAYMENT_CONFIRMED_MESSAGE - Simple message modal for payment confirmation
  */
 async function resolvePaymentConfirmedMessageProps(
@@ -827,10 +663,6 @@ export async function resolveModalProps(
         props = await resolveSubmitPaymentProps(notification, context);
         break;
       
-      case 'PENDING_ORDER_DETAILS':
-        props = await resolvePendingOrderDetailsProps(notification, context);
-        break;
-      
       case 'CANCELLED_ORDER_DETAILS':
         props = await resolveCancelledOrderDetailsProps(notification, context);
         break;
@@ -851,10 +683,6 @@ export async function resolveModalProps(
         props = await resolveCompletedOrderInvoiceProps(notification, context); // ✅ Use dedicated resolver
         break;
       
-      case 'INVOICE_DETAIL': // ✅ Legacy support - use invoice resolver
-        props = await resolveInvoiceDetailProps(notification, context);
-        break;
-      
       case 'CREDIT_RECEIVED':
         props = await resolveCreditReceivedProps(notification, context);
         break;
@@ -863,18 +691,8 @@ export async function resolveModalProps(
         props = await resolveAdminOrderViewProps(notification, context);
         break;
       
-      case 'PAYMENT_RECEIVED_SUCCESS':
-        props = await resolvePaymentReceivedSuccessProps(notification, context);
-        break;
-      
       case 'PAYMENT_CONFIRMED_MESSAGE':
- // Simple message modal - just pass through notification data
-        props = {
-          orderId: notification.orderId || "",
-          customerName: notification.customerName || notification.metadata?.customerName,
-          amount: notification.amount || notification.metadata?.amount,
-          invoiceNumber: notification.metadata?.invoiceNumber || notification.metadata?.order?.invoiceNumber,
-        };
+        props = await resolvePaymentConfirmedMessageProps(notification, context);
         break;
       
       case 'NOTIFICATION_DETAILS':
@@ -884,7 +702,7 @@ export async function resolveModalProps(
       default:
         logger.warn(`⚠️ [ModalResolver V2] Unknown modal type: ${modalType}`);
         logger.warn(`⚠️ Notification type: ${notification.type}, ID: ${notification.id}`);
-        logger.warn(`⚠️ Expected one of: PENDING_ORDER_DETAILS, SUBMIT_PAYMENT, CANCELLED_ORDER_DETAILS, REJECTED_ORDER_DETAILS, PAYMENT_IN_REVIEW, PAID_ORDER_DETAILS, COMPLETED_ORDER_INVOICE, CREDIT_RECEIVED, ADMIN_ORDER_VIEW, PAYMENT_RECEIVED_SUCCESS, NOTIFICATION_DETAILS`);
+        logger.warn(`⚠️ Expected one of: SUBMIT_PAYMENT, CANCELLED_ORDER_DETAILS, REJECTED_ORDER_DETAILS, PAYMENT_IN_REVIEW, PAID_ORDER_DETAILS, COMPLETED_ORDER_INVOICE, CREDIT_RECEIVED, ADMIN_ORDER_VIEW, PAYMENT_CONFIRMED_MESSAGE, NOTIFICATION_DETAILS`);
         
         // Return minimal fallback props
         props = await resolveNotificationDetailsProps(notification, context, `Unsupported modal type: ${modalType}`);

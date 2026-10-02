@@ -8,7 +8,7 @@
 
 import { Minus, Plus } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
-import {AlertTriangle, Info, Lock, FileText, Edit, CheckCircle as CheckCircleIcon, TrendingDown, DollarSign, Edit2, CreditCard} from 'lucide-react'
+import { AlertTriangle, Info, Lock, CheckCircle as CheckCircleIcon, TrendingDown, DollarSign, Edit2, CreditCard } from 'lucide-react';
 import type { Order, Product, Category, OrderItem } from '../../../types';
 import {invalidateCache} from '../../../hooks/useCachedFirebase'
 import { toast } from 'sonner';
@@ -20,13 +20,9 @@ import { savePaidOrderReduction } from '../../../services/orders/orderEdits';
 import { callableErrorMessage } from '../../../services/firebase/cloudFunctions';
 // ✅ PASS 7: Calculation logic extracted to a hook (was inlined as 80 LOC of useMemo).
 import { useEditPaidOrderCalculations } from '../../../hooks/admin/useEditPaidOrderCalculations';
-import { 
-  getWeekRange, 
-  getWeekDayDate, 
-  formatShortDate 
-} from '../../../utils/weekUtils'; // Add week utility functions
+import { getWeekDayDate, formatShortDate } from '../../../utils/weekUtils'; // Add week utility functions
 import { ModalThreeSections } from './ModalOrderSections';
-import { displayOrderNumber, displayInvoiceNumber, displayCustomerCode, displayOrderLabel, invoiceFilename, orderFilename } from '../../../utils/displayId';
+import { displayOrderNumber } from '../../../utils/displayId';
 
 interface EditPaidOrderModalProps {
   order: Order;
@@ -45,7 +41,7 @@ export function EditPaidOrderModal({
   onSave,
   onClose,
 }: EditPaidOrderModalProps): JSX.Element | null {
-  const [order, setOrder] = useState<Order>(initialOrder);
+  const order: Order = initialOrder;
   const [editedItems, setEditedItems] = useState<{ [productId: string]: OrderItem }>({});
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -133,7 +129,6 @@ export function EditPaidOrderModal({
     const currentItem = editedItems[productId];
     const newItemData = { ...currentItem, [day]: Math.max(0, newValue) };
     const newTotalQuantity = getItemTotal(newItemData);
-    const originalTotalQuantity = originalItem.quantity || getItemTotal(originalItem);
 
     // Validate decrease-only
     const validation = validateItemEdit(originalItem, newTotalQuantity);
@@ -207,10 +202,6 @@ export function EditPaidOrderModal({
       setSubmitting(false);
     }
   };
-
-  const computedWeekRange = order.week && order.year 
-    ? getWeekRange(order.week, order.year)
-    : order.weekRange || 'N/A';
 
   // Calculate if changes are valid for submission
   const canSubmit = useMemo(() => {

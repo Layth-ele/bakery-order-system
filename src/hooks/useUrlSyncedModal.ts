@@ -81,7 +81,6 @@ export function useUrlSyncedModal(options: UseUrlSyncedModalOptions = {}) {
     'UNPAID_ORDER_DETAILS',
     'SUBMIT_PAYMENT',
     'PAYMENT_IN_REVIEW',
-    'PAYMENT_RECEIVED_SUCCESS',
     'REJECTED_ORDER_DETAILS',
     'CANCELLED_ORDER_DETAILS',
     'EDIT_ORDER',
@@ -91,7 +90,6 @@ export function useUrlSyncedModal(options: UseUrlSyncedModalOptions = {}) {
     'INVOICE_PREVIEW',
     'CREDIT_RECEIVED',
     'NOTIFICATIONS',
-    'ADMIN_NOTIFICATIONS',
   ]);
   
   const [searchParams, setSearchParams] = useSearchParams();

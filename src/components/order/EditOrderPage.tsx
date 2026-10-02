@@ -17,12 +17,12 @@
  * - Navigation to order history
  */
 
-import {X, Save, AlertTriangle, Calendar, Package, Tag, Truck, Plus, DollarSign} from 'lucide-react'
+import { Save, AlertTriangle, Calendar, Package, Tag, Truck, Plus, DollarSign } from 'lucide-react';
 import { useState } from 'react';
 import { CloseFooter, SaveFooter } from '../../ui/modals/ModalFooterButtons';
 import {Order, Product, Category} from '../../types'
 import { DayQuantities } from '../../types/order-flow';
-import {canCustomerEditOrder} from '../../services/orders/orderEditRules'
+
 import { formatShortDate, getWeekDayDate } from '../../utils/weekUtils';
 import { useModal } from '../../contexts/ModalContextNew';
 import { useEditOrderState, days } from '../../hooks/orders/useEditOrderState';

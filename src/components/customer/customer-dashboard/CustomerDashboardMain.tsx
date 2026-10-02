@@ -134,7 +134,6 @@ import { useCartLoader } from "../../../hooks/customer/useCartLoader";
 import { usePaymentConfirmedModal } from "../../../hooks/customer/usePaymentConfirmedModal";
 import { useOrderPricing } from "../../../hooks/customer/useOrderPricing";
 import { useHeaderHeight } from "../../../hooks/customer/useHeaderHeight";
-import { useCreditNotificationHandler } from "../../../hooks/customer/useCreditNotificationHandler";
 import { logger } from '../../../utils/logger';
 import { withViewTransition } from '../../../pwa/viewTransition';
 
@@ -273,7 +272,6 @@ export function CustomerDashboardMain(): JSX.Element | null {
   const { handleViewOrderFromNotification, handleDownloadInvoiceFromNotification } =
     useOrderNotificationHandlers({ openModal });
 
-  useCreditNotificationHandler(user.id, openModal);
 
   // ✅ Auto-open credit notification modal on login
   // Fires once when notifications first load (on login/page refresh)
