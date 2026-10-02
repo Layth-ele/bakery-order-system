@@ -64,9 +64,7 @@ export function PaidOrderDetailsModal({
   const subtotalCredit = Math.max(0, -decreasedItems.reduce((s: number, i: any) => s + (i.priceChange || 0), 0));
 
   const modalTitle    = isEditedOrder ? "ORDER UPDATED" : "ORDER IN PRODUCTION";
-  const modalSubtitle = isEditedOrder
-    ? "Admin edited your order • Credit issued"
-    : "Payment confirmed • In production";
+  const modalSubtitle = `${displayOrderNumber(order)} · ${isEditedOrder ? "Changed · Credit issued" : "In production"}`;
 
   return (
     <StyleModalShell

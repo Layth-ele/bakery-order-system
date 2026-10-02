@@ -24,6 +24,7 @@
  * - Link to full order review
  */
 
+import { displayOrderNumber } from '../../../utils/displayId';
 import { ModalThreeSections } from './ModalOrderSections';
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { CancelConfirmFooter } from '../../../ui/modals/ModalFooterButtons'; // Standardized footer
@@ -82,7 +83,7 @@ export function ConfirmApproveOrderModal({
       skinType="success"
       onClose={onClose}
       title="Approve Order"
-      subtitle="Review and confirm order approval"
+      subtitle={displayOrderNumber(order)}
       icon={<CheckCircle className="icon-modal-header" />}
       footer={
         <CancelConfirmFooter

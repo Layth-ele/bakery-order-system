@@ -22,6 +22,7 @@
  *    - Complete order details
  */
 
+import { displayOrderNumber } from '../../../utils/displayId';
 import { StyleModalShell } from '../../../ui/modals/StyleModalShell';
 import { CloseFooter, ModalFooterButtons } from '../../../ui/modals/ModalFooterButtons';
 import { XCircle, AlertTriangle, CreditCard, Info, TrendingDown } from 'lucide-react';
@@ -129,7 +130,7 @@ export function CancelledOrderDetailsModal({
       onClose={onClose}
       skinType="danger"
       title="ORDER CANCELLED"
-      subtitle={wasPaid ? "Credit issued to your account" : "Order has been cancelled"}
+      subtitle={`${displayOrderNumber(order)} · ${wasPaid ? "Credit issued" : "Cancelled"}`}
       width="4xl"
       headerLeft={
         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">

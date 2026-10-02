@@ -17,6 +17,7 @@
  * ✅ FEB 18, 2026: Converted to RejectStyleModalShell (Batch 9) for consistency
  */
 
+import { displayOrderNumber } from '../../../utils/displayId';
 import { ModalThreeSections } from './ModalOrderSections';
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons";
@@ -71,7 +72,7 @@ export function UnpaidOrderDetailsModal({
       skinType="warning"
       onClose={onClose}
       title="UNPAID ORDER DETAILS"
-      subtitle={paymentSubmitted ? "Payment submitted • Awaiting confirmation" : "Awaiting payment from customer"}
+      subtitle={`${displayOrderNumber(order)} · ${paymentSubmitted ? "Payment submitted" : "Awaiting payment"}`}
       headerLeft={
         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
           <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />

@@ -13,6 +13,7 @@ import React from 'react';
  */
 
 import { FileText } from 'lucide-react';
+import { CopyButton } from '../../shared/CopyButton';
 import type { Order, Product } from '../../../types';
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const;
@@ -78,9 +79,9 @@ function SectionCard({ icon, title, children }: {
 }
 
 // ─── Info row ────────────────────────────────────────────────────────────────
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function InfoRow({ label, value, className = '' }: { label: string; value: React.ReactNode; className?: string }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
       <span className="text-[11px] sm:text-[11px] font-bold uppercase tracking-widest text-[#D4A574]">
         {label}
       </span>
@@ -114,18 +115,22 @@ export function OrderInformationSection({ order }: { order: Order }) {
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
       const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      return `${fmt(monday)} – ${fmt(sunday)}, ${yr}`;
+      // "Apr 20 – 26, 2026"; across months "Mar 30 – Apr 5, 2026"
+      const end = monday.getMonth() === sunday.getMonth() ? String(sunday.getDate()) : fmt(sunday);
+      return `${fmt(monday)} – ${end}, ${yr}`;
     } catch { return order.weekRange || '—'; }
   };
-  const dateRange = order.weekRange && !order.weekRange.startsWith('Week')
-    ? order.weekRange  // already a proper date range like "Mon 23 - Sun 29, Mar 2026"
-    : buildWeekDateRange();
+  // Always derived from the week number, so every order reads the same:
+  // "Week 17 · Apr 20 – 26, 2026"
   const weekLabel = order.week
-    ? `Week ${order.week} (${dateRange})`
+    ? `Week ${order.week} · ${buildWeekDateRange()}`
     : order.weekRange || '—';
+  const orderId = order.orderNumber || order.invoiceNumber || '';
 
   return (
     <SectionCard icon={<FileText className="w-4 h-4" />} title="Order Information">
+      {/* Phones: Week, Address and Order ID get a full row each, so they
+          stay on one line; sm and up: two columns. */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-4">
         <InfoRow label="Customer" value={
           <div>
@@ -135,11 +140,20 @@ export function OrderInformationSection({ order }: { order: Order }) {
             )}
           </div>
         } />
-        <InfoRow label="Week" value={weekLabel} />
-        <InfoRow label="Delivery Address" value={order.deliveryAddress || order.customerAddress || '—'} />
         <InfoRow label="Order Date" value={orderDate} />
-        {(order.orderNumber || order.invoiceNumber) && (
-          <InfoRow label="Order ID" value={order.orderNumber || order.invoiceNumber || ''} />
+        <InfoRow label="Week" value={<span className="whitespace-nowrap">{weekLabel}</span>} className="col-span-2 sm:col-span-1" />
+        <InfoRow label="Delivery Address" value={order.deliveryAddress || order.customerAddress || '—'} className="col-span-2 sm:col-span-1" />
+        {orderId && (
+          <InfoRow
+            label="Order ID"
+            className="col-span-2 sm:col-span-1"
+            value={
+              <span className="flex items-center gap-1">
+                <span className="whitespace-nowrap font-mono tracking-tight">{orderId}</span>
+                <CopyButton text={orderId} label={orderId.startsWith('DBH') ? 'Invoice number' : 'Order number'} className="-my-1.5 text-[#8B6F47] hover:bg-[#D4A574]/15" />
+              </span>
+            }
+          />
         )}
         {(order.customerPhone || (order as any).phone || (order as any).customerContactPhone || (order as any).customerInfo?.phone) && (
           <InfoRow label="Phone" value={
@@ -167,28 +181,34 @@ export function OrderItemsSection({ order, products = [] }: { order: Order; prod
 
   const weekDates = getWeekDates(order);
   const productCount = items.length;
+  // Only the delivery days something was ordered for (all seven if the
+  // customer ordered every day) — fewer columns, easier to read on phones.
+  const activeIdx = DAYS.map((d, i) => i).filter((i) => items.some((it) => ((it as any)[DAYS[i]] || 0) > 0));
+  const shownIdx = activeIdx.length > 0 ? activeIdx : DAYS.map((_, i) => i);
+  // Scroll sideways only when many days are shown.
+  const minTableWidth = shownIdx.length > 4 ? 'min-w-[520px]' : '';
 
   return (
     <SectionCard
       icon={<FileText className="w-4 h-4" />}
       title={`Order Items (${productCount})`}
     >
-      <div className="overflow-x-auto -mx-4 sm:-mx-5">
-        <table className="w-full text-xs min-w-[520px]">
+      <div className="overflow-x-auto -mx-3 sm:-mx-4">
+        <table className={`w-full text-xs ${minTableWidth}`}>
           <thead>
             <tr className="border-b border-[#E8C4A2]">
-              <th className="px-4 sm:px-5 py-2 text-left font-bold text-[#8B6F47] uppercase tracking-wide text-[11px]">
+              <th className="px-3 sm:px-4 py-2 text-left font-bold text-[#8B6F47] uppercase tracking-wide text-[11px]">
                 Product
               </th>
-              {DAY_LABELS.map((label, i) => (
+              {shownIdx.map((i) => DAY_LABELS[i]).map((label, k) => { const i = shownIdx[k]; return (
                 <th key={label} className="px-1 py-2 text-center font-bold text-[#8B6F47] text-[11px]">
                   <div className="font-bold">{label}</div>
                   {weekDates[i] && (
                     <div className="text-[#8B6F47]/50 font-normal">{weekDates[i]}</div>
                   )}
                 </th>
-              ))}
-              <th className="px-4 sm:px-5 py-2 text-center font-bold text-[#8B6F47] uppercase tracking-wide text-[11px]">
+              ); })}
+              <th className="px-3 sm:px-4 py-2 text-center font-bold text-[#8B6F47] uppercase tracking-wide text-[11px]">
                 Total
               </th>
             </tr>
@@ -201,8 +221,8 @@ export function OrderItemsSection({ order, products = [] }: { order: Order; prod
 
               return (
                 <tr key={idx} className="hover:bg-[#D4A574]/5">
-                  <td className="px-4 sm:px-5 py-3 font-semibold text-[#2d2416]">{name}</td>
-                  {DAYS.map((day) => {
+                  <td className="px-3 sm:px-4 py-3 font-semibold text-[#2d2416]">{name}</td>
+                  {shownIdx.map((i) => DAYS[i]).map((day) => {
                     const qty = (item as any)[day] || 0;
                     return (
                       <td key={day} className="px-1 py-3 text-center">
@@ -213,7 +233,7 @@ export function OrderItemsSection({ order, products = [] }: { order: Order; prod
                       </td>
                     );
                   })}
-                  <td className="px-4 sm:px-5 py-3 text-center font-bold text-[#D4A574]">{total}</td>
+                  <td className="px-3 sm:px-4 py-3 text-center font-bold text-[#D4A574]">{total}</td>
                 </tr>
               );
             })}

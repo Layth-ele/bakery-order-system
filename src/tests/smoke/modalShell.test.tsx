@@ -47,4 +47,15 @@ describe('StyleModalShell', () => {
     expect(body.contains(screen.getByText('Save'))).toBe(false);
     expect(screen.getByLabelText('Close').className).toContain('h-10 w-10');
   });
+
+  it('puts a copy button next to an order or invoice number in the subtitle', () => {
+    render(<StyleModalShell title="Order" subtitle="ORD-2026-04-21-001-83 · Awaiting payment" onClose={() => {}}>x</StyleModalShell>);
+    expect(screen.getByLabelText('Copy order number ORD-2026-04-21-001-83')).toBeTruthy();
+    cleanup();
+    render(<StyleModalShell title="Invoice" subtitle="#DBH-2026-10-01-000123-77" onClose={() => {}}>x</StyleModalShell>);
+    expect(screen.getByLabelText('Copy invoice number DBH-2026-10-01-000123-77')).toBeTruthy();
+    cleanup();
+    render(<StyleModalShell title="Plain" subtitle="Manage product categories" onClose={() => {}}>x</StyleModalShell>);
+    expect(screen.queryByLabelText(/^Copy /)).toBeNull();
+  });
 });

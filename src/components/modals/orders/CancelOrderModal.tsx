@@ -204,8 +204,9 @@ export function CancelOrderModal({
             onCancel={onClose}
             onConfirm={handleConfirm}
             isProcessing={isSubmitting}
-            confirmLabel={isFullCancellation ? "CANCEL ENTIRE ORDER" : "CANCEL SELECTED DAYS"}
-            cancelLabel="KEEP ORDER"
+            confirmLabel={isFullCancellation ? "Cancel Entire Order" : "Cancel Selected Days"}
+            confirmVariant="danger"
+            cancelLabel="Keep Order"
           />
         )
       }

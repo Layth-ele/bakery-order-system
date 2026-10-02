@@ -8,10 +8,10 @@
  * 🔄 CACHE BUST: v1.0.4 - Fixed invalidateCache import (object from useCachedFirebase, not hook)
  */
 
-import { invalidateCache } from '../../../hooks/useCachedFirebase';
+import { invalidateCache, useCachedSettings } from '../../../hooks/useCachedFirebase';
 import { ModalFooterButtons, submitForm } from "../../../ui/modals/ModalFooterButtons";
 import { useState, useEffect } from "react";
-import { DollarSign, CheckCircle, Copy, Check } from "lucide-react";
+import { DollarSign, CheckCircle } from "lucide-react";
 import { Order, Product, Category } from "../../../types";
 import { useCachedOrders } from "../../../hooks/useCachedFirebase";
 import { toast } from 'sonner';
@@ -22,7 +22,7 @@ import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 // weekUtils exports: getWeekRange, getWeekDayDate, formatShortDate, etc.
 // dateUtils exports: getWeekDates, formatRelativeDate, getWeekDayNames only
 
-import { copyToClipboard } from "../../../utils/clipboardUtils";
+import { CopyButton } from "../../shared/CopyButton";
 import { submitPaymentAction } from "../../../services/orders/paymentActionService";
  // 🔥 TIMESTAMP FIX: Use new utility
 import { ModalThreeSections } from '../orders/ModalOrderSections';
@@ -48,7 +48,6 @@ export function SubmitPaymentModal({
   const [order, setOrder] = useState<Order>(initialOrder);
   const [transferPassword, setTransferPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // ✅ FIX: Use modal context hook
   const { openModal } = useModal();
@@ -66,17 +65,12 @@ export function SubmitPaymentModal({
     if (updated) setOrder(updated);
   }, [orders, order.id]);
 
-  // Payment email (hardcoded or from config)
-  const paymentEmail = (import.meta.env.VITE_PAYMENT_EMAIL as string) || "payment@bakery.com";
+  // Where to send the e-transfer: Admin → System Settings → Payment address
+  // (the same value the PDF invoice and payment emails use).
+  const { data: settings } = useCachedSettings();
+  const paymentEmail = ((settings as any)?.paymentAddress || (settings as any)?.businessEmail || '').trim();
   const invoiceNumber = displayInvoiceNumber(order);
 
-  const handleCopyOrderId = async () => {
-    const success = await copyToClipboard(displayOrderNumber(order));
-    if (success) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,23 +157,6 @@ export function SubmitPaymentModal({
           <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
       }
-      headerRight={
-        <div className="hidden sm:flex items-center bg-black/20 rounded px-2 py-1 gap-2">
-          <span className="text-xs text-white/80 font-medium">
-            {displayOrderNumber(order)}
-          </span>
-          <button
-            onClick={handleCopyOrderId}
-            className="hover:text-white text-white/60 transition-colors"
-          >
-            {copied ? (
-              <Check className="size-3" />
-            ) : (
-              <Copy className="size-3" />
-            )}
-          </button>
-        </div>
-      }
     >
       {/* 1. PAYMENT FORM (TOP) */}
       <section className="mb-8 bg-white rounded-xl p-6 border-2 border-[#D4A574] shadow-lg">
@@ -201,9 +178,12 @@ export function SubmitPaymentModal({
           <p className="text-sm text-neutral-600 mb-1">
             E-Transfer Email:
           </p>
-          <p className="text-base font-bold text-[#D4A574]">
-            {paymentEmail}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="min-w-0 [overflow-wrap:anywhere] text-base font-bold text-[#8B6F47]">
+              {paymentEmail || 'Ask the bakery for the e-transfer address'}
+            </p>
+            {paymentEmail && <CopyButton text={paymentEmail} label="E-transfer email" />}
+          </div>
         </div>
 
         <form id="submit-payment-form" onSubmit={handlePaymentSubmit} className="space-y-4">
@@ -212,12 +192,11 @@ export function SubmitPaymentModal({
               <label className="block text-sm font-semibold text-neutral-700 mb-1.5">
                 Order #
               </label>
-              <input
-                type="text"
-                value={invoiceNumber}
-                disabled
-                className="w-full px-4 py-2.5 bg-neutral-100 border border-neutral-300 rounded-lg text-neutral-500 font-medium cursor-not-allowed"
-              />
+              {/* Customers paste this into the e-transfer message */}
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-neutral-50 pl-4 pr-1 py-1">
+                <span className="whitespace-nowrap font-mono text-sm font-semibold tracking-tight text-neutral-800">{invoiceNumber}</span>
+                <CopyButton text={invoiceNumber} label="Order number" />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-semibold text-neutral-700 mb-1.5">

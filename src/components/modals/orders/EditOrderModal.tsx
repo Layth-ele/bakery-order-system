@@ -12,6 +12,7 @@
  * - Navigation to order history
  */
 
+import { displayOrderNumber } from '../../../utils/displayId';
 import type { Order, Product, Category } from "../../../types";
 import { EditOrderPage } from "../../order/EditOrderPage";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
@@ -75,7 +76,7 @@ export function EditOrderModal({
       skinType="warning"
       onClose={onClose}
       title="EDIT ORDER"
-      subtitle={`${order.week || `Week ${order.deliveryWeek}`} • Update quantities and pricing`}
+      subtitle={displayOrderNumber(order)}
       hideBody={true}
       headerLeft={
         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">

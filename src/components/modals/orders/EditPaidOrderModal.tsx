@@ -385,9 +385,9 @@ export function EditPaidOrderModal({
                   </h3>
                 </div>
 
-                {/* Scrolls sideways on phones; 7 day columns need the room */}
+                {/* Only ordered days; scrolls sideways on phones when there are many */}
                 <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-                  <table className="w-full min-w-[560px] text-xs">
+                  <table className={`w-full text-xs ${activeDays.length > 4 ? 'min-w-[560px]' : ''}`}>
                     <thead>
                       <tr className="bg-gradient-to-r from-[#8B6F47] to-[#D4A574] text-white border-b border-[#D4A574]">
                         <th className="px-2 py-2 text-left font-bold">Product</th>
@@ -418,7 +418,7 @@ export function EditPaidOrderModal({
                             className={`hover:bg-[#F5E9D9]/30 ${hasError ? 'bg-red-50' : ''}`}
                           >
                             <td className="px-2 py-2 font-semibold text-[#333333] text-[11px] sm:text-xs">
-                              <div className="max-w-[100px] sm:max-w-none truncate" title={item.productName}>
+                              <div className={`${activeDays.length > 4 ? 'max-w-[100px]' : 'max-w-[160px]'} sm:max-w-none truncate`} title={item.productName}>
                                 {item.productName}
                               </div>
                               {hasError && (
