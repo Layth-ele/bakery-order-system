@@ -199,9 +199,10 @@ export const deleteCustomerAccount = onCall(async (request) => {
 
   // ─── SOFT DELETE PATH (default, recommended) ──────────────────────────────
   if (!hardDelete) {
-    // Disable Auth account so they can't sign in
+    // Disable Auth account so they can't sign in, and end open sessions
     try {
       await getAuth().updateUser(uid, { disabled: true });
+      await getAuth().revokeRefreshTokens(uid);
     } catch (err: any) {
       if (err?.code !== "auth/user-not-found") {
         console.warn("[deleteCustomerAccount] Failed to disable Auth user:", err);
@@ -229,6 +230,9 @@ export const deleteCustomerAccount = onCall(async (request) => {
       hardDelete: false,
       timestamp: FieldValue.serverTimestamp(),
     });
+
+    // A pending registration's admin alert is done once the account is closed.
+    await db.doc(`notifications/admin/items/registration_${uid}`).update({ read: true }).catch(() => undefined);
 
     return { success: true, mode: "archived" };
   }
@@ -346,8 +350,9 @@ export const deleteCustomerAccount = onCall(async (request) => {
     };
   });
 
-  // 4. Finally delete the customer doc itself
+  // 4. Finally delete the customer doc itself (and its registration alert)
   await db.collection("customers").doc(uid).delete();
+  await db.doc(`notifications/admin/items/registration_${uid}`).delete().catch(() => undefined);
 
   // 5. Write audit log (this is the ONLY record that the customer ever existed)
   await db.collection("auditLogs").add({

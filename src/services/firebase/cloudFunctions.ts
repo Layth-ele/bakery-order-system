@@ -377,3 +377,60 @@ export async function requestCreditPayoutViaCloudFunction(
   const fn = httpsCallable<{ creditNoteId: string }, { creditNoteId: string; amount: number }>(functions, "requestCreditPayout");
   return (await fn({ creditNoteId })).data;
 }
+
+// ============================================
+// ACCOUNT ADMINISTRATION
+// ============================================
+
+/** Approve a registration (pending or rejected); the customer is emailed. */
+export async function approveCustomerViaCloudFunction(uid: string): Promise<{ uid: string; email: CallableEmailResult }> {
+  return (await httpsCallable<{ uid: string }, { uid: string; email: CallableEmailResult }>(functions, "approveCustomer")({ uid })).data;
+}
+
+/** Reject a pending registration; sign-in is disabled. */
+export async function rejectCustomerViaCloudFunction(uid: string, reason?: string): Promise<{ uid: string }> {
+  return (await httpsCallable<{ uid: string; reason?: string }, { uid: string }>(functions, "rejectCustomer")({ uid, reason })).data;
+}
+
+/** Suspend (sign-in disabled, sessions ended) or reactivate an account. */
+export async function setCustomerSuspendedViaCloudFunction(
+  uid: string,
+  suspended: boolean,
+  reason?: string
+): Promise<{ uid: string; status: string }> {
+  return (await httpsCallable<{ uid: string; suspended: boolean; reason?: string }, { uid: string; status: string }>(
+    functions,
+    "setCustomerSuspended"
+  )({ uid, suspended, reason })).data;
+}
+
+export interface AdminCreateAccountPayload {
+  email: string;
+  password: string;
+  storeName: string;
+  contactPerson: string;
+  phone: string;
+  storeAddress: string;
+  customerType: 'commercial' | 'individual' | 'admin';
+}
+
+/** Admin "Add account": creates the sign-in and the approved profile. */
+export async function adminCreateAccountViaCloudFunction(
+  payload: AdminCreateAccountPayload
+): Promise<{ uid: string; customerCode: string | null }> {
+  return (await httpsCallable<AdminCreateAccountPayload, { uid: string; customerCode: string | null }>(functions, "adminCreateAccount")(payload)).data;
+}
+
+/**
+ * Archive (default: sign-in disabled, personal details erased, orders kept)
+ * or permanently delete (only accounts with no approved/paid/invoiced orders).
+ */
+export async function deleteCustomerAccountViaCloudFunction(
+  uid: string,
+  hardDelete: boolean
+): Promise<{ success: boolean; mode: 'archived' | 'deleted' }> {
+  return (await httpsCallable<{ uid: string; hardDelete: boolean }, { success: boolean; mode: 'archived' | 'deleted' }>(
+    functions,
+    "deleteCustomerAccount"
+  )({ uid, hardDelete })).data;
+}

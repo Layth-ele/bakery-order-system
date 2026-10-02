@@ -212,7 +212,7 @@ export function AddCustomerModal({
             {/* Password */}
             <div>
               <label className="block text-[#333333] mb-2 text-sm sm:text-base">
-                {isAddingAdmin ? 'Admin Password' : 'Temporary Password'}
+                Temporary Password
               </label>
               <div className="relative">
                 <input
@@ -222,7 +222,8 @@ export function AddCustomerModal({
                     onCustomerChange({ ...newCustomer, password: e.target.value })
                   }
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-[#E8C4A2] rounded-lg focus:outline-none focus:border-[#2196F3] text-sm sm:text-base pr-10"
-                  placeholder="Minimum 6 characters"
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -239,8 +240,8 @@ export function AddCustomerModal({
               </div>
               <p className="text-xs text-[#666666] mt-1">
                 {isAddingAdmin
-                  ? 'Choose a secure password for the admin account'
-                  : 'Customer can change this password after first login'}
+                  ? 'They sign in with this password and can change it under My Profile.'
+                  : 'Share it with the customer privately. They can change it under My Profile.'}
               </p>
             </div>
           </div>

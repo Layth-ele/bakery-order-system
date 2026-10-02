@@ -9,12 +9,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { 
-  normalizePasswordResetError,
-  normalizeLoginError,
-  normalizeRegistrationError,
-} from '../../utils/error/firebaseAuthErrors';
-import {getCustomers, createCustomer, createUserProfile, getCustomerForAuth} from '../dataService'
+import { normalizeLoginError, normalizeRegistrationError } from '../../utils/error/firebaseAuthErrors';
+import {getCustomers, getCustomerForAuth} from '../dataService'
 import { serverTimestamp } from 'firebase/firestore';
 // ✅ FIX H5 (Pass 1): createAdminNotification import removed — registration
 // notification creation moved to createCustomerWithCode Cloud Function.
@@ -317,37 +313,9 @@ export async function register(data: RegisterData, contactEmail: string = 'order
           message: normalizeRegistrationError(error, contactEmail),
         };
       }
-    } else {
-      // ========================================================================
-      // ========================================================================
-      try {
-        await createCustomer({
-          email: (data.email ?? ""),
-          storeName: (data.storeName ?? ""),
-          contactPerson: (data.contactPerson ?? ""),
-          storeAddress: data.storeAddress,
-          phone: (data.phone ?? ""),
-          customerType: data.customerType,
-          status: 'pending',
-          registeredAt: getServerTimestamp() as any,
-        });
-
-        return {
-          success: true,
-          message: 'Registration successful! Your account is pending admin approval.',
-        };
-      } catch (error) {
-
-        const errorMessage = error instanceof Error && (error as any).message
-          ? `Registration failed: ${(error as any).message}\n\nIf this issue persists, please contact us at:\n${contactEmail}`
-          : `Unable to complete registration due to an unexpected error.\n\nPlease try again or contact us at:\n${contactEmail} for assistance.`;
-        
-        return {
-          success: false,
-          message: errorMessage,
-        };
-      }
     }
+
+    return { success: false, message: 'Registration is unavailable right now. Please try again later.' };
   } catch (error) {
     console.error('Registration error:', error);
     

@@ -1,14 +1,19 @@
+/**
+ * Customer Management actions (Admin → Customers).
+ *
+ * Status changes run on the server so the Firebase sign-in always matches the
+ * account status (functions/src/accountAdmin.ts, customers.ts):
+ *   Suspend / Reactivate → setCustomerSuspended
+ *   Archive / Delete      → deleteCustomerAccount
+ * Edit writes only the profile fields the form shows.
+ */
 import { useState, useCallback } from 'react';
 import { useModal } from '../../contexts/ModalContextNew';
+import { useAlert } from '../../contexts/AlertContext';
 import { useRequireAdmin } from '../../guards/adminGuards';
 import { invalidateCache } from '../useCachedFirebase';
-import {
-  updateCustomer,
-  isCustomerSuspended,
-  archiveCustomer,
-  unarchiveCustomer,
-  deleteCustomerFromStorage,
-} from '../../services/customersService';
+import { updateCustomer, deleteCustomer, isCustomerSuspended } from '../../services/customersService';
+import { callableErrorMessage, setCustomerSuspendedViaCloudFunction } from '../../services/firebase/cloudFunctions';
 import { copyToClipboard } from '../../utils/clipboardUtils';
 import { resetPassword as sendPasswordResetLink } from '../../services/firebase/authService';
 import { toast } from 'sonner';
@@ -19,10 +24,7 @@ interface UseCustomerActionsProps { user: User; }
 
 interface CustomerActions {
   copiedAddress: string | null;
-  notification: string;
-  notificationType: 'success' | 'error';
-  clearNotification: () => void;
-  handleToggleSuspend: (customer: Customer) => Promise<void>;
+  handleToggleSuspend: (customer: Customer) => void;
   handleEditCustomer: (customer: Customer) => void;
   handleDeleteCustomer: (customer: Customer) => void;
   handleResetPassword: (customer: Customer) => Promise<void>;
@@ -30,29 +32,36 @@ interface CustomerActions {
   handleRefresh: () => void;
 }
 
+const nameOf = (c: Customer) => c.storeName || c.contactPerson || c.email || 'this account';
+
 export function useCustomerActions({ user }: UseCustomerActionsProps): CustomerActions {
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const [notification, setNotification] = useState('');
-  const [notificationType, setNotificationType] = useState<'success' | 'error'>('success');
   const { openModal, closeModal } = useModal();
+  const { showAlert } = useAlert();
   const checkAdmin = useRequireAdmin(user);
 
-  const handleToggleSuspend = useCallback(async (customer: Customer) => {
+  const handleToggleSuspend = useCallback((customer: Customer) => {
     if (!checkAdmin('customer-action')) { toast.error('Permission denied'); return; }
-    try {
-      const customerWithId = customer as User;
-      const wasSuspended = isCustomerSuspended(customerWithId);
-      const updated = await (wasSuspended
-        ? unarchiveCustomer(customerWithId.id)
-        : archiveCustomer(customerWithId.id));
-      await invalidateCache.customers();
-      // archiveCustomer() sets status:'archived', not 'suspended' — isCustomerSuspended()
-      // treats both as suspended, so check that instead of the literal status string.
-      toast.success(isCustomerSuspended(updated as User) ? '🔒 Account suspended' : '🔓 Account activated', { duration: 3000 });
-    } catch (error) {
-      toast.error((error as any)?.code === 'permission-denied' ? 'Permission denied' : 'Failed to update status');
-    }
-  }, [checkAdmin]);
+    const suspend = !isCustomerSuspended(customer as User);
+    showAlert({
+      title: suspend ? 'Suspend Account' : 'Reactivate Account',
+      message: suspend
+        ? `Suspend ${nameOf(customer)}?\n\nThey are signed out and can't sign in or order until you reactivate the account. Orders and history are kept.`
+        : `Reactivate ${nameOf(customer)}?\n\nThey can sign in and order again.`,
+      icon: suspend ? 'warning' : 'info',
+      confirmText: suspend ? 'SUSPEND' : 'REACTIVATE',
+      cancelText: 'CANCEL',
+      onConfirm: async () => {
+        try {
+          await setCustomerSuspendedViaCloudFunction(customer.id, suspend);
+          await invalidateCache.customers();
+          toast.success(suspend ? `🔒 ${nameOf(customer)} suspended` : `🔓 ${nameOf(customer)} reactivated`);
+        } catch (error) {
+          toast.error(callableErrorMessage(error, suspend ? 'suspend the account' : 'reactivate the account'));
+        }
+      },
+    });
+  }, [checkAdmin, showAlert]);
 
   const handleEditCustomer = useCallback((customer: Customer) => {
     if (!checkAdmin('customer-action')) { toast.error('Permission denied'); return; }
@@ -60,21 +69,23 @@ export function useCustomerActions({ user }: UseCustomerActionsProps): CustomerA
       customer,
       onClose: closeModal,
       onCancel: closeModal,
-      onSave: async (updatedCustomer: Customer) => {
+      onSave: async (edited: Customer) => {
         try {
-          // ✅ PASS 6: id is already in updatedCustomer; the explicit `id:` field was overwritten and triggered TS2783.
-          await updateCustomer(updatedCustomer);
+          // Only the fields the form edits — status, type and code have their own actions.
+          await updateCustomer({
+            id: customer.id,
+            storeName: edited.storeName ?? '',
+            contactPerson: edited.contactPerson ?? '',
+            phone: edited.phone ?? '',
+            storeAddress: edited.storeAddress ?? '',
+          } as any);
           await invalidateCache.customers();
           closeModal();
-          toast.success('✅ Customer updated successfully!', {
-            description: `${updatedCustomer.storeName || updatedCustomer.contactPerson || 'Customer'} has been saved.`,
-            duration: 4000,
-          });
-          setNotificationType('success');
-          setNotification('✅ Customer updated successfully!');
-          setTimeout(() => setNotification(''), 3000);
+          toast.success('Customer updated', { description: `${nameOf(edited)} has been saved.` });
         } catch (error) {
-          toast.error('Failed to update customer. Please try again.');
+          toast.error((error as any)?.code === 'permission-denied'
+            ? "You don't have permission to edit this account."
+            : 'Failed to save the changes. Please try again.');
         }
       },
     });
@@ -83,23 +94,18 @@ export function useCustomerActions({ user }: UseCustomerActionsProps): CustomerA
   const handleDeleteCustomer = useCallback((customer: Customer) => {
     if (!checkAdmin('customer-action')) { toast.error('Permission denied'); return; }
     openModal('DELETE_CUSTOMER', {
-      customer: customer,
+      customer,
       onClose: closeModal,
       onCancel: closeModal,
-      onConfirm: async (customerToDelete: Customer, archiveOnly: boolean) => {
+      onConfirm: async (target: Customer, archiveOnly: boolean) => {
         try {
-          if (archiveOnly) {
-            await archiveCustomer(customerToDelete.id);
-            toast.success('📦 Customer archived successfully');
-          } else {
-            await deleteCustomerFromStorage(customerToDelete.id);
-            toast.success('🗑️ Customer deleted permanently');
-          }
-          await invalidateCache.customers();
+          const mode = await deleteCustomer(target.id, !archiveOnly);
+          toast.success(mode === 'deleted'
+            ? `🗑️ ${nameOf(target)} deleted permanently`
+            : `📦 ${nameOf(target)} archived — sign-in disabled, orders kept`);
           closeModal();
         } catch (error: any) {
-          console.error('Delete customer error:', error);
-          toast.error(error?.message || 'Failed to delete customer');
+          toast.error(error?.message || 'Failed to delete the account', { duration: 8000 });
         }
       },
     });
@@ -107,33 +113,24 @@ export function useCustomerActions({ user }: UseCustomerActionsProps): CustomerA
 
   const handleResetPassword = useCallback(async (customer: Customer) => {
     if (!checkAdmin('customer-action')) { toast.error('Permission denied'); return; }
-    if (!customer.email) { toast.error('Customer has no email address'); return; }
-    if (customer.email === (import.meta.env.VITE_ADMIN_EMAIL || 'admin@bakery.com')) {
-      toast.error('Cannot reset admin password through this interface'); return;
-    }
+    if (!customer.email) { toast.error('This account has no email address'); return; }
     try {
-      // FIX: sendPasswordResetEmail() with no actionCodeSettings uses Firebase's
-      // default action URL, which doesn't route into this app's ResetPasswordPage —
-      // the customer's email link just landed on the home page. resetPassword()
-      // sets actionCodeSettings.url to `${origin}/reset-password` correctly.
       const result = await sendPasswordResetLink(customer.email);
-      if (!result.success) {
-        toast.error(result.message);
-        return;
-      }
-      toast.success(
-        `📧 Password reset email sent to ${customer.email}. The customer will receive a link to set a new password.`,
-        { duration: 8000 }
-      );
-    } catch (error: any) {
-      console.error('Password reset error:', error);
-      toast.error('Failed to send password reset email. Please try again.');
+      if (!result.success) { toast.error(result.message); return; }
+      toast.success(`📧 Password reset email sent to ${customer.email}`, {
+        description: 'The link lets them choose a new password.',
+        duration: 8000,
+      });
+    } catch {
+      toast.error('Failed to send the password reset email. Please try again.');
     }
   }, [checkAdmin]);
 
   const handleCopyAddress = useCallback(async (address: string) => {
-    const success = await copyToClipboard(address);
-    if (success) { setCopiedAddress(address); setTimeout(() => setCopiedAddress(null), 2000); }
+    if (await copyToClipboard(address)) {
+      setCopiedAddress(address);
+      setTimeout(() => setCopiedAddress(null), 2000);
+    }
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -144,8 +141,7 @@ export function useCustomerActions({ user }: UseCustomerActionsProps): CustomerA
   }, []);
 
   return {
-    copiedAddress, notification, notificationType,
-    clearNotification: () => setNotification(''),
+    copiedAddress,
     handleToggleSuspend, handleEditCustomer, handleDeleteCustomer,
     handleResetPassword, handleCopyAddress, handleRefresh,
   };

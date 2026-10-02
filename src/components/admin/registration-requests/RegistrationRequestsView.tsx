@@ -13,9 +13,9 @@ import {
   Mail,
   Phone,
   MapPin,
-  Lock
+  Lock,
+  Clock
 } from 'lucide-react';
-import { ToastNotification } from '../../ToastNotification';
 import { StatCard } from '../../shared/StatCard';
 import { AddCustomerModal } from './AddCustomerModal';
 import { AdminPageLayout } from '../AdminPageLayout';
@@ -32,10 +32,10 @@ import type {
 export interface RegistrationRequestsViewProps {
   // Data
   pendingRegistrations: PendingRegistration[];
+  rejectedRegistrations: PendingRegistration[];
   stats: AccountStats;
   
   // UI state
-  notification: string;
   showAddCustomer: boolean;
   isAddingAdmin: boolean;
   newCustomer: NewCustomer;
@@ -44,8 +44,7 @@ export interface RegistrationRequestsViewProps {
   // Actions
   onAddAccount: () => void;
   onApprove: (registration: PendingRegistration) => void;
-  onReject: (registrationId: string) => void;
-  onCloseNotification: () => void;
+  onReject: (registration: PendingRegistration) => void;
   
   // Modal actions
   onCloseAddCustomer: () => void;
@@ -65,8 +64,8 @@ export interface RegistrationRequestsViewProps {
 
 export function RegistrationRequestsView({
   pendingRegistrations: allPendingRegistrations,
+  rejectedRegistrations,
   stats,
-  notification,
   showAddCustomer,
   isAddingAdmin,
   newCustomer,
@@ -74,7 +73,6 @@ export function RegistrationRequestsView({
   onAddAccount,
   onApprove,
   onReject,
-  onCloseNotification,
   onCloseAddCustomer,
   onSaveCustomer,
   onCustomerChange,
@@ -124,30 +122,21 @@ export function RegistrationRequestsView({
       sectionTitle="Accounts Overview"
       onRefresh={undefined}
     >
-      {/* Notification - Portal-based, always visible in viewport */}
-      {notification && (
-        <ToastNotification
-          message={notification}
-          onClose={onCloseNotification}
-        />
-      )}
-
-      {/* Action button kept as page-level CTA while shell remains shared */}
       <div className="mb-4 flex justify-end">
         <button
           onClick={onAddAccount}
-          className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#D4A574] to-[#D4A574] text-white font-medium rounded-lg hover:shadow-md transition-all flex-shrink-0"
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#8B6F47] to-[#D4A574] px-4 py-2 font-semibold text-white shadow-sm transition-all hover:shadow-md active:scale-95"
         >
-          <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span className="hidden sm:inline">Add Account</span>
+          <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
+          <span>Add Account</span>
         </button>
       </div>
 
-      {/* Statistics Cards - Shared StatCard component */}
+      {/* Counts — same definitions as Customer Management */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5">
-        <StatCard icon={Building2} label="Commercial" value={stats.commercialCount} color="orange" />
-        <StatCard icon={User}      label="Individuals" value={stats.individualCount} color="blue" />
-        <StatCard icon={Lock}      label="Admins"      value={stats.adminCount}      color="green" />
+        <StatCard icon={Clock} label="Pending" value={stats.pending} color="orange" />
+        <StatCard icon={User} label="Active" value={stats.active} color="green" />
+        <StatCard icon={Lock} label="Admins" value={stats.admins} color="teal" />
       </div>
 
       {/* Account Requests List */}
@@ -158,7 +147,7 @@ export function RegistrationRequestsView({
           </h2>
         </div>
 
-        <div className="p-6">
+        <div className="p-3 sm:p-6">
           {allPendingRegistrations.length === 0 ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 rounded-full bg-[#E8C4A2] bg-opacity-30 flex items-center justify-center mx-auto mb-4">
@@ -176,9 +165,9 @@ export function RegistrationRequestsView({
               {pendingRegistrations.map((registration) => (
                 <div
                   key={registration.id}
-                  className="border-2 border-[#E8C4A2] rounded-lg p-6 hover:border-[#D4A574] transition-colors bg-gradient-to-br from-white to-[#F5E9D9]"
+                  className="border-2 border-[#E8C4A2] rounded-xl p-4 sm:p-6 hover:border-[#D4A574] transition-colors bg-gradient-to-br from-white to-[#F5E9D9]"
                 >
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-4">
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -279,7 +268,7 @@ export function RegistrationRequestsView({
                       Approve & Activate
                     </button>
                     <button
-                      onClick={() => onReject(registration.id)}
+                      onClick={() => onReject(registration)}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#F44336] text-white rounded-xl hover:bg-[#da190b] active:scale-95 transition-all shadow-md font-semibold text-sm tracking-wide"
                     >
                       <XCircle className="w-4 h-4 flex-shrink-0" />
@@ -305,6 +294,31 @@ export function RegistrationRequestsView({
           )}
         </div>
       </div>
+
+      {/* Rejected requests — approve here if one was rejected by mistake */}
+      {rejectedRegistrations.length > 0 && (
+        <details className="mt-5 rounded-xl border-2 border-neutral-200 bg-white shadow-sm">
+          <summary className="cursor-pointer select-none px-5 py-3.5 text-sm font-bold uppercase tracking-widest text-neutral-600">
+            Rejected requests ({rejectedRegistrations.length})
+          </summary>
+          <ul className="divide-y divide-neutral-100 px-5 pb-3">
+            {rejectedRegistrations.map((r) => (
+              <li key={r.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-neutral-800">{r.storeName}</p>
+                  <p className="truncate text-sm text-neutral-500">{r.contactPerson} · {r.email}</p>
+                </div>
+                <button
+                  onClick={() => onApprove(r)}
+                  className="flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-[#4CAF50] px-4 py-2 text-sm font-semibold text-white hover:bg-[#45a049]"
+                >
+                  <CheckCircle className="h-4 w-4" /> Approve
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {/* Add Customer Modal */}
       <AddCustomerModal

@@ -74,7 +74,7 @@ export function normalizeAuthError(error: unknown): string {
     // ACCOUNT STATUS ERRORS
     // ========================================================================
     case "auth/user-disabled":
-      return "This account has been disabled. Please contact support.";
+      return "This account isn't active — it may be suspended, not approved, or closed. Please contact the bakery.";
     
     case "auth/account-exists-with-different-credential":
       return "An account already exists with this email using a different sign-in method.";

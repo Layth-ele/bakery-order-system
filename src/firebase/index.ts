@@ -38,12 +38,9 @@ export {
   type CreditNote,
   
   // Customer operations
-  createCustomer,
   updateCustomer,
-  deleteCustomer,
   getCustomer,
   getCustomers,
-  createUserProfile,
   subscribeToCustomer,
   subscribeToCustomers,
   

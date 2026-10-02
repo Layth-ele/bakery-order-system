@@ -317,6 +317,77 @@ async function main() {
     assert.equal(adm.filter((n) => n.type === 'NEW_REGISTRATION').length, 1);
   });
 
+  console.log('\n15. Account administration');
+  const regUid = cred.user.uid;
+  const authUser = async (uid) => adminAuth.getUser(uid).catch(() => null);
+  const prof = async (uid) => (await db.doc(`customers/${uid}`).get()).data();
+
+  await admin.call('rejectCustomer', { uid: regUid, reason: 'Outside delivery area' });
+  check('reject: status rejected, sign-in disabled, registration alert resolved', async () => {});
+  assert.equal((await prof(regUid)).status, 'rejected');
+  assert.equal((await authUser(regUid)).disabled, true);
+  assert.equal((await db.doc(`notifications/admin/items/registration_${regUid}`).get()).data().read, true);
+  await admin.fails('rejectCustomer', { uid: regUid }, /failed-precondition/);
+  check('a rejected request cannot be rejected twice', () => {});
+
+  const ap2 = await admin.call('approveCustomer', { uid: regUid });
+  const regProfile = await prof(regUid);
+  check('approve (undo the rejection): approved, sign-in enabled, code kept, email attempted', () => {
+    assert.equal(regProfile.status, 'approved');
+    assert.match(regProfile.customerCode, /^CUST-/);
+    assert.equal(ap2.email.state, 'skipped');
+  });
+  assert.equal((await authUser(regUid)).disabled, false);
+
+  await admin.call('setCustomerSuspended', { uid: CUST.uid, suspended: true });
+  check('suspend: status suspended and sign-in really disabled', async () => {});
+  assert.equal((await prof(CUST.uid)).status, 'suspended');
+  assert.equal((await authUser(CUST.uid)).disabled, true);
+  await cust.fails('placeOrder', { requestId: reqId(), week, year, items: [{ productId: 'cake', quantities: { ...zero, friday: 1 } }] }, /permission-denied/);
+  check('a suspended customer cannot order (even with a session still open)', () => {});
+  await admin.call('setCustomerSuspended', { uid: CUST.uid, suspended: false });
+  assert.equal((await prof(CUST.uid)).status, 'approved');
+  assert.equal((await authUser(CUST.uid)).disabled, false);
+  check('reactivate: approved and sign-in enabled again', () => {});
+  await admin.fails('setCustomerSuspended', { uid: ADMIN.uid, suspended: true }, /own account/);
+  check('admins cannot suspend themselves', () => {});
+  await cust.fails('setCustomerSuspended', { uid: regUid, suspended: true }, /permission-denied/);
+  check('customers cannot suspend anyone', () => {});
+
+  const created = await admin.call('adminCreateAccount', {
+    email: 'Walkin@Cafe.test', password: 'temp-pass-123', storeName: 'Walk-in Cafe', contactPerson: 'Lee',
+    phone: '604-555-0111', storeAddress: '9 Main St', customerType: 'commercial',
+  });
+  const createdProfile = await prof(created.uid);
+  check('admin "Add account": approved profile with a customer ID, email lowercased', () => {
+    assert.equal(createdProfile.status, 'approved');
+    assert.equal(createdProfile.email, 'walkin@cafe.test');
+    assert.match(created.customerCode, /^CUST-/);
+  });
+  const walkin = await clientFor('walkin@cafe.test', 'temp-pass-123');
+  check('the new customer can sign in with the temporary password', () => assert.ok(walkin.auth.currentUser));
+  await deleteApp(walkin.app);
+  await admin.fails('adminCreateAccount', { email: 'walkin@cafe.test', password: 'another-pass-1', storeName: 'X', contactPerson: 'Y', phone: '1', storeAddress: '2', customerType: 'individual' }, /already exists/);
+  check('a duplicate email is refused', () => {});
+
+  const del = await admin.call('deleteCustomerAccount', { uid: created.uid, hardDelete: true });
+  check('permanent delete of an account with no orders removes profile and sign-in', async () => {});
+  assert.equal(del.mode, 'deleted');
+  assert.equal((await db.doc(`customers/${created.uid}`).get()).exists, false);
+  assert.equal(await authUser(created.uid), null);
+  await admin.fails('deleteCustomerAccount', { uid: CUST.uid, hardDelete: true }, /retained|invoiced|approval/);
+  check('permanent delete is refused for a customer with paid/invoiced orders', () => {});
+  const arc = await admin.call('deleteCustomerAccount', { uid: regUid });
+  const archived = await prof(regUid);
+  check('archive: sign-in disabled, personal details erased, status archived', () => {
+    assert.equal(arc.mode, 'archived');
+    assert.equal(archived.status, 'archived');
+    assert.match(archived.email, /@deleted\.invalid$/);
+  });
+  assert.equal((await authUser(regUid)).disabled, true);
+  await admin.fails('approveCustomer', { uid: regUid }, /archived/);
+  check('an archived account cannot be re-approved', () => {});
+
   await deleteApp(admin.app);
   await deleteApp(cust.app);
   console.log(`\n✅ ${passed} end-to-end checks passed`);

@@ -48,10 +48,7 @@ export type {
 export {
   getCustomers,
   getCustomer,
-  createCustomer,
-  createUserProfile,
   updateCustomer,
-  deleteCustomer,
   subscribeToCustomer,
   subscribeToCustomers,
 } from './customers';
