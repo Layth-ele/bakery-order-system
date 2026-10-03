@@ -87,6 +87,7 @@ export {
   getOrdersByCustomer,
   subscribeToOrders,
   subscribeToCustomerOrders,
+  subscribeToOrderList,
   subscribeToOrder,
 } from './orders';
 

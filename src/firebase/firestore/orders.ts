@@ -275,6 +275,34 @@ export const getOrdersByCustomer = async (customerId: string): Promise<Order[]> 
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
+ * Live order list (the app's screens stay in step with the server):
+ *   { customerId }        a customer's own orders (allowed by the rules)
+ *   { activeOnly: true }  pending / approved / in_process (admin)
+ *   { limit: n }          newest n orders (admin)
+ * Schema-validated like every other read.
+ */
+export const subscribeToOrderList = (
+  opts: { customerId?: string; activeOnly?: boolean; limit?: number },
+  callback: (orders: Order[]) => void,
+  errorCallback?: (error: Error) => void
+): (() => void) => {
+  const parts = [
+    ...(opts.customerId ? [where('customerId', '==', opts.customerId)] : []),
+    ...(opts.activeOnly ? [where('status', 'in', ['pending', 'approved', 'in_process'])] : []),
+    orderBy('createdAt', 'desc'),
+    ...(opts.limit ? [limit(opts.limit)] : []),
+  ];
+  return onSnapshot(
+    query(collection(db, 'orders'), ...parts),
+    (snapshot) => {
+      const raw = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() ?? {}) }));
+      callback(parseArrayPartial(orderSchema, raw, 'Order'));
+    },
+    (error) => errorCallback?.(error)
+  );
+};
+
+/**
  * Subscribe to all orders (real-time)
  * ✅ VALIDATED: All order documents are validated
  */

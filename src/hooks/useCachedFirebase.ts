@@ -12,6 +12,7 @@ import {
   subscribeToProducts,
   subscribeToOrders,
   subscribeToCustomerOrders,
+  subscribeToOrderList,
   subscribeToSettings,
 } from '../firebase/firestore';
 import {
@@ -187,6 +188,44 @@ export const useCachedCustomer = (customerId: string | null) => {
   });
 };
 
+
+// ─── Live order lists ──────────────────────────────────────────────────────
+// Each list keeps ONE Firestore listener (shared by every screen using it)
+// that writes server changes straight into the query cache, so tabs, badges
+// and totals update the moment an order changes — on every device.
+const liveOrderLists = new Map<string, { count: number; unsub: () => void }>();
+
+function useLiveOrderList(
+  key: readonly unknown[],
+  opts: { customerId?: string; activeOnly?: boolean; limit?: number } | null
+): void {
+  const qc = useQueryClient();
+  const id = opts ? JSON.stringify(key) : '';
+  useEffect(() => {
+    if (!opts) return;
+    const existing = liveOrderLists.get(id);
+    if (existing) existing.count += 1;
+    else {
+      const unsub = subscribeToOrderList(
+        opts,
+        (orders) => qc.setQueryData(key, orders),
+        () => { /* signed out / permission change — the one-shot query still works */ }
+      );
+      liveOrderLists.set(id, { count: 1, unsub });
+    }
+    return () => {
+      const entry = liveOrderLists.get(id);
+      if (!entry) return;
+      entry.count -= 1;
+      if (entry.count <= 0) {
+        entry.unsub();
+        liveOrderLists.delete(id);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+}
+
 /**
  * Cached hook for all orders
  * Only fetches if cache is stale (>2 minutes)
@@ -201,6 +240,7 @@ export const useCachedOrders = (
   limitCount: number = 100,
   options?: { refetchInterval?: number }
 ) => {
+  useLiveOrderList([...QUERY_KEYS.orders, limitCount], enabled ? { limit: limitCount } : null);
   return useQuery<Order[]>({
     queryKey: [...QUERY_KEYS.orders, limitCount],
     queryFn: async () => {
@@ -245,6 +285,7 @@ export const useCachedOrders = (
  * Use this everywhere production planning or badge counts are needed.
  */
 export const useCachedActiveOrders = (enabled: boolean = true) => {
+  useLiveOrderList(['orders', 'active'], enabled ? { activeOnly: true } : null);
   return useQuery<Order[]>({
     queryKey: ['orders', 'active'],
     queryFn: () => getActiveOrders(),
@@ -274,6 +315,7 @@ export const useCachedActiveOrders = (enabled: boolean = true) => {
  * the right fix is to use a real one-shot reader: getOrdersByCustomer.
  */
 export const useCachedCustomerOrders = (customerId: string | null, options?: { refetchInterval?: number }) => {
+  useLiveOrderList(customerId ? QUERY_KEYS.customerOrders(customerId) : ['orders', 'customer', 'null'], customerId ? { customerId } : null);
   return useQuery<Order[]>({
     queryKey: customerId ? QUERY_KEYS.customerOrders(customerId) : ['orders', 'customer', 'null'],
     queryFn: async () => {
@@ -394,10 +436,42 @@ export const useCachedSettings = () => {
  * - refetchOnWindowFocus: true so customer sees admin-side credit changes on tab focus
  * - Supports refetchInterval for background polling (CreditBalanceWidget uses 60s)
  */
+const liveCredit = new Map<string, { count: number; unsub: () => void }>();
+const spendable = (notes: Array<{ status?: string; payoutRequested?: boolean; remainingBalance?: number; amount?: number }>) =>
+  notes
+    .filter((note) => (note.status === 'available' || note.status === 'partially_used') && !note.payoutRequested)
+    .reduce((sum, note) => sum + (note.remainingBalance ?? (note.amount ?? 0)), 0);
+
 export const useCachedCreditBalance = (
   customerId: string | null,
   options?: { refetchInterval?: number }
 ) => {
+  // Live: credit issued / used / paid out shows up immediately (one shared listener).
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!customerId) return;
+    const existing = liveCredit.get(customerId);
+    if (existing) existing.count += 1;
+    else {
+      let unsub = () => {};
+      import('../firebase/firestore').then(({ subscribeToCreditNotes }) => {
+        const entry = liveCredit.get(customerId);
+        if (!entry) return;
+        unsub = subscribeToCreditNotes(customerId, (notes) =>
+          qc.setQueryData(QUERY_KEYS.creditBalance(customerId), spendable(notes as any))
+        );
+        entry.unsub = unsub;
+      });
+      liveCredit.set(customerId, { count: 1, unsub: () => unsub() });
+    }
+    return () => {
+      const entry = liveCredit.get(customerId);
+      if (!entry) return;
+      entry.count -= 1;
+      if (entry.count <= 0) { entry.unsub(); liveCredit.delete(customerId); }
+    };
+  }, [customerId, qc]);
+
   return useQuery<number>({
     queryKey: customerId ? QUERY_KEYS.creditBalance(customerId) : ['credit', 'balance', 'null'],
     queryFn: async () => {
@@ -407,11 +481,7 @@ export const useCachedCreditBalance = (
       const { getCreditNotes } = await import('../firebase/firestore');
       const creditNotes = await getCreditNotes(customerId);
       
-      // Calculate available credit from credit notes
-      const availableCredit = creditNotes
-        .filter((note) => (note.status === 'available' || note.status === 'partially_used') && !note.payoutRequested)
-        .reduce((sum, note) => sum + (note.remainingBalance ?? (note.amount ?? 0)), 0);
-      return availableCredit;
+      return spendable(creditNotes as any);
     },
     staleTime: 0, // Always re-fetch when invalidated — credit balance must be up-to-date
     gcTime: 30 * 60 * 1000, // 30 minutes in memory

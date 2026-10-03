@@ -259,14 +259,19 @@ export function OrderRow({
                   )}
                   {order.status === 'approved' && (
                     order.paymentSubmitted ? (
-                      <div className="text-[#FF9800] font-bold text-sm leading-tight uppercase">
-                        Waiting
+                      <div className="text-[#2563EB] font-bold text-sm leading-tight uppercase">
+                        Payment in review
                       </div>
                     ) : (
                       <div className="text-[#F44336] font-bold text-sm leading-tight uppercase">
-                        Payment
+                        Payment due
                       </div>
                     )
+                  )}
+                  {order.status === 'in_process' && (
+                    <div className="text-[#16A34A] font-bold text-sm leading-tight uppercase">
+                      Paid · In production
+                    </div>
                   )}
                   {order.status === 'rejected' && (
                     <div className="text-neutral-600 font-bold text-sm leading-tight uppercase">
@@ -281,11 +286,6 @@ export function OrderRow({
                   {order.status === 'completed' && (
                     <div className="text-[#4CAF50] font-bold text-sm leading-tight uppercase">
                       Completed
-                    </div>
-                  )}
-                  {order.status === 'in_process' && (
-                    <div className="text-[#2196F3] font-bold text-sm leading-tight uppercase">
-                      Production
                     </div>
                   )}
                 </div>
@@ -546,12 +546,12 @@ export function OrderRow({
                   // Payment has been submitted, waiting for admin confirmation
  // Updated badge text for customer clarity
                   <span className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#FF9800] to-[#F57C00] text-white text-sm font-bold uppercase shadow-sm whitespace-nowrap block">
-                    ⏳ WAITING CONFIRM PAYMENT
+                    ⏳ PAYMENT IN REVIEW
                   </span>
                 ) : (
                   // Payment not yet submitted
                   <span className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#F44336] to-[#D32F2F] text-white text-sm font-bold uppercase shadow-sm whitespace-nowrap block">
-                    💰 WAITING PAYMENT
+                    💰 PAYMENT DUE
                   </span>
                 )
               )}
