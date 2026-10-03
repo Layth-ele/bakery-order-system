@@ -15,9 +15,11 @@ interface MyProfileProps {
   user: any;
   onProfileUpdate: (updatedUser: any) => void;
   onNavigateBack?: () => void;
+  /** Opens the Bakery Policies page. */
+  onOpenPolicies?: () => void;
 }
 
-export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfileProps): JSX.Element | null {
+export function MyProfile({ user, onProfileUpdate, onNavigateBack, onOpenPolicies }: MyProfileProps): JSX.Element | null {
   const { showAlert } = useAlert();
   
   // Profile fields
@@ -238,6 +240,20 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack }: MyProfilePr
       onRefresh={handleRefresh}
       isRefreshing={isRefreshing}
     >
+      {onOpenPolicies && (
+        <button
+          type="button"
+          onClick={onOpenPolicies}
+          className="mb-4 w-full flex items-center justify-between gap-3 rounded-xl border-2 border-[#D4A574]/40 bg-[#FFF8EE] px-4 py-3 text-left hover:bg-[#FFF1DE] transition-colors"
+        >
+          <span>
+            <span className="block font-semibold text-[#2d2416]">Bakery Policies</span>
+            <span className="block text-xs text-[#5a4535]">Ordering cutoff, payment, delivery, charges, cancellations and store credit</span>
+          </span>
+          <span className="text-[#8B6F47] font-bold">→</span>
+        </button>
+      )}
+
       {/* Profile Information Card */}
       <Card className="bg-white backdrop-blur-sm border-[#D4A574]/30 shadow-lg border-2 mb-6">
         <CardHeader>

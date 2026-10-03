@@ -22,6 +22,8 @@ export enum DashboardTab {
   OUTSTANDING = "outstanding",
   ORDER_INVOICES = "order-invoices",
   MY_PROFILE = "my-profile",
+  /** Bakery Policies page (linked from Profile, Active, Unpaid). */
+  POLICIES = "policies",
 }
 
 /**

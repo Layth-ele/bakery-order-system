@@ -28,7 +28,8 @@ import {
 import { useSystemSettingsData } from '../../../hooks/admin/useSystemSettingsData';
 import { ModalThreeSections } from './ModalOrderSections';
 import { displayOrderNumber } from '../../../utils/displayId';
-import { resolveTaxRate } from '../../../functions/src/lib/settingsValues';
+import { resolvePolicy, resolveTaxRate } from '../../../functions/src/lib/settingsValues';
+import { deliveryNoon } from '../../../functions/src/lib/orderPlacement';
 
 interface CancelOrderModalProps {
   onClose: () => void;
@@ -58,7 +59,14 @@ export function CancelOrderModal({
   const [selectedDays, setSelectedDays] = useState<Set<DayKey>>(new Set());
   // Load system settings for default fee % and policy text
   const { settings } = useSystemSettingsData();
-  const defaultFeePercent = (settings?.cancellationFeePercent as number | undefined) ?? 0;
+  // Late-fee rule from Settings: a paid order's day cancelled inside the
+  // notice window (hours before that day's noon) gets the late fee.
+  const policy = resolvePolicy((settings ?? null) as Record<string, unknown> | null);
+  const lateDays = [...selectedDays].filter(
+    (d) => deliveryNoon(Number(order.year), Number(order.week), d as any).getTime() - Date.now() < policy.cancellationNoticeHours * 3_600_000
+  );
+  const isPaidOrder = (order as any).paymentReceived === true;
+  const defaultFeePercent = isPaidOrder && lateDays.length > 0 ? policy.lateCancellationFeePercent : 0;
   const cancellationPolicyText = (settings?.cancellationPolicy as string | undefined) || '';
   const lateCancellationFeeText = (settings?.lateCancellationFee as string | undefined) || '';
 
@@ -72,9 +80,8 @@ export function CancelOrderModal({
   // still the initial 0).  Subsequent refetches do not clobber edits.
   const hasUserEditedFeeRef = useRef(false);
   useEffect(() => {
-    if (!hasUserEditedFeeRef.current && defaultFeePercent > 0) {
-      setCancellationFeePercentage(defaultFeePercent);
-    }
+    // Follow the policy (as days are picked) until the admin types a fee.
+    if (!hasUserEditedFeeRef.current) setCancellationFeePercentage(defaultFeePercent);
   }, [defaultFeePercent]);
 
   // Wrap setter so any user interaction marks the field as edited.
@@ -410,6 +417,15 @@ export function CancelOrderModal({
                       />
                       <span className="text-sm text-neutral-700">% of refund amount</span>
                     </div>
+                    <p className="text-[11px] mt-1 font-medium text-neutral-800">
+                      {!isPaidOrder
+                        ? 'Not paid yet — no fee applies.'
+                        : selectedDays.size === 0
+                          ? `Policy: cancel at least ${policy.cancellationNoticeHours} h before delivery; later cancellations: ${policy.lateCancellationFeePercent}% fee.`
+                          : lateDays.length > 0
+                            ? `Late cancellation (within ${policy.cancellationNoticeHours} h of delivery) — policy fee ${policy.lateCancellationFeePercent}%.`
+                            : `On time (more than ${policy.cancellationNoticeHours} h before delivery) — no fee by policy.`}
+                    </p>
                     <p className="text-[11px] text-neutral-600 mt-1">
                       {defaultFeePercent > 0
                         ? <>Default fee: <strong>{defaultFeePercent}%</strong>{lateCancellationFeeText ? <> · {lateCancellationFeeText}</> : null} · Enter 0 for no fee, or up to 100%.</>

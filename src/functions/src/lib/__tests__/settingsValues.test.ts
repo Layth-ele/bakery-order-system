@@ -7,6 +7,7 @@ import {
   resolveTaxRate,
   resolveFreeDeliveryMin,
   isFreeDeliveryEnabled,
+  resolvePolicy,
   DEFAULT_TAX_RATE,
   DEFAULT_FREE_DELIVERY_MIN,
 } from '../settingsValues';
@@ -56,5 +57,28 @@ describe('free delivery switch', () => {
   it('on → the minimum applies; settings saved before the switch count as on', () => {
     expect(resolveFreeDeliveryMin({ freeDeliveryEnabled: true, freeDeliveryMin: 500 })).toBe(500);
     expect(isFreeDeliveryEnabled({ freeDeliveryMin: 300 })).toBe(true);
+  });
+});
+
+describe('bakery policy timings', () => {
+  it('defaults: 48 h order cutoff, payment due = cutoff, 24 h free cancellation, no fee', () => {
+    expect(resolvePolicy({})).toMatchObject({ orderCutoffHours: 48, paymentDueHours: 48, cancellationNoticeHours: 24, lateCancellationFeePercent: 0 });
+  });
+  it('reads the admin values from Settings', () => {
+    const p = resolvePolicy({ orderCutoffHours: 36, paymentDueHours: 72, cancellationNoticeHours: 12, cancellationFeePercent: 25 });
+    expect(p).toMatchObject({ orderCutoffHours: 36, paymentDueHours: 72, cancellationNoticeHours: 12, lateCancellationFeePercent: 25 });
+  });
+  it('ignores nonsense values', () => {
+    expect(resolvePolicy({ orderCutoffHours: -5, cancellationFeePercent: 400 })).toMatchObject({ orderCutoffHours: 48, lateCancellationFeePercent: 0 });
+  });
+});
+
+describe('order cutoff follows the setting', () => {
+  it('dayCutoff = noon Vancouver minus the configured hours', async () => {
+    const { dayCutoff, deliveryNoon } = await import('../orderPlacement');
+    // 2026-W40 Monday Sep 28 noon PDT = 19:00Z
+    expect(deliveryNoon(2026, 40, 'monday').toISOString()).toBe('2026-09-28T19:00:00.000Z');
+    expect(dayCutoff(2026, 40, 'monday').toISOString()).toBe('2026-09-26T19:00:00.000Z'); // default 48 h
+    expect(dayCutoff(2026, 40, 'monday', 24).toISOString()).toBe('2026-09-27T19:00:00.000Z');
   });
 });

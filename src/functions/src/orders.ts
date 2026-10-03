@@ -34,6 +34,7 @@ import {
   type PriceTier,
 } from "./lib/orderPlacement";
 import {
+  resolveOrderCutoffHours,
   resolveDeliveryFee,
   resolveFreeDeliveryMin,
   resolveServiceCharge,
@@ -75,15 +76,6 @@ export const placeOrder = onCall(async (request): Promise<PlaceOrderResult> => {
     throw err;
   }
 
-  const closed = closedDaysInOrder(input, new Date());
-  if (closed.length > 0) {
-    const days = closed.map((d) => DAY_LABELS[d]).join(", ");
-    throw new HttpsError(
-      "failed-precondition",
-      `Ordering has closed for ${days} of week ${input.week}. Please remove ${closed.length > 1 ? "those days" : "that day"} or choose another week.`
-    );
-  }
-
   // Reads that don't need transactional isolation.
   const [customerSnap, generalSnap, legacySnap, productSnaps] = await Promise.all([
     db.doc(`customers/${caller.uid}`).get(),
@@ -94,6 +86,16 @@ export const placeOrder = onCall(async (request): Promise<PlaceOrderResult> => {
   const customer = customerSnap.data() ?? {};
   const general = generalSnap.data();
   const legacy = legacySnap.data();
+  // Days already closed for ordering (Settings → order cutoff hours).
+  const closed = closedDaysInOrder(input, new Date(), resolveOrderCutoffHours(general, legacy));
+  if (closed.length > 0) {
+    const days = closed.map((d) => DAY_LABELS[d]).join(", ");
+    throw new HttpsError(
+      "failed-precondition",
+      `Ordering has closed for ${days} of week ${input.week}. Please remove ${closed.length > 1 ? "those days" : "that day"} or choose another week.`
+    );
+  }
+
   const catalog = new Map<string, CatalogProduct | undefined>(
     productSnaps.map((s) => [s.id, s.exists ? (s.data() as CatalogProduct) : undefined])
   );

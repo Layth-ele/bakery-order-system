@@ -69,7 +69,8 @@ export function getCutoffForDeliveryDate(deliveryDate: Date): Date {
   );
 
   // ✅ Use business rule constant for cutoff hours (48)
-  return subHours(deliveryAtNoon, BUSINESS_RULES.CUTOFF_HOURS);
+  // Settings → order cutoff hours (live), default 48.
+  return subHours(deliveryAtNoon, getPolicy().orderCutoffHours);
 }
 
 /**
@@ -134,6 +135,7 @@ import {
   getWeeksInYear as _getWeeksInYear,
   getWeekRange as _getWeekRange,
 } from '../weekUtils';
+import { getPolicy } from '../policyCache';
 
 /** Returns the current ISO week number (Vancouver timezone). */
 export function getCurrentWeekNumber(): number {

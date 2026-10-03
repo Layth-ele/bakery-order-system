@@ -35,12 +35,14 @@ import type { User } from '../../hooks/useAuth';
 interface OutstandingTabProps {
   user: User;
   onNavigateBack: () => void;
+  onOpenPolicies?: () => void;
   onViewOrder: (orderId: string) => void;
 }
 
 export function OutstandingTab({
   user,
   onNavigateBack,
+  onOpenPolicies,
 }: OutstandingTabProps): JSX.Element | null {
   return (
     // ✅ STEP 5: Error boundary wrapper
@@ -51,7 +53,7 @@ export function OutstandingTab({
         console.error('CustomerUnpaidOrders error:', error, errorInfo);
       }}
     >
-      <CustomerUnpaidOrders user={user} onNavigateBack={onNavigateBack} />
+      <CustomerUnpaidOrders user={user} onNavigateBack={onNavigateBack} onOpenPolicies={onOpenPolicies} />
     </SectionErrorBoundary>
   );
 }

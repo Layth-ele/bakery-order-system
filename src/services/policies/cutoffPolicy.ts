@@ -11,6 +11,7 @@
 import { isDayLocked } from '../../utils/time/vancouverCutoff';
 import { isBeforeThursdayCutoff, getCurrentWeekIdentifier, getNextWeekIdentifier } from '../../utils/weekSelection';
 import { CUTOFF_MESSAGES } from '../../constants/messages';
+import { getPolicy } from '../../utils/policyCache';
 
 /**
  * Result of cutoff validation
@@ -33,7 +34,7 @@ export function canModifyDeliveryDay(deliveryDate: Date): CutoffValidationResult
     const isLocked = isDayLocked(deliveryDate);
     return {
       allowed: !isLocked,
-      reason: isLocked ? CUTOFF_MESSAGES.DELIVERY_LOCKED : undefined,
+      reason: isLocked ? `Ordering closed (${getPolicy().orderCutoffHours}-hour delivery cutoff)` : undefined,
     };
   } catch {
     return { allowed: false, reason: 'Invalid delivery date' };

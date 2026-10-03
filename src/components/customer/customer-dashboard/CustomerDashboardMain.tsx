@@ -21,6 +21,8 @@
  */
 
 import { DAYS, dayCutoff, unitPriceFor } from '../../../functions/src/lib/orderPlacement';
+import { resolveOrderCutoffHours } from '../../../functions/src/lib/settingsValues';
+import { useCachedSettings } from '../../../hooks/useCachedFirebase';
 import { DISCOUNTED_FILTER_ID, isLegacyDiscountCopy, isOnSale } from '../../../utils/productDiscount';
 import {
   useEffect,
@@ -359,6 +361,7 @@ export function CustomerDashboardMain(): JSX.Element | null {
           [DashboardTab.OUTSTANDING]: "Outstanding (Unpaid)",
           [DashboardTab.ORDER_INVOICES]: "Order History",
           [DashboardTab.MY_PROFILE]: "My Profile",
+          [DashboardTab.POLICIES]: "Bakery Policies",
         };
         announceToScreenReader(
           `Navigated to ${tabLabels[newTab]} tab`,
@@ -528,6 +531,10 @@ export function CustomerDashboardMain(): JSX.Element | null {
   // ✅ on EVERY render (typing, scrolling, category change, etc.)
   // ✅ Now: Compute once per week change, use simple array lookup in cells
   // ✅ Performance: 95% reduction in calls, 3x faster renders (45ms → 15ms)
+  // Settings → order cutoff hours (live; same rule placeOrder enforces).
+  const { data: policySettings } = useCachedSettings();
+  const cutoffHours = resolveOrderCutoffHours((policySettings ?? null) as Record<string, unknown> | null);
+
   const lockedDaysForWeek = useMemo(() => {
     const yearForWeek = getYearForWeek(
       selectedWeek,
@@ -538,12 +545,12 @@ export function CustomerDashboardMain(): JSX.Element | null {
     // Precompute all 7 days: [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
     const locked: boolean[] = [];
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-      // Exactly the server's cutoff (placeOrder): noon Vancouver − 48 h.
-      locked.push(Date.now() >= dayCutoff(yearForWeek, selectedWeek, DAYS[dayIndex]).getTime());
+      // Exactly the server's cutoff (placeOrder): noon Vancouver − cutoff hours.
+      locked.push(Date.now() >= dayCutoff(yearForWeek, selectedWeek, DAYS[dayIndex], cutoffHours).getTime());
     }
 
     return locked;
-  }, [selectedWeek, currentWeek, currentYear]);
+  }, [selectedWeek, currentWeek, currentYear, cutoffHours]);
 
   const calculatePrice = useCallback(
     // ✅ PASS 6: customerType optional to match the useCartSummary signature
@@ -565,11 +572,11 @@ export function CustomerDashboardMain(): JSX.Element | null {
         currentYear,
       );
       for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-        if (Date.now() < dayCutoff(yearForWeek, week, DAYS[dayIndex]).getTime()) return false;
+        if (Date.now() < dayCutoff(yearForWeek, week, DAYS[dayIndex], cutoffHours).getTime()) return false;
       }
       return true;
     },
-    [currentWeek, currentYear],
+    [currentWeek, currentYear, cutoffHours],
   );
 
   const isWeekDisabled = useCallback(

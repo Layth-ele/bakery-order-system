@@ -37,9 +37,11 @@ const DEBUG = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 interface CustomerUnpaidOrdersProps {
   user: User;
   onNavigateBack: () => void;
+  /** Opens the Bakery Policies page. */
+  onOpenPolicies?: () => void;
 }
 
-export function CustomerUnpaidOrders({ user, onNavigateBack }: CustomerUnpaidOrdersProps): JSX.Element | null {
+export function CustomerUnpaidOrders({ user, onNavigateBack, onOpenPolicies }: CustomerUnpaidOrdersProps): JSX.Element | null {
   const { openModal } = useModal();
 
   // ============================================
@@ -310,6 +312,11 @@ export function CustomerUnpaidOrders({ user, onNavigateBack }: CustomerUnpaidOrd
                 <p className="text-xs sm:text-sm leading-relaxed">
                   Questions? <span className="font-semibold break-all">{bakeryEmail}</span>
                 </p>
+              )}
+              {onOpenPolicies && (
+                <button type="button" onClick={onOpenPolicies} className="text-xs sm:text-sm font-semibold text-[#8B6F47] underline">
+                  Payment deadline &amp; full bakery policies →
+                </button>
               )}
             </div>
           </div>

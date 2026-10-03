@@ -29,6 +29,10 @@ export interface SystemSettings {
   freeDeliveryMin?: number;
   /** Off → delivery is always charged (Admin → Settings). */
   freeDeliveryEnabled?: boolean;
+  /** Policies & timing (hours before delivery-day noon). */
+  orderCutoffHours?: number;
+  paymentDueHours?: number;
+  cancellationNoticeHours?: number;
   serviceChargeAmount?: number;
   serviceChargeEnabled?: boolean;
   gstRate?: number;

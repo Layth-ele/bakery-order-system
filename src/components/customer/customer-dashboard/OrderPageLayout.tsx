@@ -49,6 +49,7 @@ import {
   DAYS,
   TableColGroup,
 } from "../../../constants/tableColumns";
+import { getPolicy } from '../../../utils/policyCache';
 
 interface OrderPageLayoutProps {
   selectedWeek: number;
@@ -351,7 +352,7 @@ export function OrderPageLayout({
                               placeholder="0"
                               title={
                                 isLocked
-                                  ? "Ordering closed (48h cutoff)"
+                                  ? `Ordering closed (${getPolicy().orderCutoffHours}h cutoff)`
                                   : ""
                               }
                               // debounceMs={300}
