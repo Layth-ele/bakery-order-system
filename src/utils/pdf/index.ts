@@ -8,7 +8,8 @@
 
 import type { Order, Product, Category } from "../../types";
 import { toDate } from '../timestampFormatting';
-import { buildPDFTemplate, openPDFWindow } from "./pdfTemplates";
+import { buildPDFTemplate, openPDFWindow, openPDFWindowAsync } from "./pdfTemplates";
+import { fetchOrderChanges } from "../documents/orderChanges";
 import { getPDFStyles } from "./pdfStyles";
 import { orderRevenue } from '../orderMoney';
 
@@ -89,7 +90,8 @@ export const downloadOrderPDF = (
   products: Product[],
   categories: Category[],
 ) => {
-  openPDFWindow(buildPDFTemplate({
+  openPDFWindowAsync(async () => buildPDFTemplate({
+    changes: await fetchOrderChanges(order as any),
     title: "Invoice",
     documentType: "approved",
     order,
@@ -108,7 +110,8 @@ export const downloadRejectedOrderPDF = (
   products: Product[],
   categories: Category[],
 ) => {
-  openPDFWindow(buildPDFTemplate({
+  openPDFWindowAsync(async () => buildPDFTemplate({
+    changes: await fetchOrderChanges(order as any),
     title: "Rejected Order",
     documentType: "rejected",
     order,
@@ -127,7 +130,8 @@ export const downloadCompleteOrderPDF = (
   products: Product[],
   categories: Category[],
 ) => {
-  openPDFWindow(buildPDFTemplate({
+  openPDFWindowAsync(async () => buildPDFTemplate({
+    changes: await fetchOrderChanges(order as any),
     title: "Invoice — Paid",
     documentType: "completed",
     order,
@@ -146,7 +150,8 @@ export const downloadUpdateRequestPDF = (
   products: Product[],
   categories: Category[],
 ) => {
-  openPDFWindow(buildPDFTemplate({
+  openPDFWindowAsync(async () => buildPDFTemplate({
+    changes: await fetchOrderChanges(order as any),
     title: "Order Update Request",
     documentType: "update",
     order,
@@ -165,7 +170,8 @@ export const generateCancelledOrderPDF = (
   products: Product[],
   categories: Category[],
 ) => {
-  openPDFWindow(buildPDFTemplate({
+  openPDFWindowAsync(async () => buildPDFTemplate({
+    changes: await fetchOrderChanges(order as any),
     title: "Cancelled Order",
     documentType: "cancelled",
     order,

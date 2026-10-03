@@ -465,4 +465,50 @@ export const getPDFStyles = () => `
   }
   .stat-card.highlight .stat-value { color: ${BRAND.gold}; }
   .stat-card.highlight .stat-label { color: ${BRAND.goldLight}; }
+
+  /* ── Order table: only ordered days, dates under day names ───── */
+  .order-table th.product-col { width: 34%; text-align: left; }
+  .order-table th.num { text-align: right; }
+  .order-table .day-date { font-weight: 400; font-size: 7.5pt; opacity: 0.8; }
+  .order-table .grand-row td {
+    background: ${BRAND.black} !important; color: ${BRAND.gold}; font-weight: 700;
+    border-top: 2px solid ${BRAND.gold};
+  }
+  .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ── Changes to this order ───────────────────────────────────── */
+  .changes-section {
+    margin: 14px 0 10px; padding: 10px 12px;
+    border: 1px solid ${BRAND.goldLight}; border-radius: 8px; background: ${BRAND.cream};
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .changes-section .box-label {
+    font-size: 7.5pt; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: ${BRAND.goldDark}; margin-bottom: 6px;
+  }
+  .change-row { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; border-top: 1px dashed ${BRAND.goldLight}; }
+  .change-row:first-of-type { border-top: 0; }
+  .change-dot { flex: 0 0 8px; height: 8px; border-radius: 50%; margin-top: 4px; }
+  .change-title { font-weight: 700; font-size: 9pt; color: ${BRAND.black}; }
+  .change-date { font-weight: 400; color: ${BRAND.midGray}; margin-left: 6px; font-size: 8pt; }
+  .change-detail { font-size: 8.5pt; color: ${BRAND.darkGray}; }
+
+  /* ── On a screen (phone / tablet / desktop) ──────────────────── */
+  @media screen {
+    body { max-width: 820px; margin: 0 auto; padding: 16px; }
+  }
+  @media screen and (max-width: 600px) {
+    body { padding: 12px; font-size: 10pt; }
+    .doc-header { flex-direction: column; gap: 10px; }
+    .info-grid { grid-template-columns: 1fr; gap: 10px; }
+    .order-table thead th { white-space: nowrap; font-size: 7.5pt; }
+    .order-table th.product-col { width: auto; padding-right: 10px; }
+    .order-table { font-size: 8.5pt; }
+    .order-table td, .order-table th { padding: 5px 4px; }
+    .totals-box { width: 100%; min-width: 0; }
+  }
+
+  .doc-meta .status-badge.status-paid { background: #DCFCE7; color: #166534; }
+  .doc-meta .status-badge.status-approved { background: #FEF3C7; color: #92400E; }
+  .doc-meta .status-badge.status-review { background: #DBEAFE; color: #1E40AF; }
 `;

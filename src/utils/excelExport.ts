@@ -10,8 +10,9 @@
  * ✅ FIX: Day-date sub-row no longer shows "undefined" — built from week+year fallback
  * ✅ FORMAT: Category header rows coloured, data rows lightly tinted — matches reference
  */
-import { discountOn } from '../functions/src/lib/orderRevision';
-import { gstLabel, lineAmount, orderAmountDue, orderRevenue } from './orderMoney';
+import { orderRevenue } from './orderMoney';
+import { changeNotices, documentDays, documentLines, documentTotals, noticeDate, type OrderChange } from './documents/orderDocument';
+import { fetchOrderChanges } from './documents/orderChanges';
 import * as XLSX from 'xlsx-js-style';
 import { toDate } from './timestampFormatting';
 import type { Order, Product, Category } from '../types';
@@ -42,443 +43,201 @@ import {
 } from './excelStyles';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-const fmt$ = (n: number) => `$${n.toFixed(2)}`;
 const CURRENCY_FMT = '"$"#,##0.00';
 
-/**
- * Build 7 "Mon 3/24" labels from an order.
- * Uses weekRange string first, falls back to ISO week+year calculation.
- */
-function buildWeekDateLabels(order: Order): string[] {
-  const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-  // ── Try weekRange string: "Mar 23-29, 2026" ──────────────────────────────
-  if (order.weekRange) {
-    const m = order.weekRange.match(/(\w+)\s+(\d+)-(\d+),\s+(\d+)/);
-    if (m) {
-      const monthIdx = MONTH_ABBR.indexOf(m[1]);
-      if (monthIdx !== -1) {
-        const start = new Date(parseInt(m[4]), monthIdx, parseInt(m[2]));
-        return DAY_NAMES.map((day, i) => {
-          const d = new Date(start);
-          d.setDate(start.getDate() + i);
-          return `${day} ${d.getMonth() + 1}/${d.getDate()}`;
-        });
-      }
-    }
-  }
-
-  // ── Fallback: ISO week + year ─────────────────────────────────────────────
-  if (order.week && order.year) {
-    // ISO week Monday = Jan 4 of year is always in week 1
-    const jan4 = new Date(order.year, 0, 4);
-    const jan4Day = jan4.getDay() || 7; // 1=Mon … 7=Sun
-    const monday = new Date(jan4);
-    monday.setDate(jan4.getDate() - (jan4Day - 1) + (order.week - 1) * 7);
-    return DAY_NAMES.map((day, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      return `${day} ${d.getMonth() + 1}/${d.getDate()}`;
-    });
-  }
-
-  // ── Last resort: just day names ───────────────────────────────────────────
-  return DAY_NAMES;
-}
-
-/**
- * Group order items by category — mirrors groupItemsByCategory in orderCalculator.ts.
- * Custom items (productId not in products array) go into a "Custom Items" group.
- */
-function groupForExcel(
-  order: Order,
-  products: Product[],
-  categories: Category[],
-): Array<{ catId: string; catName: string; catOrder: number; colour: [string,string,string]; items: typeof order.items }> {
-  const prodMap = new Map(products.map(p => [p.id, p]));
-  const sortedCats = [...categories].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-
-  // assign palette colours
-  const colourMap = new Map<string, [string,string,string]>();
-  sortedCats.forEach((c, i) => colourMap.set(c.id, CAT_PALETTE[i % CAT_PALETTE.length]));
-
-  const groups: ReturnType<typeof groupForExcel> = [];
-  const usedIds = new Set<string>();
-
-  sortedCats.forEach(cat => {
-    const items = order.items.filter(item => {
-      const p = prodMap.get(item.productId);
-      return p?.categoryId === cat.id || (p as any)?.category === cat.id;
-    });
-    if (!items.length) return;
-    items.forEach(i => usedIds.add(i.productId));
-    groups.push({
-      catId: cat.id,
-      catName: cat.name,
-      catOrder: cat.order ?? 999,
-      colour: colourMap.get(cat.id) ?? CAT_PALETTE[0],
-      items,
-    });
-  });
-
-  // custom / admin-added items
-  const customItems = order.items.filter(i => !usedIds.has(i.productId));
-  if (customItems.length) {
-    groups.push({
-      catId: '__custom__',
-      catName: 'Custom Items',
-      catOrder: 9999,
-      colour: ['8B6F47', 'F5F0EA', '8B6F47'],
-      items: customItems,
-    });
-  }
-
-  return groups;
-}
-
 // ─── Single order export ───────────────────────────────────────────────────────
+// Same content as the PDF and on-screen invoice (utils/documents/orderDocument):
+// only the delivery days that have quantities, prices as charged, the same
+// totals rows, and "Changes to this order".
 export function exportOrderToExcel(
   order: Order,
   products: Product[],
   categories: Category[],
+  changes: OrderChange[] = [],
 ): Blob | undefined {
   if (!order?.items?.length) {
     logger.warn('[excelExport] exportOrderToExcel called with no items');
     return;
   }
-  const orderNum  = safeOrderNum(order);
-  const invNum    = safeInvNum(order);
-  const orderDate = (order as any).orderDate
-    || (order.createdAt ? toDate(order.createdAt)?.toLocaleDateString('en-CA') ?? '' : '');
+  const days = documentDays(order as any);
+  const lines = documentLines(order as any, products, categories);
+  const totals = documentTotals(order as any);
+  const notices = changeNotices(order as any, changes);
 
-  // prodMap needed for per-item cost/retail/minOrder lookups inside the groups loop
-  const prodMap = new Map(products.map(p => [p.id, p]));
+  // Columns: Category | Product | <days> | Qty | Price | Amount
+  const C_DAY0 = 2;
+  const C_QTY = C_DAY0 + days.length;
+  const C_PRICE = C_QTY + 1;
+  const C_AMT = C_QTY + 2;
+  const LAST = C_AMT;
+  const blank = () => new Array(LAST + 1).fill('');
+  const row = (cells: Record<number, any>) => { const r = blank(); for (const [c, v] of Object.entries(cells)) r[+c] = v; return r; };
+
+  const orderDate = order.createdAt ? toDate(order.createdAt)?.toLocaleDateString('en-CA') ?? '' : '';
+  const weekLabel = order.week ? `Week ${order.week}, ${(order as any).year ?? ''}${days[0]?.date ? ` (${days.map((d) => `${d.short} ${d.date}`).join(', ')})` : ''}` : '—';
 
   const data: any[][] = [];
+  const kinds: string[] = []; // style per row
+  const push = (r: any[], kind: string) => { data.push(r); kinds.push(kind); };
 
-  // Row 0 — title
-  data.push(['', `${order.customerName || 'Delight Bakehouse'} — Weekly Order`, ...new Array(11).fill('')]);
-  // Row 1 — spacer
-  data.push(new Array(13).fill(''));
-  // Rows 2-6 — info block
-  data.push(['Business / Store',  order.customerName || '',              ...new Array(11).fill('')]);
-  data.push(['Contact Person',    order.customerContactPerson || '',     ...new Array(11).fill('')]);
-  data.push(['Order Date',        orderDate,                             ...new Array(11).fill('')]);
-  data.push(['Order #',           orderNum,                              ...new Array(11).fill('')]);
-  data.push(['Invoice #',         invNum,                                ...new Array(11).fill('')]);
-  // Row 7 — spacer
-  data.push(new Array(13).fill(''));
-  // Row 8 — column headers
-  data.push(['Category', 'Product', 'Unit Price', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total Qty', 'Line Total', 'Min/Day']);
-  // Row 9 — date sub-row  ✅ FIXED: no more "undefined"
-  const weekDateLabels = buildWeekDateLabels(order);
-  data.push(['', '', '', ...weekDateLabels, '', '', '']);
+  push(row({ 0: `${order.customerName || 'Order'} — ${safeOrderNum(order)}` }), 'title');
+  push(blank(), 'spacer');
+  push(row({ 0: 'Business / Store', 2: order.customerName || '' }), 'info');
+  push(row({ 0: 'Contact', 2: order.customerContactPerson || '' }), 'info');
+  push(row({ 0: 'Order #', 2: safeOrderNum(order) }), 'info');
+  push(row({ 0: 'Invoice #', 2: safeInvNum(order) }), 'info');
+  push(row({ 0: 'Delivery', 2: weekLabel }), 'info');
+  push(row({ 0: 'Order date', 2: orderDate }), 'info');
+  const STATUS_LABEL: Record<string, string> = {
+    pending: 'PENDING REVIEW', approved: 'APPROVED · PAYMENT DUE', in_process: 'PAID · IN PRODUCTION',
+    completed: 'COMPLETED · PAID', cancelled: 'CANCELLED', rejected: 'NOT ACCEPTED',
+  };
+  push(row({ 0: 'Status', 2: STATUS_LABEL[order.status] ?? (order.status || '').toUpperCase() }), 'status');
+  push(blank(), 'spacer');
 
-  // ── product rows ───────────────────────────────────────────────────────────
-  const groups = groupForExcel(order, products, categories);
+  const header = row({ 0: 'Category', 1: 'Product', [C_QTY]: 'Qty', [C_PRICE]: 'Price', [C_AMT]: 'Amount' });
+  const dates = blank();
+  days.forEach((d, i) => { header[C_DAY0 + i] = d.short; dates[C_DAY0 + i] = d.date; });
+  push(header, 'head');
+  push(dates, 'dates');
 
-  let dataRow = 10;
-  const catMerges: Array<{ startRow: number; len: number }> = [];
-  const categorySummary: Array<{ name: string; total: number; revenue: number; colour: [string,string,string] }> = [];
-  let grandTotal = 0;
-  let grandRevenue = 0;
+  const catColour = new Map<string, [string, string, string]>();
+  let lastCat = '';
+  for (const l of lines) {
+    if (!catColour.has(l.categoryName)) catColour.set(l.categoryName, CAT_PALETTE[catColour.size % CAT_PALETTE.length]);
+    const r = row({ 0: l.categoryName !== lastCat ? l.categoryName : '', 1: l.name, [C_QTY]: l.total, [C_PRICE]: l.price, [C_AMT]: l.amount });
+    days.forEach((d, i) => { r[C_DAY0 + i] = l.qty[d.key] || ''; });
+    lastCat = l.categoryName;
+    push(r, `line:${l.categoryName}`);
+  }
+  const totalRow = row({ 1: 'TOTAL', [C_QTY]: lines.reduce((s, l) => s + l.total, 0), [C_AMT]: lines.reduce((s, l) => s + l.amount, 0) });
+  days.forEach((d, i) => { totalRow[C_DAY0 + i] = lines.reduce((s, l) => s + l.qty[d.key], 0) || ''; });
+  push(totalRow, 'grand');
+  push(blank(), 'spacer');
 
-  groups.forEach(({ catName, colour, items }) => {
-    catMerges.push({ startRow: dataRow, len: items.length });
-    let catTotal = 0; let catRevenue = 0;
+  for (const t of totals) push(row({ [C_PRICE - 1 >= 1 ? C_PRICE - 1 : 1]: t.label, [C_AMT]: t.amount }), `total:${t.kind}`);
 
-    items.forEach((item, idx) => {
-      const prod    = prodMap.get(item.productId);
-      // Compute qty from day fields (item.total can be monetary total in some flows)
-      const qty = (item.monday||0)+(item.tuesday||0)+(item.wednesday||0)+
-                  (item.thursday||0)+(item.friday||0)+(item.saturday||0)+(item.sunday||0)
-                  || item.total || 0;
-      // The price this order was charged (never the bakery's internal cost).
-      const price   = Number(item.price) || 0;
-      const rev     = lineAmount({ price, total: qty });
-      catTotal      += qty;
-      catRevenue    += rev;
-
-      data.push([
-        idx === 0 ? catName : '',
-        item.productName,
-        price ? fmt$(price) : '',
-        item.monday    || '',
-        item.tuesday   || '',
-        item.wednesday || '',
-        item.thursday  || '',
-        item.friday    || '',
-        item.saturday  || '',
-        item.sunday    || '',
-        qty,
-        fmt$(rev),
-        prod?.dailyMinOrder || '',
-      ]);
-      dataRow++;
-    });
-
-    categorySummary.push({ name: catName, total: catTotal, revenue: catRevenue, colour });
-    grandTotal   += catTotal;
-    grandRevenue += catRevenue;
-  });
-
-  // grand total row
-  data.push(new Array(13).fill(''));
-  data.push(['', 'GRAND TOTAL', '', '', '', '', '', '', '', '', grandTotal, fmt$(grandRevenue), '']);
+  if (notices.length) {
+    push(blank(), 'spacer');
+    push(row({ 0: 'CHANGES TO THIS ORDER' }), 'section');
+    for (const n of notices) push(row({ 0: noticeDate(n.at), 1: `${n.title} — ${n.detail}` }), 'notice');
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(data);
-  const wb = XLSX.utils.book_new();  // ← was missing — caused "wb is not defined" crash
-
   ws['!cols'] = [
-    { wch: 18 }, { wch: 36 }, { wch: 11 },
-    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
-    { wch: 11 }, { wch: 12 }, { wch: 10 },
-  ];
-  ws['!rows'] = [
-    { hpt: 36 }, { hpt: 5 },
-    { hpt: 20 }, { hpt: 20 }, { hpt: 20 }, { hpt: 20 }, { hpt: 20 }, { hpt: 5 },
-    { hpt: 28 }, { hpt: 18 },
+    { wch: 18 }, { wch: 34 },
+    ...days.map(() => ({ wch: 9 })),
+    { wch: 8 }, { wch: 11 }, { wch: 12 },
   ];
 
-  // ── styles ────────────────────────────────────────────────────────────────
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:M1');
-
-  // Build a fast lookup: data row index → category colour
-  const rowColour = new Map<number, [string,string,string]>();
-  groups.forEach(({ colour, items }, gi) => {
-    const start = 10 + groups.slice(0, gi).reduce((s, g) => s + g.items.length, 0);
-    for (let r = start; r < start + items.length; r++) rowColour.set(r, colour);
-  });
-
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  const statusBg = STATUS_COLOUR[order.status] || 'FAFAFA';
+  const statusFg = STATUS_TEXT[order.status] || BRAND.BLACK;
   for (let R = range.s.r; R <= range.e.r; R++) {
-    for (let Ci = range.s.c; Ci <= range.e.c; Ci++) {
-      const ref = XLSX.utils.encode_cell({ r: R, c: Ci });
+    const kind = kinds[R] ?? '';
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const ref = XLSX.utils.encode_cell({ r: R, c: C });
       if (!ws[ref]) ws[ref] = { t: 's', v: '' };
-
-      // Title row
-      if (R === 0) {
-        ws[ref].s = Ci === 1
-          ? cs(BRAND.BLACK, BRAND.GOLD, 16, true, 'left', {})
-          : cs(BRAND.WHITE, BRAND.WHITE, 10, false, 'left', {});
+      const money = C === C_PRICE || C === C_AMT;
+      if (kind === 'title') { ws[ref].s = cs(BRAND.BLACK, BRAND.GOLD, 15, true, 'left', {}); continue; }
+      if (kind === 'spacer') { ws[ref].s = cs(BRAND.WHITE, BRAND.WHITE, 5, false, 'left', {}); continue; }
+      if (kind === 'info' || kind === 'status') {
+        ws[ref].s = C < 2
+          ? cs('F5EDD0', BRAND.GOLD_DARK, 9, true, 'left', BORDER_THIN(BRAND.GOLD))
+          : kind === 'status' ? cs(statusBg, statusFg, 10, true, 'left', BORDER_THIN(statusFg))
+          : cs('FAFAFA', BRAND.BLACK, 10, false, 'left', BORDER_THIN('DDDDDD'));
         continue;
       }
-      // Spacer rows
-      if (R === 1 || R === 7) {
-        ws[ref].s = cs(BRAND.WHITE, BRAND.WHITE, 5, false, 'left', {});
+      if (kind === 'head') {
+        const isDay = C >= C_DAY0 && C < C_QTY;
+        ws[ref].s = isDay ? cs(BRAND.GOLD, BRAND.BLACK, 10, true, 'center', BORDER_THIN('888888'))
+          : cs(BRAND.BLACK, BRAND.WHITE, 10, true, C <= 1 ? 'left' : 'center', BORDER_THIN('444444'));
         continue;
       }
-      // Info label col A (rows 2-6)
-      if (R >= 2 && R <= 6 && Ci === 0) {
-        ws[ref].s = cs('F5EDD0', BRAND.GOLD_DARK, 9, true, 'left', BORDER_THIN(BRAND.GOLD));
+      if (kind === 'dates') { ws[ref].s = cs('F5EDD0', '555555', 9, false, 'center', BORDER_THIN(BRAND.GOLD)); continue; }
+      if (kind.startsWith('line:')) {
+        const [hdrBg, dataBg, accent] = catColour.get(kind.slice(5)) ?? CAT_PALETTE[0];
+        const isDay = C >= C_DAY0 && C < C_QTY;
+        const hasVal = !!data[R]?.[C];
+        ws[ref].s = C === 0 ? cs(hasVal ? hdrBg : dataBg, BRAND.WHITE, 9, true, 'left', BORDER_THIN(accent))
+          : C === 1 ? cs(dataBg, BRAND.BLACK, 10, false, 'left', BORDER_THIN(accent))
+          : isDay ? cs(hasVal ? dataBg : 'F8F8F8', hasVal ? hdrBg : 'BBBBBB', hasVal ? 11 : 9, hasVal, 'center', BORDER_THIN(accent))
+          : C === C_QTY ? cs('F5EDD0', BRAND.GOLD_DARK, 11, true, 'center', BORDER_THIN(BRAND.GOLD))
+          : cs(dataBg, '333333', 10, C === C_AMT, 'right', BORDER_THIN(accent));
+        if (money && typeof ws[ref].v === 'number') ws[ref].z = CURRENCY_FMT;
         continue;
       }
-      // Info value (rows 2-6, col B+)
-      if (R >= 2 && R <= 6 && Ci >= 1) {
-        ws[ref].s = cs('FAFAFA', BRAND.BLACK, 10, false, 'left', BORDER_THIN('DDDDDD'));
+      if (kind === 'grand') {
+        ws[ref].s = cs(BRAND.BLACK, BRAND.GOLD, 11, true, C <= 1 ? 'left' : 'center', BORDER_MEDIUM(BRAND.GOLD));
+        if (money && typeof ws[ref].v === 'number') ws[ref].z = CURRENCY_FMT;
         continue;
       }
-      // Column header row 8
-      if (R === 8) {
-        const isDayCol = Ci >= 3 && Ci <= 9;
-        ws[ref].s = isDayCol
-          ? cs(BRAND.GOLD, BRAND.BLACK, 10, true, 'center', BORDER_THIN('888888'))
-          : cs(BRAND.BLACK, BRAND.WHITE, 10, true, 'center', BORDER_THIN('444444'));
+      if (kind.startsWith('total:')) {
+        const t = kind.slice(6);
+        const strong = t === 'total' || t === 'due' || t === 'paid';
+        ws[ref].s = data[R][C] === ''
+          ? cs(BRAND.WHITE, BRAND.WHITE, 9, false, 'left', {})
+          : cs(strong ? BRAND.BLACK : 'FAFAFA', strong ? BRAND.GOLD : (t === 'discount' || t === 'credit' ? '15803D' : '333333'), strong ? 12 : 10, strong, C === C_AMT ? 'right' : 'right', BORDER_THIN('DDDDDD'));
+        if (C === C_AMT && typeof ws[ref].v === 'number') ws[ref].z = CURRENCY_FMT;
         continue;
       }
-      // Date sub-row 9
-      if (R === 9) {
-        ws[ref].s = cs('F5EDD0', '555555', 9, false, 'center', BORDER_THIN(BRAND.GOLD));
+      if (kind === 'section') { ws[ref].s = cs('E8F4FD', '1565C0', 10, true, 'left', BORDER_THIN('1565C0')); continue; }
+      if (kind === 'notice') {
+        ws[ref].s = C === 0 ? cs('F9F9F9', '555555', 9, false, 'left', BORDER_THIN('DDDDDD'))
+          : cs(BRAND.WHITE, BRAND.BLACK, 10, false, 'left', { ...BORDER_THIN('DDDDDD') });
+        if (C === 1) ws[ref].s.alignment = { ...(ws[ref].s.alignment || {}), wrapText: true, vertical: 'top' };
         continue;
-      }
-      // Spacer before grand total
-      if (R >= 10 && data[R]?.[0] === '' && data[R]?.[1] === '' && !data[R]?.[10]) {
-        ws[ref].s = cs(BRAND.WHITE, BRAND.WHITE, 4, false, 'left', {});
-        continue;
-      }
-      // Grand total row
-      if (data[R]?.[1] === 'GRAND TOTAL') {
-        ws[ref].s = Ci === 1
-          ? cs(BRAND.BLACK, BRAND.GOLD, 11, true, 'left', BORDER_MEDIUM(BRAND.GOLD))
-          : (Ci === 10 || Ci === 11)
-          ? cs(BRAND.BLACK, BRAND.GOLD, 12, true, 'center', BORDER_MEDIUM(BRAND.GOLD))
-          : cs(BRAND.BLACK, BRAND.WHITE, 10, false, 'center', {});
-        continue;
-      }
-      // Product data rows (10+)
-      if (R >= 10) {
-        const [hdrBg, dataBg, accent] = rowColour.get(R) ?? CAT_PALETTE[0];
-        if (Ci === 0) {
-          // Category label cell — coloured header with rotated text
-          ws[ref].s = {
-            font: { name: 'Calibri', sz: 9, bold: true, color: { rgb: BRAND.WHITE } },
-            fill: { fgColor: { rgb: hdrBg } },
-            alignment: { vertical: 'center', horizontal: 'center', textRotation: 90 },
-            border: BORDER_MEDIUM(accent),
-          };
-        } else if (Ci === 1) {
-          ws[ref].s = cs(dataBg, BRAND.BLACK, 10, false, 'left', BORDER_THIN(accent));
-        } else if (Ci === 2) {
-          ws[ref].s = cs(dataBg, '555555', 9, false, 'right', BORDER_THIN(accent));
-        } else if (Ci >= 3 && Ci <= 9) {
-          const hasVal = !!data[R]?.[Ci];
-          ws[ref].s = cs(
-            hasVal ? dataBg : 'F8F8F8',
-            hasVal ? hdrBg : 'BBBBBB',
-            hasVal ? 11 : 9, hasVal, 'center', BORDER_THIN(accent),
-          );
-        } else if (Ci === 10) {
-          ws[ref].s = cs('F5EDD0', BRAND.GOLD_DARK, 11, true, 'center', BORDER_MEDIUM(BRAND.GOLD));
-        } else {
-          ws[ref].s = cs(dataBg, '666666', 9, false, 'center', BORDER_THIN(accent));
-        }
       }
     }
   }
-
-  // ── merges ────────────────────────────────────────────────────────────────
-  const merges: XLSX.Range[] = [
-    { s: { r: 0, c: 1 }, e: { r: 0, c: 12 } },   // title
-    { s: { r: 2, c: 1 }, e: { r: 2, c: 12 } },   // store
-    { s: { r: 3, c: 1 }, e: { r: 3, c: 12 } },   // contact
-    { s: { r: 4, c: 1 }, e: { r: 4, c: 12 } },   // date
-    { s: { r: 5, c: 1 }, e: { r: 5, c: 12 } },   // order#
-    { s: { r: 6, c: 1 }, e: { r: 6, c: 12 } },   // invoice#
-    { s: { r: 8, c: 0 }, e: { r: 9, c: 0 } },    // Category header
-    { s: { r: 8, c: 1 }, e: { r: 9, c: 1 } },    // Product header
-    { s: { r: 8, c: 2 }, e: { r: 9, c: 2 } },    // Cost header
-    { s: { r: 8, c: 10 }, e: { r: 9, c: 10 } },  // Total header
-    { s: { r: 8, c: 11 }, e: { r: 9, c: 11 } },  // Retail header
-    { s: { r: 8, c: 12 }, e: { r: 9, c: 12 } },  // Min header
-  ];
-  catMerges.forEach(({ startRow, len }) => {
-    if (len > 1) merges.push({ s: { r: startRow, c: 0 }, e: { r: startRow + len - 1, c: 0 } });
+  const merges: XLSX.Range[] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: LAST } }];
+  kinds.forEach((k, r) => {
+    if (k === 'info' || k === 'status') { merges.push({ s: { r, c: 0 }, e: { r, c: 1 } }, { s: { r, c: 2 }, e: { r, c: LAST } }); }
+    if (k === 'section') merges.push({ s: { r, c: 0 }, e: { r, c: LAST } });
+    if (k === 'notice') merges.push({ s: { r, c: 1 }, e: { r, c: LAST } });
   });
   ws['!merges'] = merges;
-  XLSX.utils.book_append_sheet(wb, ws, 'Weekly Order');
+  ws['!rows'] = kinds.map((k) => (k === 'notice' ? { hpt: 30 } : k === 'title' ? { hpt: 28 } : k === 'spacer' ? { hpt: 6 } : { hpt: 18 }));
+  // Print setup: landscape, fit to one page wide (shareable / printable).
+  (ws as any)['!pageSetup'] = { orientation: days.length > 4 ? 'landscape' : 'portrait', fitToWidth: 1, fitToHeight: 0 };
 
-  /* ═══════════════════════════════════════════
-     SHEET 2 — CATEGORY SUMMARY
-  ═══════════════════════════════════════════ */
-  const sumData: any[][] = [
-    [`${order.customerName || 'Delight Bakehouse'} — Category Summary`],
-    [],
-    ['Category', 'Total Units', 'Est. Revenue'],
-  ];
-  categorySummary.forEach(({ name, total, revenue }) => sumData.push([name, total, revenue]));
-  sumData.push(['', '', '']);
-  sumData.push(['GRAND TOTAL', grandTotal, grandRevenue]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Invoice');
 
+  // Category summary (real amounts at the charged prices)
+  const byCat = new Map<string, { units: number; amount: number }>();
+  for (const l of lines) {
+    const c = byCat.get(l.categoryName) ?? { units: 0, amount: 0 };
+    c.units += l.total; c.amount += l.amount; byCat.set(l.categoryName, c);
+  }
+  const sumData: any[][] = [[`${order.customerName || 'Order'} — Category Summary`], [], ['Category', 'Units', 'Amount']];
+  for (const [name, v] of byCat) sumData.push([name, v.units, Math.round(v.amount * 100) / 100]);
+  sumData.push(['TOTAL', lines.reduce((s, l) => s + l.total, 0), Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100]);
   const ws2 = XLSX.utils.aoa_to_sheet(sumData);
-  ws2['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 16 }];
-
+  ws2['!cols'] = [{ wch: 28 }, { wch: 10 }, { wch: 14 }];
   const r2 = XLSX.utils.decode_range(ws2['!ref'] || 'A1:C1');
   for (let R = r2.s.r; R <= r2.e.r; R++) {
-    for (let Ci = r2.s.c; Ci <= r2.e.c; Ci++) {
-      const ref = XLSX.utils.encode_cell({ r: R, c: Ci });
+    for (let C = r2.s.c; C <= r2.e.c; C++) {
+      const ref = XLSX.utils.encode_cell({ r: R, c: C });
       if (!ws2[ref]) ws2[ref] = { t: 's', v: '' };
-      if (R === 0) { ws2[ref].s = cs(BRAND.BLACK, BRAND.GOLD, 14, true, 'left', {}); continue; }
-      if (R === 1) { ws2[ref].s = cs(BRAND.WHITE, BRAND.WHITE, 5, false, 'left', {}); continue; }
-      if (R === 2) {
-        ws2[ref].s = cs(BRAND.BLACK, BRAND.WHITE, 10, true, Ci === 0 ? 'left' : 'center', BORDER_THIN('444444'));
-        continue;
-      }
-      const di = R - 3;
-      if (di >= 0 && di < categorySummary.length) {
-        const [hdrBg, dataBg] = categorySummary[di].colour;
-        ws2[ref].s = Ci === 0
-          ? cs(dataBg, BRAND.BLACK, 10, true, 'left', BORDER_THIN(hdrBg))
-          : cs(hdrBg, BRAND.WHITE, 11, true, 'center', BORDER_THIN(hdrBg));
-        if (Ci === 2 && ws2[ref].t === 'n') ws2[ref].z = CURRENCY_FMT;
-        continue;
-      }
-      if (ws2[ref].v === '') { ws2[ref].s = cs(BRAND.WHITE, BRAND.WHITE, 5, false, 'left', {}); continue; }
-      ws2[ref].s = Ci === 0
-        ? cs(BRAND.BLACK, BRAND.GOLD, 11, true, 'left', BORDER_MEDIUM(BRAND.GOLD))
-        : cs(BRAND.BLACK, BRAND.GOLD, 12, true, 'center', BORDER_MEDIUM(BRAND.GOLD));
-      if (Ci === 2 && ws2[ref].t === 'n') ws2[ref].z = CURRENCY_FMT;
+      const last = R === r2.e.r;
+      ws2[ref].s = R === 0 ? cs(BRAND.BLACK, BRAND.GOLD, 14, true, 'left', {})
+        : R === 1 ? cs(BRAND.WHITE, BRAND.WHITE, 5, false, 'left', {})
+        : R === 2 || last ? cs(BRAND.BLACK, last ? BRAND.GOLD : BRAND.WHITE, 10, true, C === 0 ? 'left' : 'center', BORDER_THIN('444444'))
+        : cs('FAFAFA', BRAND.BLACK, 10, false, C === 0 ? 'left' : 'center', BORDER_THIN('DDDDDD'));
+      if (C === 2 && typeof ws2[ref].v === 'number') ws2[ref].z = CURRENCY_FMT;
     }
   }
   ws2['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
   XLSX.utils.book_append_sheet(wb, ws2, 'Category Summary');
 
-  /* ═══════════════════════════════════════════
-     SHEET 3 — INVOICE DETAILS
-  ═══════════════════════════════════════════ */
-  const subtotal = order.subtotal ?? 0;
-  const gst      = order.gst ?? 0;
-  const delivFee = order.deliveryFee ?? 0;
-  const svcChg   = order.serviceChargeWaived ? 0 : order.serviceCharge ?? 0;
-  const cancelFee = Number((order as any).cancellationFee) || 0;
-  const credit   = Number((order as any).creditApplied) || 0;
-  const discount = discountOn(subtotal, order as any); // flat + percentage
-  const total    = order.total ?? 0;
-
-  const invData: any[][] = [
-    ['INVOICE DETAILS'],
-    [],
-    ['Field', 'Value'],
-    ['Invoice #',     invNum],
-    ['Order #',       orderNum],
-    ['Customer',      order.customerName || '—'],
-    ['Contact',       order.customerContactPerson || '—'],
-    ['Email',         order.customerEmail || '—'],
-    ['Week',          order.week ? `Week ${order.week} / ${order.year}` : '—'],
-    ['Order Date',    (toDate(order.createdAt) ?? new Date()).toLocaleDateString()],
-    ['Status',        (order.status || '').toUpperCase()],
-    [],
-    ['FINANCIALS', ''],
-    ['Subtotal',      subtotal],
-    ...(discount ? [['Discount', -discount]] : []),
-    ['Delivery Fee',  delivFee],
-    ...(svcChg ? [['Service Charge', svcChg]] : []),
-    ...(cancelFee ? [['Cancellation Fee', cancelFee]] : []),
-    [gstLabel(gst, subtotal - discount), gst],
-    [],
-    ['INVOICE TOTAL',  total],
-    // Store credit comes off the invoice total; the total itself excludes it.
-    ...(credit > 0
-      ? [['Store Credit Applied', -credit], ['AMOUNT DUE (After Credit)', orderAmountDue(order as any)]]
-      : []),
-  ];
-
-  const ws3 = XLSX.utils.aoa_to_sheet(invData);
-  ws3['!cols'] = [{ wch: 20 }, { wch: 32 }];
-
-  const r3 = XLSX.utils.decode_range(ws3['!ref'] || 'A1:B1');
-  const statusBg = STATUS_COLOUR[order.status] || 'FAFAFA';
-  const statusFg = STATUS_TEXT[order.status] || BRAND.BLACK;
-
-  for (let R = r3.s.r; R <= r3.e.r; R++) {
-    for (let Ci = r3.s.c; Ci <= r3.e.c; Ci++) {
-      const ref = XLSX.utils.encode_cell({ r: R, c: Ci });
-      if (!ws3[ref]) ws3[ref] = { t: 's', v: '' };
-      const v = invData[R]?.[Ci] ?? '';
-      if (R === 0) { ws3[ref].s = cs(BRAND.BLACK, BRAND.GOLD, 15, true, 'left', {}); continue; }
-      if (R === 1 || v === '') { ws3[ref].s = cs(BRAND.WHITE, BRAND.WHITE, 5, false, 'left', {}); continue; }
-      if (R === 2) { ws3[ref].s = cs(BRAND.BLACK, BRAND.WHITE, 10, true, Ci === 0 ? 'right' : 'left', BORDER_THIN('444444')); continue; }
-      if (v === 'FINANCIALS') { ws3[ref].s = cs('E8F4FD', '1565C0', 10, true, 'left', BORDER_THIN('1565C0')); continue; }
-      if (v === 'TOTAL DUE') {
-        ws3[ref].s = cs(BRAND.BLACK, BRAND.GOLD, 13, true, Ci === 0 ? 'left' : 'right', BORDER_MEDIUM(BRAND.GOLD));
-        if (Ci === 1 && typeof ws3[ref].v === 'number') ws3[ref].z = CURRENCY_FMT;
-        continue;
-      }
-      if (v === (order.status || '').toUpperCase() && Ci === 1) {
-        ws3[ref].s = cs(statusBg, statusFg, 10, true, 'left', BORDER_THIN(statusFg)); continue;
-      }
-      if (typeof v === 'number') {
-        ws3[ref].z = CURRENCY_FMT;
-        ws3[ref].s = cs('F5EDD0', BRAND.GOLD_DARK, 10, true, 'right', BORDER_THIN(BRAND.GOLD)); continue;
-      }
-      if (Ci === 0) { ws3[ref].s = cs('F9F9F9', '555555', 9, true, 'right', BORDER_THIN('DDDDDD')); continue; }
-      ws3[ref].s = cs(BRAND.WHITE, BRAND.BLACK, 10, false, 'left', BORDER_THIN('DDDDDD'));
-    }
-  }
-  ws3['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
-  XLSX.utils.book_append_sheet(wb, ws3, 'Invoice Details');
-
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
   return new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+/** exportOrderToExcel with the order's change history loaded first. */
+export async function exportOrderToExcelWithChanges(order: Order, products: Product[], categories: Category[]): Promise<Blob | undefined> {
+  return exportOrderToExcel(order, products, categories, await fetchOrderChanges(order as any));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -127,8 +127,8 @@ export function CustomerInvoices({
     }
 
     // ✅ PASS 3: Dynamic import keeps xlsx-js-style out of the customer entry chunk.
-    const { exportOrderToExcel, downloadCSV } = await import("../../utils/excelExport");
-    const csv = exportOrderToExcel(order, products, categories);
+    const { exportOrderToExcelWithChanges, downloadCSV } = await import("../../utils/excelExport");
+    const csv = await exportOrderToExcelWithChanges(order, products, categories);
     if (csv) { downloadCSV(csv, invoiceFilename(order, order.customerName, 'csv')); }
   };
 

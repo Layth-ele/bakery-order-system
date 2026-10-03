@@ -22,7 +22,7 @@ import { canExportInvoiceDocument, selectPendingOrderGroups } from '../../utils/
 // collection. Now uses `useCachedCustomers` which shares one cached
 // query across all consumers via TanStack Query.
 import { useCachedCustomers } from '../../hooks/useCachedFirebase';
-import { exportOrderToExcel, downloadCSV } from '../../utils/excelExport';
+import { exportOrderToExcelWithChanges, downloadCSV } from '../../utils/excelExport';
 import { downloadOrderPDF, downloadBakeryProductionPDF } from '../../utils/pdf';
 import { displayOrderNumber, orderFilename } from '../../utils/displayId';
 import type { User } from '../../services/firebase/authService';
@@ -127,13 +127,13 @@ function PendingOrdersPageComponent({
   /**
    * Download order as Excel/CSV
    */
-  const handleDownloadExcel = useCallback((order: Order) => {
+  const handleDownloadExcel = useCallback(async (order: Order) => {
     if (!canExportInvoiceDocument(order)) {
       toast.error('Invoice export is only available for completed paid orders', { duration: 3000 });
       return;
     }
 
-    const csv = exportOrderToExcel(order, products, categories);
+    const csv = await exportOrderToExcelWithChanges(order, products, categories);
     // ✅ PASS 6: Guard Blob | undefined return.
     if (!csv) return;
     downloadCSV(csv, orderFilename(order, order.customerName, 'csv'));

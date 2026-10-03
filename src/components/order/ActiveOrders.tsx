@@ -210,8 +210,8 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
 
   const handleDownloadOrder = async (order: Order) => {
     // ✅ PASS 3: Dynamic import to keep xlsx-js-style out of the entry bundle.
-    const { exportOrderToExcel, downloadCSV } = await import('../../utils/excelExport');
-    const csv = exportOrderToExcel(order, products, categories);
+    const { exportOrderToExcelWithChanges, downloadCSV } = await import('../../utils/excelExport');
+    const csv = await exportOrderToExcelWithChanges(order, products, categories);
     if (csv) { downloadCSV(csv, orderFilename(order, order.customerName, 'csv')); }
   };
 
