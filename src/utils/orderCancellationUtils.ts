@@ -18,6 +18,7 @@ import {
   round2,
 } from '../functions/src/lib/orderRevision';
 import { DEFAULT_TAX_RATE } from '../functions/src/lib/settingsValues';
+import { orderAmountDue } from './orderMoney';
 
 export type DayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
@@ -99,7 +100,7 @@ export function calculateRefundAmount(
   const paid = (order as any).paymentReceived === true;
   const empty: RefundPreview = {
     paid, full: false, subtotalRefund: 0, gstRefund: 0, deliveryFeeRefund: 0, serviceChargeRefund: 0,
-    cancellationFee: 0, totalRefund: 0, totalCredit: 0, newAmountDue: Number((order as any).amountDue ?? order.total ?? 0),
+    cancellationFee: 0, totalRefund: 0, totalCredit: 0, newAmountDue: orderAmountDue(order as any),
     percentageCancelled: 0,
   };
   let plan;

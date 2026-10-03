@@ -38,6 +38,7 @@ import { invalidateCache } from '../useCachedFirebase'; // ✅ FIX: Add missing 
 import type { Order, User, Product, Category } from '../../types';
 import { displayOrderNumber, orderFilename } from '../../utils/displayId';
 import { canConfirmPayment } from '../../utils/orderSelectors';
+import { orderAmountDue } from '../../utils/orderMoney';
 
 interface UseUnpaidOrderActionsReturn {
   /**
@@ -209,7 +210,7 @@ export function useUnpaidOrderActions(
             ...(order.total ? [{
               id: 'amount',
               label: 'Amount to Confirm',
-              value: `$${(order.amountDue || order.total).toFixed(2)}`,
+              value: `$${orderAmountDue(order as any).toFixed(2)}`, // after store credit
               icon: 'amount' as const,
             }] : []),
           ],
