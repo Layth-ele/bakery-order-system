@@ -84,7 +84,9 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
   } else {
     throw new HttpsError(
       "failed-precondition",
-      `Order does not qualify for free delivery (subtotal $${discountedBase} < $${freeDeliveryMin}). Please provide deliveryFee.`
+      Number.isFinite(freeDeliveryMin)
+        ? `Order does not qualify for free delivery (subtotal $${discountedBase} < $${freeDeliveryMin}). Please provide deliveryFee.`
+        : "Free delivery is switched off in Settings. Please provide the delivery fee."
     );
   }
   const totals = orderTotals(items, order, gstRate, { deliveryFee: finalDeliveryFee });

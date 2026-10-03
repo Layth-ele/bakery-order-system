@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveTaxRate,
   resolveFreeDeliveryMin,
+  isFreeDeliveryEnabled,
   DEFAULT_TAX_RATE,
   DEFAULT_FREE_DELIVERY_MIN,
 } from '../settingsValues';
@@ -36,7 +37,7 @@ describe('resolveFreeDeliveryMin', () => {
     expect(resolveFreeDeliveryMin({ freeDeliveryMin: 300 }, { freeDeliveryMin: 250 })).toBe(300);
   });
 
-  it('falls back to freeDeliveryThreshold, then the legacy doc, then $250', () => {
+  it('falls back to freeDeliveryThreshold, then the legacy doc, then $500', () => {
     expect(resolveFreeDeliveryMin({ freeDeliveryThreshold: 180 })).toBe(180);
     expect(resolveFreeDeliveryMin({}, { freeDeliveryMin: 200 })).toBe(200);
     expect(resolveFreeDeliveryMin({}, {})).toBe(DEFAULT_FREE_DELIVERY_MIN);
@@ -44,5 +45,16 @@ describe('resolveFreeDeliveryMin', () => {
 
   it('allows free delivery on every order when set to 0', () => {
     expect(resolveFreeDeliveryMin({ freeDeliveryMin: 0 })).toBe(0);
+  });
+});
+
+describe('free delivery switch', () => {
+  it('off → no order qualifies (delivery always charged)', () => {
+    expect(resolveFreeDeliveryMin({ freeDeliveryEnabled: false, freeDeliveryMin: 500 })).toBe(Number.POSITIVE_INFINITY);
+    expect(isFreeDeliveryEnabled({ freeDeliveryEnabled: false })).toBe(false);
+  });
+  it('on → the minimum applies; settings saved before the switch count as on', () => {
+    expect(resolveFreeDeliveryMin({ freeDeliveryEnabled: true, freeDeliveryMin: 500 })).toBe(500);
+    expect(isFreeDeliveryEnabled({ freeDeliveryMin: 300 })).toBe(true);
   });
 });
