@@ -10,7 +10,7 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { requireAdmin, requireApprovedCustomer, getTaxRate } from "./_shared";
+import { requireAdmin, requireApprovedCustomer } from "./_shared";
 import { WITH_EMAIL, emailPaymentReminder, type EmailCallResult } from "./emails";
 import { allowSend } from "./lib/mailer";
 import { createNotificationInTx } from "./notify";
@@ -18,6 +18,7 @@ import { orderRefFields } from "./orderRevisions";
 import {
   creditIssuedNotification,
   payoutRequestedNotification,
+  payoutResolvedNotification,
   paymentReminderNotification,
 } from "./lib/accountNotifications";
 import { buildCreditNote, type CreditNoteType } from "./lib/creditNotes";
@@ -105,8 +106,6 @@ export const issueStoreCredit = onCall(async (request): Promise<{ creditNoteId: 
   const reason = str(data.reason).slice(0, 500);
   if (!reason) throw new HttpsError("invalid-argument", "Please give a reason for the credit.");
   const type = MANUAL_CREDIT_TYPES.includes(data.type as CreditNoteType) ? (data.type as CreditNoteType) : "refund";
-  const gstRate = await getTaxRate();
-
   const noteRef = db.collection("creditNotes").doc();
   await db.runTransaction(async (tx) => {
     const customerSnap = await tx.get(db.doc(`customers/${customerId}`));
@@ -115,7 +114,7 @@ export const issueStoreCredit = onCall(async (request): Promise<{ creditNoteId: 
     if (customer.customerType === "admin") throw new HttpsError("failed-precondition", "Store credit is for customer accounts.");
 
     tx.set(noteRef, {
-      ...buildCreditNote({ id: noteRef.id, customerId, amount, type, reason, createdBy: admin.email, gstRate, now: new Date() }),
+      ...buildCreditNote({ id: noteRef.id, customerId, amount, type, reason, createdBy: admin.email, gstShare: 0, now: new Date() }),
       createdAt: FieldValue.serverTimestamp(),
     });
     createNotificationInTx(
@@ -171,4 +170,74 @@ export const requestCreditPayout = onCall(async (request): Promise<{ creditNoteI
 
   console.log(`[requestCreditPayout] ${customer.uid} requested ${amount} from ${creditNoteId}`);
   return { creditNoteId, amount };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// resolveCreditPayout — admin finishes a payout request
+//   paid      the credit was sent to the customer: the note is used up
+//   declined  the credit stays on the account and can be spent again
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PAYOUT_METHODS = ["bank_transfer", "cash", "check"] as const;
+
+export const resolveCreditPayout = onCall(async (request): Promise<{ creditNoteId: string; outcome: "paid" | "declined"; amount: number }> => {
+  const admin = await requireAdmin(request);
+  const data = (request.data ?? {}) as Record<string, unknown>;
+  const creditNoteId = docId(data.creditNoteId, "creditNoteId");
+  const outcome = data.outcome === "paid" ? "paid" : data.outcome === "declined" ? "declined" : null;
+  if (!outcome) throw new HttpsError("invalid-argument", "outcome must be paid or declined.");
+  const method = (PAYOUT_METHODS as readonly unknown[]).includes(data.method) ? (data.method as string) : "bank_transfer";
+  const note = str(data.note).slice(0, 300);
+  const noteRef = db.doc(`creditNotes/${creditNoteId}`);
+
+  const amount = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(noteRef);
+    const credit = snap.data();
+    if (!snap.exists || !credit) throw new HttpsError("not-found", "Credit note not found.");
+    if (credit.payoutRequested !== true) throw new HttpsError("failed-precondition", "There's no open payout request on this credit.");
+    const customerSnap = await tx.get(db.doc(`customers/${str(credit.customerId) || "_"}`));
+    const alertRef = db.doc(`notifications/admin/items/payout_${creditNoteId}`);
+    const alertSnap = await tx.get(alertRef);
+    const balance = round2(num(credit.remainingBalance ?? credit.amount));
+
+    if (outcome === "paid") {
+      tx.update(noteRef, {
+        remainingBalance: 0,
+        status: "paid_out",
+        payoutRequested: false,
+        payoutApproved: true,
+        payoutApprovedAt: FieldValue.serverTimestamp(),
+        payoutApprovedBy: admin.email,
+        payoutCompletedAt: FieldValue.serverTimestamp(),
+        payoutMethod: method,
+        payoutAmount: balance,
+        ...(note ? { payoutNote: note } : {}),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } else {
+      tx.update(noteRef, {
+        payoutRequested: false,
+        payoutRequestedAmount: FieldValue.delete(),
+        ...(note ? { payoutNote: note } : {}),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    // The admin's "payout requested" alert is dealt with.
+    if (alertSnap.exists) tx.update(alertRef, { read: true, isRead: true, readAt: FieldValue.serverTimestamp() });
+    createNotificationInTx(
+      tx,
+      payoutResolvedNotification({
+        creditNoteId,
+        customerId: str(credit.customerId),
+        customerName: str(customerSnap.data()?.storeName) || str(customerSnap.data()?.contactPerson),
+        amount: balance,
+        outcome,
+        note,
+      })
+    );
+    return balance;
+  });
+
+  console.log(`[resolveCreditPayout] ${admin.email} ${outcome} ${creditNoteId} (${amount})`);
+  return { creditNoteId, outcome, amount };
 });

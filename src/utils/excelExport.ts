@@ -11,7 +11,7 @@
  * ✅ FORMAT: Category header rows coloured, data rows lightly tinted — matches reference
  */
 import { discountOn } from '../functions/src/lib/orderRevision';
-import { gstLabel } from './orderMoney';
+import { gstLabel, lineAmount, orderAmountDue, orderRevenue } from './orderMoney';
 import * as XLSX from 'xlsx-js-style';
 import { toDate } from './timestampFormatting';
 import type { Order, Product, Category } from '../types';
@@ -170,7 +170,7 @@ export function exportOrderToExcel(
   // Row 7 — spacer
   data.push(new Array(13).fill(''));
   // Row 8 — column headers
-  data.push(['Category', 'Product', 'Unit Cost', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total Qty', 'Retail', 'Min/Day']);
+  data.push(['Category', 'Product', 'Unit Price', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total Qty', 'Line Total', 'Min/Day']);
   // Row 9 — date sub-row  ✅ FIXED: no more "undefined"
   const weekDateLabels = buildWeekDateLabels(order);
   data.push(['', '', '', ...weekDateLabels, '', '', '']);
@@ -194,17 +194,16 @@ export function exportOrderToExcel(
       const qty = (item.monday||0)+(item.tuesday||0)+(item.wednesday||0)+
                   (item.thursday||0)+(item.friday||0)+(item.saturday||0)+(item.sunday||0)
                   || item.total || 0;
-      // For custom items: use item.price directly (set by admin); for catalog: use prod.cost
-      const cost    = prod?.cost ?? item.price ?? 0;
-      const retail  = prod?.retail ?? prod?.price ?? item.price ?? 0;
-      const rev     = qty * cost;
+      // The price this order was charged (never the bakery's internal cost).
+      const price   = Number(item.price) || 0;
+      const rev     = lineAmount({ price, total: qty });
       catTotal      += qty;
       catRevenue    += rev;
 
       data.push([
         idx === 0 ? catName : '',
         item.productName,
-        cost || '',
+        price ? fmt$(price) : '',
         item.monday    || '',
         item.tuesday   || '',
         item.wednesday || '',
@@ -213,7 +212,7 @@ export function exportOrderToExcel(
         item.saturday  || '',
         item.sunday    || '',
         qty,
-        retail ? fmt$(retail) : '',
+        fmt$(rev),
         prod?.dailyMinOrder || '',
       ]);
       dataRow++;
@@ -409,7 +408,9 @@ export function exportOrderToExcel(
   const subtotal = order.subtotal ?? 0;
   const gst      = order.gst ?? 0;
   const delivFee = order.deliveryFee ?? 0;
-  const svcChg   = order.serviceCharge ?? 0;
+  const svcChg   = order.serviceChargeWaived ? 0 : order.serviceCharge ?? 0;
+  const cancelFee = Number((order as any).cancellationFee) || 0;
+  const credit   = Number((order as any).creditApplied) || 0;
   const discount = discountOn(subtotal, order as any); // flat + percentage
   const total    = order.total ?? 0;
 
@@ -428,16 +429,17 @@ export function exportOrderToExcel(
     [],
     ['FINANCIALS', ''],
     ['Subtotal',      subtotal],
-    [gstLabel(gst, subtotal - discount), gst],
-    ['Delivery Fee',  delivFee],
-    ['Service Charge', svcChg],
     ...(discount ? [['Discount', -discount]] : []),
-    ...((order as any).creditApplied ? [['Credit Applied', -((order as any).creditApplied)]] : []),
+    ['Delivery Fee',  delivFee],
+    ...(svcChg ? [['Service Charge', svcChg]] : []),
+    ...(cancelFee ? [['Cancellation Fee', cancelFee]] : []),
+    [gstLabel(gst, subtotal - discount), gst],
     [],
     ['INVOICE TOTAL',  total],
-    ...(((order as any).creditApplied ?? 0) > 0
-      ? [['AMOUNT DUE (After Credit)', Math.max(0, total - ((order as any).creditApplied || 0))]]
-      : [['TOTAL DUE', total]]),
+    // Store credit comes off the invoice total; the total itself excludes it.
+    ...(credit > 0
+      ? [['Store Credit Applied', -credit], ['AMOUNT DUE (After Credit)', orderAmountDue(order as any)]]
+      : []),
   ];
 
   const ws3 = XLSX.utils.aoa_to_sheet(invData);
@@ -518,7 +520,8 @@ export function exportAllOrdersToExcel(
   });
 
   data.push(new Array(8).fill(''));
-  const totalRevenue = validOrders.reduce((s, o) => s + (o.total || 0), 0);
+  // Revenue: sales (approved, paid, completed) + fees kept on cancellations.
+  const totalRevenue = validOrders.reduce((s, o) => s + orderRevenue(o as any), 0);
   data.push(['', '', '', '', '', 'TOTAL REVENUE', totalRevenue, '']);
 
   const ws = XLSX.utils.aoa_to_sheet(data);

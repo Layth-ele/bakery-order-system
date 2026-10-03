@@ -25,6 +25,7 @@ import type { Order } from "../../../types";
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { CloseFooter } from "../../../ui/modals/ModalFooterButtons";
 import { displayInvoiceNumber } from '../../../utils/displayId';
+import { orderAmountDue } from '../../../utils/orderMoney';
 
 interface PaymentSubmittedModalProps {
   order: Order;
@@ -36,7 +37,8 @@ export function PaymentSubmittedModal({
   onClose,
 }: PaymentSubmittedModalProps): JSX.Element | null {
   const invoiceNumber = displayInvoiceNumber(order);
-  const amountPaid = order.total || 0;
+  // What the customer sends: the total less any store credit used.
+  const amountPaid = orderAmountDue(order as any);
 
   return (
     <StyleModalShell

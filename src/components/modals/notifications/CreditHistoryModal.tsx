@@ -69,13 +69,15 @@ export function CreditHistoryModal({
 
   // ✅ Calculate credit summary from Firebase data
   const creditSummary = useMemo(() => {
+    // Spendable credit — a note reserved for a payout isn't (same rule as checkout).
     const availableCredit = creditNotes
-      .filter((note: CreditNote) => note.status === 'available' || note.status === 'partially_used')
+      .filter((note: CreditNote) => (note.status === 'available' || note.status === 'partially_used') && !note.payoutRequested)
       .reduce((sum: number, note: CreditNote) => sum + (note.remainingBalance ?? (note.amount ?? 0)), 0);
 
     const totalEarned = creditNotes.reduce((sum: number, note: CreditNote) => sum + (note.amount ?? 0), 0);
     
-    const totalUsed = creditNotes.reduce((sum: number, note: CreditNote) => {
+    // Used on orders (credit paid out to the customer isn't "used").
+    const totalUsed = creditNotes.filter((note: CreditNote) => note.status !== 'paid_out').reduce((sum: number, note: CreditNote) => {
       const balance = note.remainingBalance ?? (note.amount ?? 0);
       return sum + ((note.amount ?? 0) - balance);
     }, 0);
@@ -93,7 +95,7 @@ export function CreditHistoryModal({
     // Extract applications from credit notes that have been used
     const applications: CreditApplication[] = [];
     
-    creditNotes.forEach((note: CreditNote) => {
+    creditNotes.filter((note: CreditNote) => note.status !== 'paid_out').forEach((note: CreditNote) => {
       const used = (note.amount ?? 0) - (note.remainingBalance ?? (note.amount ?? 0));
       if (used > 0) {
         applications.push({
@@ -326,6 +328,11 @@ export function CreditHistoryModal({
                           {note.status === "available" && (
                             <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
                               Available
+                            </span>
+                          )}
+                          {note.status === "paid_out" && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                              Paid Out
                             </span>
                           )}
                         </div>

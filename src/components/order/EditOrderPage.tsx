@@ -28,6 +28,7 @@ import { useModal } from '../../contexts/ModalContextNew';
 import { useEditOrderState, days } from '../../hooks/orders/useEditOrderState';
 import { toDate } from '../../utils/timestampFormatting';
 import { logger } from '../../utils/logger';
+import { gstLabel } from '../../utils/orderMoney';
 
 // ❌ REMOVED: createRevision, submitRevision - revisions feature removed
 
@@ -87,7 +88,8 @@ export function EditOrderPage({
     customProducts, setCustomProducts,
     customProductDays, setCustomProductDays,
     customProductQty, setCustomProductQty,
-    editPermission, itemsSubtotal, finalOrderTotal,
+    editPermission, itemsSubtotal, finalOrderTotal, totals, freeDeliveryMin,
+    feeTouched, setFeeTouched,
     getProduct, getProductTotal, getItemSubtotal,
   } = useEditOrderState(order, products, isAdmin);
 
@@ -197,7 +199,8 @@ export function EditOrderPage({
     
     // ✅ PHASE 5: Customers cannot change delivery fee or discount (admin-only)
     if (isAdmin) {
-      updateData.deliveryFee = deliveryFeeEnabled ? parseFloat(deliveryFee) || 0 : 0;
+      // The fee the preview shows: the admin's, or the free-delivery rule's.
+      updateData.deliveryFee = totals.deliveryFee;
       // ✅ FIX: Save both discountType-specific fields so paidOrderEditService
       // can correctly recalculate after an edit
       if (discountType === 'percentage') {
@@ -503,57 +506,43 @@ export function EditOrderPage({
               </span>
             </div>
 
-            {deliveryFeeEnabled && parseFloat(deliveryFee) > 0 && (
-              <div className="flex justify-between items-center pb-2 sm:pb-3 border-b border-amber-300">
-                <span className="text-[#666666] text-sm sm:text-base">
-                  Delivery Fee:
-                </span>
-                <span className="font-semibold text-[#333333] text-base sm:text-xl">
-                  ${parseFloat(deliveryFee).toFixed(2)}
-                </span>
-              </div>
-            )}
-
-            {discount > 0 && (
-              <div className="flex justify-between items-center pb-2 sm:pb-3 border-b border-amber-300">
-                <span className="text-[#666666] text-sm sm:text-base">
-                  Discount {discountType === 'percentage' ? `(${discount}%)` : ''}:
-                </span>
-                <span className="font-semibold text-red-600 text-base sm:text-xl">
-                  -${(discountType === 'percentage' 
-                    ? itemsSubtotal * (discount / 100)
-                    : discount
-                  ).toFixed(2)}
-                </span>
-              </div>
-            )}
-
-            {/* GST Breakdown */}
-            <div className="flex justify-between items-center pb-2 sm:pb-3 border-b border-amber-300">
-              <span className="text-[#666666] text-sm sm:text-base">
-                GST (5%):
-              </span>
-              <span className="font-semibold text-[#333333] text-base sm:text-xl">
-                ${(() => {
-                  // ✅ FIX: GST on (subtotal - discount) only, delivery fee not taxable
-                  const disc = discountType === 'percentage'
-                    ? itemsSubtotal * (discount / 100)
-                    : discount;
-                  const taxableBase = Math.max(0, itemsSubtotal - disc);
-                  const gst = Math.round((taxableBase * 0.05 + Number.EPSILON) * 100) / 100;
-                  return gst.toFixed(2);
-                })()}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-bold text-[#333333] text-base sm:text-xl">
-                Order Total:
-              </span>
-              <span className="font-bold text-[#333333] text-2xl sm:text-4xl">
-                ${finalOrderTotal.toFixed(2)}
-              </span>
-            </div>
+            {(() => {
+              const row = (label: string, value: string, tone = 'text-[#333333]') => (
+                <div key={label} className="flex justify-between items-center pb-2 sm:pb-3 border-b border-amber-300">
+                  <span className="text-[#666666] text-sm sm:text-base">{label}:</span>
+                  <span className={`font-semibold text-base sm:text-xl ${tone}`}>{value}</span>
+                </div>
+              );
+              const $ = (n: number) => `$${n.toFixed(2)}`;
+              return (
+                <>
+                  {totals.discountAmount > 0 &&
+                    row(`Discount${discountType === 'percentage' ? ` (${discount}%)` : ''}`, `-${$(totals.discountAmount)}`, 'text-red-600')}
+                  {row('Delivery Fee', totals.deliveryFee > 0 ? $(totals.deliveryFee) : 'Free')}
+                  {totals.serviceCharge > 0 && row('Service Charge', $(totals.serviceCharge))}
+                  {totals.cancellationFee > 0 && row('Cancellation Fee', $(totals.cancellationFee))}
+                  {row(gstLabel(totals.gst, totals.subtotal - totals.discountAmount), $(totals.gst))}
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="font-bold text-[#333333] text-base sm:text-xl">Order Total:</span>
+                    <span className="font-bold text-[#333333] text-2xl sm:text-4xl">{$(totals.total)}</span>
+                  </div>
+                  {totals.creditApplied > 0 && (
+                    <>
+                      {row('Store Credit Applied', `-${$(totals.creditApplied)}`, 'text-emerald-600')}
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="font-bold text-[#333333] text-sm sm:text-base">Amount Due:</span>
+                        <span className="font-bold text-[#333333] text-lg sm:text-2xl">{$(totals.amountDue)}</span>
+                      </div>
+                    </>
+                  )}
+                  {totals.creditReturned > 0 && (
+                    <p className="text-xs text-emerald-700 pt-1">
+                      {$(totals.creditReturned)} of store credit is no longer needed and goes back to the customer.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -662,27 +651,36 @@ export function EditOrderPage({
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={deliveryFeeEnabled}
+                    checked={feeTouched ? deliveryFeeEnabled : totals.deliveryFee > 0}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setFeeTouched(true);
                       setDeliveryFeeEnabled(e.target.checked);
+                      if (e.target.checked && !(parseFloat(deliveryFee) > 0)) {
+                        setDeliveryFee(String(totals.autoFee || order.deliveryFee || ''));
+                      }
                       setHasChanges(true);
                     }}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#D4A574]/30 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#D4A574]"></div>
                   <span className="ms-3 text-sm font-medium text-[#8B4513]">
-                    {deliveryFeeEnabled ? 'Enabled' : 'Disabled'}
+                    {(feeTouched ? deliveryFeeEnabled : totals.deliveryFee > 0) ? 'Enabled' : 'Disabled'}
                   </span>
                 </label>
               </div>
-              {deliveryFeeEnabled && (
+              {!feeTouched && (
+                <p className="px-5 pt-3 text-xs text-[#8B4513]">
+                  Automatic: free from ${freeDeliveryMin.toFixed(2)} (after discount), otherwise the order's delivery fee.
+                </p>
+              )}
+              {(feeTouched ? deliveryFeeEnabled : totals.deliveryFee > 0) && (
                 <div className="p-5">
                   {/* ✅ NEW: Warning message if order is below free delivery minimum */}
-                  {itemsSubtotal < 150 && (
+                  {totals.subtotal - totals.discountAmount < freeDeliveryMin && (
                     <div className="mb-4 p-4 bg-[#FFF3E0] border-2 border-[#FF9800] rounded-lg flex items-start gap-2">
                       <span className="text-lg">💡</span>
                       <p className="text-sm text-[#333333]">
-                        This order's subtotal (${itemsSubtotal.toFixed(2)}) is below the free delivery minimum ($150.00). 
+                        This order's subtotal (${itemsSubtotal.toFixed(2)}) is below the free delivery minimum (${freeDeliveryMin.toFixed(2)}). 
                         Please enter the delivery fee determined by the bakery office.
                       </p>
                     </div>
@@ -699,8 +697,10 @@ export function EditOrderPage({
                         type="number"
                         min="0"
                         step="0.01"
-                        value={deliveryFee}
+                        value={feeTouched ? deliveryFee : String(totals.deliveryFee)}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setFeeTouched(true);
+                          setDeliveryFeeEnabled(true);
                           setDeliveryFee(e.target.value);
                           setHasChanges(true);
                         }}

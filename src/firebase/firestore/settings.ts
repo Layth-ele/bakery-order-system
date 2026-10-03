@@ -34,6 +34,7 @@ import {
 
 import {db, serverTimestamp, wrapFirestoreOperation} from './shared'
 import { logger } from '../../utils/logger';
+import { DEFAULT_DELIVERY_FEE, DEFAULT_FREE_DELIVERY_MIN, DEFAULT_SERVICE_CHARGE } from '../../functions/src/lib/settingsValues';
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -47,14 +48,15 @@ import { logger } from '../../utils/logger';
  */
 const DEFAULT_SETTINGS: Settings = {
   // ✅ REQUIRED FIELDS
-  deliveryFee: 10.00,
-  freeDeliveryThreshold: 100.00,
+  // Same defaults the server charges with (functions/src/lib/settingsValues).
+  deliveryFee: DEFAULT_DELIVERY_FEE,
+  freeDeliveryMin: DEFAULT_FREE_DELIVERY_MIN,
   orderDeadline: '12:00 PM',
   deliveryDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
   
   // ✅ OPTIONAL FIELDS - Reasonable defaults
   serviceChargeEnabled: true,
-  serviceChargeAmount: 3.99,
+  serviceChargeAmount: DEFAULT_SERVICE_CHARGE,
   deliveryTimeInfo: 'Delivery between 6 AM - 8 AM',
   
   // Business info (placeholder defaults)

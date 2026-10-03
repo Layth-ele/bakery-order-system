@@ -16,6 +16,7 @@ import {
   calculateCategorySales
 } from '../services/analyticsAggregators'; // ✅ MOVED: Now in /services
 import { Order } from '../types';
+import { isSaleOrder } from '../utils/orderMoney';
 
 export type TimePeriod = 'last7days' | 'last30days' | 'last3months' | 'last6months' | 'last12months' | 'custom';
 
@@ -72,9 +73,8 @@ export function useSalesAnalytics({
 
   // Memoize approved orders only
   const approvedOrders = useMemo(() => {
-    return allFilteredOrders.filter(order => 
-      order.status === 'approved' || order.status === 'completed'
-    );
+    // Sales: approved, paid (in production) and completed orders.
+    return allFilteredOrders.filter(isSaleOrder);
   }, [allFilteredOrders]);
 
   // Memoize metrics calculation

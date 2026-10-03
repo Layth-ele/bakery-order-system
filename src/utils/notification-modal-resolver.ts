@@ -698,6 +698,13 @@ export async function resolveModalProps(
       case 'NOTIFICATION_DETAILS':
         props = await resolveNotificationDetailsProps(notification, context);
         break;
+
+      case 'CUSTOMER_PROFILE': {
+        // Admin alerts about a customer (e.g. a credit payout request).
+        const n = notification as any;
+        props = { customerEmail: n.customerId || n.metadata?.customerId || '', isAdmin: true };
+        break;
+      }
       
       default:
         logger.warn(`⚠️ [ModalResolver V2] Unknown modal type: ${modalType}`);

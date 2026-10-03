@@ -15,14 +15,15 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { requireAdmin, getTaxRate } from "./_shared";
+import { requireAdmin, getTaxRate, getFreeDeliveryMin, getDeliveryFee } from "./_shared";
 import { WITH_EMAIL, emailOrderUpdated, type EmailCallResult } from "./emails";
 import { createNotificationInTx } from "./notify";
 import { orderUpdatedNotification, orderReducedNotification } from "./lib/accountNotifications";
-import { buildCreditNote } from "./lib/creditNotes";
+import { buildCreditNote, gstShareOf } from "./lib/creditNotes";
 import { unitPriceFor, type CatalogProduct, type PriceTier } from "./lib/orderPlacement";
 import {
   RevisionError,
+  autoDeliveryFee,
   diffItems,
   effectiveGstRate,
   itemQuantity,
@@ -30,6 +31,7 @@ import {
   orderTotals,
   parseRequestedItems,
   reduceItems,
+  reducedTotals,
   round2,
   type RevisionItem,
 } from "./lib/orderRevision";
@@ -109,7 +111,7 @@ export const editOrder = onCall(WITH_EMAIL, async (request): Promise<EditOrderRe
   const discount = parseDiscount((request.data as any)?.discount);
 
   const orderRef = db.doc(`orders/${orderId}`);
-  const gstRate = await getTaxRate();
+  const [gstRate, freeDeliveryMin, standardDeliveryFee] = await Promise.all([getTaxRate(), getFreeDeliveryMin(), getDeliveryFee()]);
 
   const result = await db.runTransaction(async (tx) => {
     // ── Reads ──
@@ -165,9 +167,17 @@ export const editOrder = onCall(WITH_EMAIL, async (request): Promise<EditOrderRe
           discountNote: discount.note ?? "",
         }
       : {};
-    const totals = orderTotals(items, { ...order, ...discountFields }, gstRate, {
-      ...(rawFee !== undefined ? { deliveryFee: rawFee } : {}),
-    });
+    // No fee from the admin → free delivery is re-checked for the new subtotal.
+    const priced = { ...order, ...discountFields };
+    const noFee = orderTotals(items, priced, gstRate, { deliveryFee: 0 });
+    const deliveryFee =
+      rawFee !== undefined
+        ? rawFee
+        : autoDeliveryFee(round2(noFee.subtotal - noFee.discountAmount), order.deliveryFee, {
+            freeDeliveryMin,
+            deliveryFee: standardDeliveryFee,
+          });
+    const totals = orderTotals(items, priced, gstRate, { deliveryFee });
 
     const creditBefore = round2(num(order.creditApplied));
     const creditApplied = round2(Math.min(creditBefore, totals.total));
@@ -190,7 +200,7 @@ export const editOrder = onCall(WITH_EMAIL, async (request): Promise<EditOrderRe
           type: "refund",
           reason: "Order updated — store credit no longer needed on this order",
           createdBy: admin.email,
-          gstRate,
+          gstShare: gstShareOf(order),
           now: new Date(),
         }),
         createdAt: FieldValue.serverTimestamp(),
@@ -298,7 +308,7 @@ export const editPaidOrder = onCall(async (request): Promise<EditPaidOrderResult
     if (reduced.items.length === 0) {
       throw new HttpsError("failed-precondition", "To remove everything, cancel the order instead.");
     }
-    const totals = orderTotals(reduced.items, order, effectiveGstRate(order, fallbackRate));
+    const { totals, discount } = reducedTotals(order, reduced.items, effectiveGstRate(order, fallbackRate));
     const oldTotal = round2(num(order.total));
     const credit = round2(oldTotal - totals.total);
     if (credit <= 0) throw new HttpsError("failed-precondition", "Nothing was reduced, so there is no credit to issue.");
@@ -317,7 +327,7 @@ export const editPaidOrder = onCall(async (request): Promise<EditPaidOrderResult
         type: "admin_edit",
         reason: `Order change: ${reason}`,
         createdBy: admin.email,
-        gstRate: effectiveGstRate(order, fallbackRate),
+        gstShare: gstShareOf(order),
         now: new Date(),
       }),
       createdAt: FieldValue.serverTimestamp(),
@@ -325,6 +335,7 @@ export const editPaidOrder = onCall(async (request): Promise<EditPaidOrderResult
     tx.update(orderRef, {
       items: reduced.items,
       subtotal: totals.subtotal,
+      discount,
       gst: totals.gst,
       total: totals.total,
       creditIssued: round2(num(order.creditIssued) + credit),

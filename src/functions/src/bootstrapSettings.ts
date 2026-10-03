@@ -27,27 +27,33 @@
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
+import {
+  DEFAULT_DELIVERY_FEE,
+  DEFAULT_FREE_DELIVERY_MIN,
+  DEFAULT_SERVICE_CHARGE,
+  DEFAULT_TAX_RATE,
+} from "./lib/settingsValues";
 
 const db = getFirestore();
 
 /**
  * Default settings — must match the client's DEFAULT_SETTINGS in
- * src/constants/settings.ts. Any field added there should be added here
+ * src/firebase/firestore/settings.ts. Any field added there should be added here
  * too. Kept minimal here to avoid drift; client adds optional fields via
  * subsequent admin updates.
  */
 const DEFAULT_SETTINGS = {
-  // Tax & pricing
-  taxRate: 0.05,                // 5% GST (Canadian default)
-  freeDeliveryMin: 250,         // $250+ orders ship free
-  serviceCharge: 0,             // Disabled by default
-  serviceChargeEnabled: false,
-  deliveryFeeAmount: 25,
-
+  // Money — the field names and defaults lib/settingsValues reads, so a
+  // fresh install charges exactly what the resolvers assume.
+  gstRate: DEFAULT_TAX_RATE,
+  freeDeliveryMin: DEFAULT_FREE_DELIVERY_MIN,
+  deliveryFee: DEFAULT_DELIVERY_FEE,
+  serviceChargeEnabled: true,
+  serviceChargeAmount: DEFAULT_SERVICE_CHARGE,
+  cancellationFeePercent: 0,    // Admin → Settings (cancel dialog default)
   // Order workflow
   weeklyOrderCutoffDay: 5,      // Friday
   weeklyOrderCutoffHour: 12,    // Noon Vancouver
-  cancellationFeePercentage: 25,
   // Schema version — used by future migrations
   schemaVersion: 1,
 };

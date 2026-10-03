@@ -23,6 +23,7 @@ import {
   generateStatusBadge,
   generateStatusNotice,
 } from "./pdfComponents";
+import { orderAmountDue } from '../orderMoney';
 
 interface PDFTemplateOptions {
   title: string;
@@ -142,12 +143,13 @@ export const buildPDFTemplate = (
           ? order.cancellationFee || 0
           : order.total || 0,
     cancellationFee: order.cancellationFee,
-    creditApplied: (order as any).creditApplied || 0,
-    // ✅ Compute amountDue if not stored: total - credit
-    amountDue: (order as any).amountDue ??
-      (((order as any).creditApplied ?? 0) > 0
-        ? Math.max(0, (order.total || 0) - ((order as any).creditApplied || 0))
-        : undefined),
+    // Cancelled / rejected documents show only what was kept, not credit use.
+    creditApplied: documentType === "cancelled" || documentType === "rejected" ? 0 : (order as any).creditApplied || 0,
+    // What the customer pays after store credit (stored by the server).
+    amountDue:
+      documentType !== "cancelled" && documentType !== "rejected" && ((order as any).creditApplied ?? 0) > 0
+        ? orderAmountDue(order as any)
+        : undefined,
     invoiceNumber: (() => {
       const isUID = (s?: string) => !!s && s.length >= 16 && !(/^[A-Z]{2,}-\d{4}-/.test(s)) && (s.match(/-/g) || []).length === 0;
       if (order.invoiceNumber && !isUID(order.invoiceNumber)) return order.invoiceNumber;

@@ -266,38 +266,6 @@ export async function confirmOrderPaymentViaCloudFunction(
 }
 
 // ============================================
-// PASS 2 — CREDIT FUNCTIONS
-// ============================================
-
-export interface ApplyOrderCreditPayload { orderId: string; amount: number; }
-export interface ApplyOrderCreditResult {
-  success: boolean;
-  orderId: string;
-  appliedAmount: number;
-  newCreditApplied: number;
-  newAmountDue: number;
-}
-
-/**
- * ✅ PASS 2: Customer-callable. Applies credit FIFO across the customer's
- * available credit notes, atomically updates order.creditApplied / amountDue,
- * and writes the application history record — all in a single transaction.
- *
- * After this Cloud Function is the sole credit-application path, the Firestore
- * rule on creditNotes can deny ALL customer writes (Pass 2 rules update).
- */
-export async function applyOrderCreditViaCloudFunction(
-  payload: ApplyOrderCreditPayload
-): Promise<ApplyOrderCreditResult> {
-  const fn = httpsCallable<ApplyOrderCreditPayload, ApplyOrderCreditResult>(
-    functions,
-    "applyOrderCredit"
-  );
-  const result = await fn(payload);
-  return result.data;
-}
-
-// ============================================
 // ORDER EDITS, REMINDERS, STORE CREDIT
 // ============================================
 
@@ -376,6 +344,17 @@ export async function requestCreditPayoutViaCloudFunction(
 ): Promise<{ creditNoteId: string; amount: number }> {
   const fn = httpsCallable<{ creditNoteId: string }, { creditNoteId: string; amount: number }>(functions, "requestCreditPayout");
   return (await fn({ creditNoteId })).data;
+}
+
+/** Admin finishes a payout request: "paid" uses up the credit, "declined" releases it. */
+export async function resolveCreditPayoutViaCloudFunction(input: {
+  creditNoteId: string;
+  outcome: 'paid' | 'declined';
+  method?: 'bank_transfer' | 'cash' | 'check';
+  note?: string;
+}): Promise<{ creditNoteId: string; outcome: 'paid' | 'declined'; amount: number }> {
+  const fn = httpsCallable<typeof input, { creditNoteId: string; outcome: 'paid' | 'declined'; amount: number }>(functions, "resolveCreditPayout");
+  return (await fn(input)).data;
 }
 
 // ============================================

@@ -108,29 +108,6 @@ export async function getTotalAdminEditCredit(orderId: string): Promise<number> 
 }
 
 /**
- * Apply store credit to an order — applyOrderCredit Cloud Function only.
- *
- * The server reads the customer's credit notes, deducts FIFO, updates the
- * order's creditApplied / amountDue and writes the history record in one
- * transaction. There is no client-side fallback: retrying in the browser
- * after a server error could deduct the credit twice.
- *
- * @throws Error with a user-facing message (e.g. insufficient credit)
- */
-export async function applyCreditToOrder(
-  orderId: string,
-  _customerId: string,
-  amount: number
-): Promise<void> {
-  const { applyOrderCreditViaCloudFunction, callableErrorMessage } = await import('./firebase/cloudFunctions');
-  try {
-    await applyOrderCreditViaCloudFunction({ orderId, amount });
-  } catch (error) {
-    throw new Error(callableErrorMessage(error, 'apply your credit'));
-  }
-}
-
-/**
  * Get credit summary for a customer
  * ✅ MAR 14, 2026: Now async to support Firebase
  * ✅ PASS 5: Return type tightened from `any` to a structured shape so

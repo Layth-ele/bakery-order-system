@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { canEditPaidOrder } from '../../services/orders/paidOrderEditService';
-import { isDeliveryFeeRequired, qualifiesForFreeDelivery, calculateOrderTotals } from '../../services/orders/deliveryFeeService';
+import { autoDeliveryFee, orderTotals } from '../../functions/src/lib/orderRevision';
 import { validateItemEdit } from '../../services/creditService';
 import { canTransitionOrderStatus } from '../../utils/stateTransitionRules';
 import type { Order, OrderItem } from '../../types';
@@ -73,28 +73,28 @@ describe('canEditPaidOrder', () => {
   });
 });
 
-describe('delivery fee rules', () => {
-  it('requires fee when deliveryFee is undefined', () => {
-    const order = makeOrder({ deliveryFee: undefined });
-    expect(isDeliveryFeeRequired(order)).toBe(true);
+describe('delivery fee rules (shared with the server)', () => {
+  const settings = { freeDeliveryMin: 250, deliveryFee: 10 };
+  it('is free at or above the free-delivery minimum', () => {
+    expect(autoDeliveryFee(250, 10, settings)).toBe(0);
+    expect(autoDeliveryFee(249.99, 10, settings)).toBe(10);
   });
-
-  it('qualifies for free delivery at $250+', () => {
-    expect(qualifiesForFreeDelivery(makeOrder({ subtotal: 250 }))).toBe(true);
-    expect(qualifiesForFreeDelivery(makeOrder({ subtotal: 249.99 }))).toBe(false);
+  it('uses the standard fee when the order had none', () => {
+    expect(autoDeliveryFee(100, 0, settings)).toBe(10);
   });
 });
 
-describe('order total calculation', () => {
+describe('order total calculation (shared with the server)', () => {
+  const item = { productId: 'p', productName: 'P', price: 20, monday: 10, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0, total: 10 };
   it('calculates correct total with all fees', () => {
-    const { gst, total } = calculateOrderTotals(200, 10, 3.99, false);
-    expect(gst).toBeCloseTo(10);
-    expect(total).toBeCloseTo(223.99);
+    const t = orderTotals([item], { deliveryFee: 10, serviceCharge: 3.99 }, 0.05);
+    expect(t.gst).toBeCloseTo(10);
+    expect(t.total).toBeCloseTo(223.99);
   });
 
   it('waives service charge when flag is true', () => {
-    const { total } = calculateOrderTotals(100, 0, 3.99, true);
-    expect(total).toBeCloseTo(105);
+    const t = orderTotals([item], { deliveryFee: 0, serviceCharge: 3.99, serviceChargeWaived: true }, 0.05);
+    expect(t.total).toBeCloseTo(210);
   });
 });
 

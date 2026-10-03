@@ -14,6 +14,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Order, OrderItem, Product } from '../../types';
 import type { DayQuantities } from '../../types/cart';
+import { useCachedCustomers, useCachedSettings } from '../useCachedFirebase';
+import { autoDeliveryFee, normalizeItems, orderTotals, round2, type OrderTotals } from '../../functions/src/lib/orderRevision';
+import { unitPriceFor, type PriceTier } from '../../functions/src/lib/orderPlacement';
+import { resolveDeliveryFee, resolveFreeDeliveryMin, resolveTaxRate } from '../../functions/src/lib/settingsValues';
 import { canAdminEditOrder, canCustomerEditOrder, type EditPermissionResult } from '../../services/orders/orderEditRules';
 
 type EditedItemsDay = {
@@ -67,6 +71,13 @@ export interface EditOrderState {
   editPermission: EditPermissionResult;
   itemsSubtotal: number;
   finalOrderTotal: number;
+  /** The totals the server will save (lib/orderRevision rules). */
+  totals: OrderTotals & { autoFee: number; creditApplied: number; creditReturned: number; amountDue: number };
+  gstRate: number;
+  freeDeliveryMin: number;
+  /** false → the delivery fee follows the free-delivery rule automatically. */
+  feeTouched: boolean;
+  setFeeTouched: (v: boolean) => void;
 
   // Helpers
   getProduct: (productId: string) => Product | undefined;
@@ -148,28 +159,64 @@ export function useEditOrderState(
     return activeDays.reduce((sum, d) => sum + (item[d.key] || 0), 0);
   };
 
-  const getItemSubtotal = (productId: string): number => {
+  // ── Prices: exactly what the editOrder Cloud Function will charge ──
+  // Lines already on the order keep their price; a catalogue product added
+  // now gets the customer's tier price; custom products their own price.
+  const { data: settings } = useCachedSettings();
+  const { data: customers = [] } = useCachedCustomers(isAdmin);
+  const tier: PriceTier =
+    (customers as any[]).find((c) => c.id === order.customerId)?.customerType === 'commercial' ? 'commercial' : 'individual';
+  const general = (settings ?? null) as Record<string, unknown> | null;
+  const gstRate = resolveTaxRate(general);
+  const freeDeliveryMin = resolveFreeDeliveryMin(general);
+  const standardDeliveryFee = resolveDeliveryFee(general);
+
+  const priceOf = (productId: string): number => {
+    const original = order.items.find((it) => it.productId === productId);
+    if (original) return original.price || 0;
+    if (productId.startsWith('custom-')) return Number(editedItems[productId]?.price) || 0;
     const product = getProduct(productId);
-    const price = product ? ((product.retail ?? product.price ?? product.wholesale ?? 0) as number) : 0;
-    return getProductTotal(productId) * price;
+    return product ? unitPriceFor(product as any, tier) : 0;
   };
 
-  const itemsSubtotal = useMemo(
-    () => Object.keys(editedItems).reduce((sum, id) => sum + getItemSubtotal(id), 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [editedItems, products, activeDays]
-  );
+  const getItemSubtotal = (productId: string): number => round2(getProductTotal(productId) * priceOf(productId));
 
-  const finalOrderTotal = useMemo(() => {
-    const fee = deliveryFeeEnabled ? parseFloat(deliveryFee) || 0 : 0;
-    const disc = discountType === 'percentage'
-      ? itemsSubtotal * (discount / 100)
-      : discount;
-    // ✅ FIX: GST calculated on (subtotal - discount) — not on pre-discount amount
-    const taxableBase = Math.max(0, itemsSubtotal - disc);
-    const gst = Math.round((taxableBase * 0.05 + Number.EPSILON) * 100) / 100;
-    return Math.max(0, taxableBase + gst + fee);
-  }, [itemsSubtotal, deliveryFeeEnabled, deliveryFee, discountType, discount]);
+  const [feeTouched, setFeeTouched] = useState(false);
+  const discountFields = discountType === 'percentage'
+    ? { discount: 0, discountPercentage: discount }
+    : { discount, discountPercentage: 0 };
+
+  const totals = useMemo(() => {
+    const items = normalizeItems(
+      Object.entries(editedItems).map(([productId, it]) => ({
+        ...it,
+        productId,
+        productName: it.productName ?? getProduct(productId)?.name ?? 'Product',
+        price: priceOf(productId),
+      }))
+    ).filter((it) => it.total > 0);
+    const priced = { ...order, ...discountFields } as any;
+    const noFee = orderTotals(items, priced, gstRate, { deliveryFee: 0 });
+    const autoFee = autoDeliveryFee(round2(noFee.subtotal - noFee.discountAmount), order.deliveryFee, {
+      freeDeliveryMin,
+      deliveryFee: standardDeliveryFee,
+    });
+    const fee = feeTouched ? (deliveryFeeEnabled ? Math.max(0, parseFloat(deliveryFee) || 0) : 0) : autoFee;
+    const t = orderTotals(items, priced, gstRate, { deliveryFee: fee });
+    const creditBefore = round2(Number(order.creditApplied) || 0);
+    const creditApplied = round2(Math.min(creditBefore, t.total));
+    return {
+      ...t,
+      autoFee,
+      creditApplied,
+      creditReturned: round2(creditBefore - creditApplied),
+      amountDue: round2(Math.max(0, t.total - creditApplied)),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editedItems, products, tier, gstRate, freeDeliveryMin, standardDeliveryFee, feeTouched, deliveryFeeEnabled, deliveryFee, discountType, discount, order]);
+
+  const itemsSubtotal = totals.subtotal;
+  const finalOrderTotal = totals.total;
 
   return {
     editedItems, setEditedItems, activeDays, hasChanges, setHasChanges,
@@ -182,7 +229,8 @@ export function useEditOrderState(
     customProductDays, setCustomProductDays,
     customProductQty, setCustomProductQty,
     editPermission,
-    itemsSubtotal, finalOrderTotal,
+    itemsSubtotal, finalOrderTotal, totals, gstRate, freeDeliveryMin,
+    feeTouched, setFeeTouched,
     getProduct, getProductTotal, getItemSubtotal,
   };
 }

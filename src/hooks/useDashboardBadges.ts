@@ -25,7 +25,6 @@ interface BadgeCounts {
 interface UseDashboardBadgesReturn {
   badgeCounts: BadgeCounts;
   unreadCount: number;
-  pendingAdjustmentsCount: number;
 }
 
 export function useDashboardBadges({
@@ -42,18 +41,6 @@ export function useDashboardBadges({
     });
   }, [allOrders, user.id, user.email]);
 
-  // ✅ Calculate pending adjustments count (unpaid base orders)
-  const pendingAdjustmentsCount = useMemo(() => {
-    const rows = getUnpaidRows(customerOrders);
-
-    return rows.reduce((total, row) => {
-      // Only count base unpaid orders
-      if (row.kind === 'base_order') {
-        return total + (row.order.total || 0);
-      }
-      return total;
-    }, 0);
-  }, [customerOrders]);
 
   // ✅ Calculate badge counts
   const badgeCounts = useMemo(() => {
@@ -129,6 +116,5 @@ export function useDashboardBadges({
   return {
     badgeCounts,
     unreadCount,
-    pendingAdjustmentsCount,
   };
 }

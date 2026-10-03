@@ -17,6 +17,7 @@ import {
   planCancellation,
   round2,
 } from '../functions/src/lib/orderRevision';
+import { DEFAULT_TAX_RATE } from '../functions/src/lib/settingsValues';
 
 export type DayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
@@ -90,7 +91,9 @@ export interface RefundPreview {
 export function calculateRefundAmount(
   order: Order,
   cancelledDays: Set<DayKey>,
-  cancellationFeePercentage: number = 0
+  cancellationFeePercentage: number = 0,
+  /** GST rate from Settings — used only for orders that carry no GST. */
+  fallbackGstRate: number = DEFAULT_TAX_RATE
 ): RefundPreview {
   const days = [...cancelledDays];
   const paid = (order as any).paymentReceived === true;
@@ -101,12 +104,12 @@ export function calculateRefundAmount(
   };
   let plan;
   try {
-    plan = planCancellation(order as any, days, cancellationFeePercentage, FALLBACK_GST_RATE);
+    plan = planCancellation(order as any, days, cancellationFeePercentage, fallbackGstRate);
   } catch {
     return empty;
   }
   const items = normalizeItems(order.items);
-  const before = orderTotals(items, order as any, effectiveGstRate(order as any, FALLBACK_GST_RATE));
+  const before = orderTotals(items, order as any, effectiveGstRate(order as any, fallbackGstRate));
   const after = plan.totals;
   const base = (t: { subtotal: number; discountAmount: number }) => t.subtotal - t.discountAmount;
   const subtotalRefund = round2(base(before) - (after ? base(after) : 0));
@@ -130,8 +133,6 @@ export function calculateRefundAmount(
   };
 }
 
-/** Only used for orders that carry no GST of their own. */
-const FALLBACK_GST_RATE = 0.05;
 
 /**
  * Get active days (days with items ordered) for an order

@@ -15,7 +15,7 @@ import {
   reduceItems,
 } from '../orderRevision';
 import { buildFinalInvoice } from '../orderCompletion';
-import { buildCreditNote } from '../creditNotes';
+import { buildCreditNote, gstShareOf } from '../creditNotes';
 import {
   creditIssuedNotification,
   orderReducedNotification,
@@ -216,7 +216,7 @@ describe('credit notes and account notifications', () => {
       type: 'refund',
       reason: 'Goodwill',
       createdBy: 'admin@x.com',
-      gstRate: 0.05,
+      gstShare: gstShareOf({ gst: 5, total: 105 }),
       now: new Date('2026-10-01T12:00:00Z'),
     });
     expect(n).toMatchObject({

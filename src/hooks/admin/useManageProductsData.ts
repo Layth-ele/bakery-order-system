@@ -23,6 +23,7 @@ import type { Product, Category } from '../../types';
 import { useCachedProducts } from '../useCachedProducts';
 import { useCachedCategories } from '../useCachedCategories';
 import { useCacheInvalidation } from '../useCacheInvalidation';
+import { DISCOUNTED_FILTER_ID, isLegacyDiscountCopy, isOnSale } from '../../utils/productDiscount';
 
 // ============================================================================
 // TYPES
@@ -124,29 +125,22 @@ export function useManageProductsData(isActive: boolean): ManageProductsData {
   
   // Filter products based on selected category
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      if (selectedCategory === 'cat-0') {
-        // For DISCOUNTED ITEMS category, only show products in cat-0
-        return p.categoryId === 'cat-0';
-      } else {
-        // For regular categories, exclude -discounted copies
-        return (
-          p.categoryId === selectedCategory &&
-          !p.id.endsWith('-discounted')
-        );
-      }
-    });
+    const real = products.filter((p) => !isLegacyDiscountCopy(p));
+    return selectedCategory === DISCOUNTED_FILTER_ID
+      ? real.filter(isOnSale)
+      : real.filter((p) => p.categoryId === selectedCategory);
   }, [products, selectedCategory]);
   
   // Calculate statistics
-  const stats = useMemo<ProductStats>(() => ({
-    totalCategories: categories.length,
-    totalProducts: products.filter((p) => !p.id.endsWith('-discounted')).length,
-    discountedProducts: products.filter(
-      (p) => p.discount && p.discount > 0 && !p.id.endsWith('-discounted')
-    ).length,
-    activeProducts: products.filter((p) => !p.id.endsWith('-discounted')).length,
-  }), [categories.length, products]);
+  const stats = useMemo<ProductStats>(() => {
+    const real = products.filter((p) => !isLegacyDiscountCopy(p));
+    return {
+      totalCategories: categories.filter((c) => c.id !== DISCOUNTED_FILTER_ID).length,
+      totalProducts: real.length,
+      discountedProducts: real.filter(isOnSale).length,
+      activeProducts: real.filter((p) => p.available !== false).length,
+    };
+  }, [categories, products]);
   
   // ============================================================================
   // RETURN

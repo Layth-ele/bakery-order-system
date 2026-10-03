@@ -114,17 +114,28 @@ export interface CatalogProduct {
   price?: unknown;
   discount?: unknown;
   available?: unknown;
+  /** Smallest quantity a delivery day may have (0 = no minimum). */
+  dailyMinOrder?: unknown;
 }
 
 export type PriceTier = "commercial" | "individual";
 
-/** The unit price the customer sees on the order screen. */
+/**
+ * The unit price the customer sees on the order screen, in cents (rounded),
+ * so "price × quantity" on every screen and document equals the line total.
+ */
 export function unitPriceFor(product: CatalogProduct, tier: PriceTier): number {
   const pick = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0);
   const base = tier === "commercial" ? pick(product.wholesale) || pick(product.price) : pick(product.retail) || pick(product.price);
   const disc = typeof product.discount === "number" && product.discount > 0 && product.discount < 100 ? product.discount : 0;
-  return disc > 0 ? base * (1 - disc / 100) : base;
+  return round2(disc > 0 ? base * (1 - disc / 100) : base);
 }
+
+/** The minimum quantity per delivery day for a product (0 = none). */
+export const dailyMinimumOf = (product: CatalogProduct): number =>
+  typeof product.dailyMinOrder === "number" && Number.isFinite(product.dailyMinOrder) && product.dailyMinOrder > 0
+    ? Math.floor(product.dailyMinOrder)
+    : 0;
 
 export interface PricedOrder {
   items: Array<{ productId: string; productName: string; price: number; total: number } & DayQuantities>;
@@ -161,6 +172,14 @@ export function priceOrder(
     }
     const price = unitPriceFor(product, opts.tier);
     if (price <= 0) throw new PlacementError("failed-precondition", `${String(product.name ?? "A product")} has no price set.`);
+    const min = dailyMinimumOf(product);
+    const short = DAYS.find((day) => quantities[day] > 0 && quantities[day] < min);
+    if (short) {
+      throw new PlacementError(
+        "failed-precondition",
+        `${String(product.name ?? "A product")}: the minimum per delivery day is ${min} (${short}: ${quantities[short]}).`
+      );
+    }
     const total = DAYS.reduce((s, day) => s + quantities[day], 0);
     return { productId, productName: String(product.name ?? "Product"), price, ...quantities, total };
   });

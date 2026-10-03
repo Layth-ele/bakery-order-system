@@ -40,6 +40,10 @@ export const CUSTOMER_NOTIFICATION_TYPES = {
   CREDIT_ISSUED: 'CREDIT_ISSUED',
   /** Admin reduced a paid order and issued credit for the difference. */
   ORDER_EDITED: 'ORDER_EDITED',
+  /** Admin paid out store credit the customer asked for. */
+  CREDIT_PAYOUT_COMPLETED: 'CREDIT_PAYOUT_COMPLETED',
+  /** Admin declined a payout request; the credit is spendable again. */
+  CREDIT_PAYOUT_DECLINED: 'CREDIT_PAYOUT_DECLINED',
 } as const;
 
 /** Notifications shown in the admin bell. */

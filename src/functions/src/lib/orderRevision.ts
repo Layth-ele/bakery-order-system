@@ -118,6 +118,41 @@ export function orderTotals(
   return { subtotal, discountAmount, gst, deliveryFee, serviceCharge, cancellationFee, total };
 }
 
+/**
+ * Totals after items are removed from an order (paid reduction or cancelled
+ * days). A flat discount shrinks in proportion to the subtotal, so removing
+ * half the items keeps half the discount; a percentage discount already
+ * scales. `discount` is the flat discount to store on the order.
+ */
+export function reducedTotals(
+  order: PricedOrderFields,
+  newItems: RevisionItem[],
+  gstRate: number,
+  extra: { cancellationFee?: number } = {}
+): { totals: OrderTotals; discount: number } {
+  const oldSubtotal = itemsSubtotal(normalizeItems(order.items));
+  const newSubtotal = itemsSubtotal(newItems);
+  const flat = Math.max(0, num(order.discount));
+  const discount = flat > 0 && oldSubtotal > 0 ? round2(flat * Math.min(1, newSubtotal / oldSubtotal)) : flat;
+  const totals = orderTotals(newItems, { ...order, discount, ...extra }, gstRate);
+  return { totals, discount };
+}
+
+/**
+ * Delivery fee for an edited unpaid order when the admin doesn't set one:
+ * free at or above the free-delivery minimum (subtotal after discount),
+ * otherwise the order's current fee, or the standard fee if it had none.
+ */
+export function autoDeliveryFee(
+  discountedSubtotal: number,
+  currentFee: unknown,
+  settings: { freeDeliveryMin: number; deliveryFee: number }
+): number {
+  if (discountedSubtotal <= 0 || discountedSubtotal >= settings.freeDeliveryMin) return 0;
+  const fee = num(currentFee);
+  return round2(fee > 0 ? fee : Math.max(0, settings.deliveryFee));
+}
+
 // ── Input ───────────────────────────────────────────────────────────────────
 
 export const MAX_ITEMS = 200;
@@ -277,6 +312,13 @@ export interface CancellationPlan {
   creditReturned: number;
   creditApplied: number;
   amountDue: number;
+  /** Flat discount to store after a partial cancellation (prorated). */
+  discount: number;
+  /**
+   * Cancellation fees the bakery keeps on this order in total, after this
+   * cancellation (earlier partial cancellations included).
+   */
+  feeKept: number;
 }
 
 /**
@@ -306,12 +348,15 @@ export function planCancellation(
   const full = cancelled.length === active.length;
 
   const gstRate = effectiveGstRate(order, fallbackGstRate);
+  // Fees kept by earlier partial cancellations stay kept (never refunded).
+  const keptBefore = paid ? round2(Math.max(0, num(order.cancellationFee))) : 0;
   let newItems: RevisionItem[] = [];
   let totals: OrderTotals | null = null;
-  let newTotal = 0;
+  let discount = Math.max(0, num(order.discount));
+  let newTotal = keptBefore;
   if (!full) {
     newItems = removeDays(items, cancelled);
-    totals = orderTotals(newItems, order, gstRate);
+    ({ totals, discount } = reducedTotals(order, newItems, gstRate));
     newTotal = totals.total;
   }
   const reduction = round2(Math.max(0, oldTotal - newTotal));
@@ -321,7 +366,7 @@ export function planCancellation(
     // A partial cancellation keeps the fee on the order, so the invoice still
     // adds up: total + credit issued = what the customer paid.
     if (totals && feeAmount > 0) {
-      totals = orderTotals(newItems, { ...order, cancellationFee: num(order.cancellationFee) + feeAmount }, gstRate);
+      ({ totals } = reducedTotals(order, newItems, gstRate, { cancellationFee: keptBefore + feeAmount }));
     }
     return {
       full,
@@ -332,6 +377,8 @@ export function planCancellation(
       creditReturned: 0,
       creditApplied,
       amountDue: round2(num((order as any).amountDue ?? Math.max(0, oldTotal - creditApplied))),
+      discount,
+      feeKept: round2(keptBefore + feeAmount),
     };
   }
   const keptCredit = round2(Math.min(creditApplied, newTotal));
@@ -345,5 +392,7 @@ export function planCancellation(
     creditReturned,
     creditApplied: keptCredit,
     amountDue: round2(Math.max(0, newTotal - keptCredit)),
+    discount,
+    feeKept: 0,
   };
 }

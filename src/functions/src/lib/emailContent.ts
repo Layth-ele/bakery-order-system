@@ -23,6 +23,7 @@ import {
   type EmailBrand,
   type EmailLineItem,
 } from "./emailLayout";
+import { discountOn } from "./orderRevision";
 
 export interface BuiltEmail {
   subject: string;
@@ -67,6 +68,11 @@ export interface EmailOrder {
   serviceCharge: number;
   serviceChargeWaived: boolean;
   creditApplied: number;
+  /** Cancellation fees kept by the bakery on this order. */
+  cancellationFee: number;
+  /** Store credit issued when the order was cancelled. */
+  creditAmount: number;
+  paid: boolean;
   total: number;
   amountDue: number;
   invoiceNumber: string;
@@ -100,8 +106,7 @@ export function normalizeOrder(raw: Record<string, unknown>, id: string): EmailO
   });
 
   const subtotal = num(raw.subtotal);
-  const pct = num(raw.discountPercentage);
-  const discount = num(raw.discount) + (pct ? (subtotal * pct) / 100 : 0);
+  const discount = discountOn(subtotal, raw); // flat + percentage, as charged
   const total = num(raw.total);
   const creditApplied = num(raw.creditApplied);
 
@@ -116,14 +121,17 @@ export function normalizeOrder(raw: Record<string, unknown>, id: string): EmailO
     note: str(raw.note),
     items,
     subtotal,
-    discount: Math.round(discount * 100) / 100,
+    discount,
     gst: num(raw.gst),
     deliveryFee: num(raw.deliveryFee),
     serviceCharge: num(raw.serviceCharge),
     serviceChargeWaived: raw.serviceChargeWaived === true,
     creditApplied,
+    cancellationFee: num(raw.cancellationFee),
+    creditAmount: num(raw.creditAmount),
+    paid: raw.paymentReceived === true,
     total,
-    amountDue: typeof raw.amountDue === "number" ? num(raw.amountDue) : total,
+    amountDue: typeof raw.amountDue === "number" ? num(raw.amountDue) : Math.max(0, Math.round((total - creditApplied) * 100) / 100),
     invoiceNumber: str(raw.invoiceNumber),
     rejectionReason: str(raw.rejectionReason),
     cancellationReason: str(raw.cancellationReason),
@@ -167,9 +175,14 @@ function totals(o: EmailOrder, opts: { final: boolean }): string {
   if (o.deliveryFee > 0) rows.push(["Delivery", money(o.deliveryFee)]);
   if (o.serviceCharge > 0)
     rows.push(["Service charge", o.serviceChargeWaived ? "Waived" : money(o.serviceCharge)]);
+  if (o.cancellationFee > 0) rows.push(["Cancellation fee", money(o.cancellationFee)]);
   if (o.gst > 0) rows.push(["GST", money(o.gst)]);
-  if (o.creditApplied > 0) rows.push(["Credit applied", `-${money(o.creditApplied)}`, "credit"]);
   rows.push([opts.final ? "Total" : "Estimated total", money(o.total), "total"]);
+  // Store credit comes off the total; the total itself doesn't include it.
+  if (o.creditApplied > 0) {
+    rows.push(["Store credit applied", `-${money(o.creditApplied)}`, "credit"]);
+    rows.push(["Amount due", money(o.amountDue), "total"]);
+  }
   return totalsTable(rows);
 }
 
@@ -285,7 +298,14 @@ export function buildOrderStatusEmail(
             p(`${strong(esc(ref))} has been cancelled.`),
             o.cancellationReason ? callout("Reason", esc(o.cancellationReason), "warn") : "",
             orderSummaryBox(o),
-            p("If you already paid for this order, we'll be in touch about a refund or credit. If this wasn't expected, please reply to this email."),
+            o.paid && o.creditAmount > 0
+              ? callout(
+                  "Store credit issued",
+                  `${strong(money(o.creditAmount))} was added to your account as store credit${o.cancellationFee > 0 ? ` (a ${money(o.cancellationFee)} cancellation fee was kept)` : ""}. You can use it on your next order.`,
+                  "ok"
+                )
+              : "",
+            p("If this wasn't expected, please reply to this email."),
             cta,
           ],
         })

@@ -19,6 +19,7 @@ import {
   getWeekRange,
 } from "../../../utils/weekUtils";
 import { logger } from '../../../utils/logger';
+import { OrderSummaryCard } from './OrderSummaryCard';
 
 interface CartItem {
   product: Product;
@@ -33,6 +34,8 @@ interface OrderReviewModalProps {
   selectedYear: number;
   onConfirm: () => void;
   onClose: () => void;
+  /** The cart's totals (same numbers the order panel shows). */
+  summary?: { subtotal: number; gst: number; deliveryFee: number; serviceCharge: number; creditApplied: number; total: number };
 }
 
 const days: Array<{
@@ -54,6 +57,7 @@ export function OrderReviewModal({
   selectedYear,
   onConfirm,
   onClose,
+  summary,
 }: OrderReviewModalProps): JSX.Element | null {
   const weekRange = getWeekRange(selectedWeek, selectedYear);
 
@@ -302,6 +306,23 @@ export function OrderReviewModal({
           </div>
         </div>
 
+        {summary && (
+          <div className="mt-4">
+            <OrderSummaryCard
+              subtotal={summary.subtotal}
+              gst={summary.gst}
+              deliveryFee={summary.deliveryFee}
+              serviceCharge={summary.serviceCharge}
+              creditApplied={summary.creditApplied}
+              total={summary.total}
+              label={summary.creditApplied > 0 ? 'Amount Due' : 'Order Total'}
+              variant="default"
+            />
+            <p className="mt-2 text-xs text-neutral-500">
+              Delivery fee is an estimate; the bakery confirms it when approving your order.
+            </p>
+          </div>
+        )}
     </StyleModalShell>
   );
 }

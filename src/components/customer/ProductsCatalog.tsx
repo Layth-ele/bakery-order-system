@@ -14,6 +14,7 @@ import { Pagination } from '../ui/pagination';
 import { ProductImagePlaceholder } from '../shared/ProductImagePlaceholder';
 import { CustomerPageLayout, StatCard } from './CustomerPageLayout';
 import { unitPriceFor } from '../../functions/src/lib/orderPlacement';
+import { isLegacyDiscountCopy, isOnSale } from '../../utils/productDiscount';
 
 interface ProductsCatalogProps {
   products: Product[];
@@ -32,10 +33,10 @@ export function ProductsCatalog({ products, categories, customerType, onNavigate
   const [isRefreshing, setIsRefreshing] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const available = useMemo(() => products.filter((p) => p.available !== false), [products]);
+  const available = useMemo(() => products.filter((p) => p.available !== false && !isLegacyDiscountCopy(p)), [products]);
   const filtered = useMemo(() => {
     if (selectedCategory === 'all') return available;
-    if (selectedCategory === '__discounted__') return available.filter((p) => (p.discount ?? 0) > 0);
+    if (selectedCategory === '__discounted__') return available.filter(isOnSale);
     return available.filter((p) => p.categoryId === selectedCategory);
   }, [available, selectedCategory]);
   const usedCategories = useMemo(
@@ -88,14 +89,14 @@ export function ProductsCatalog({ products, categories, customerType, onNavigate
       <div className="mb-4 grid grid-cols-3 gap-2 sm:mb-5 sm:gap-3">
         <StatCard icon={Package} label="Products" value={available.length} color="tan" />
         <StatCard icon={Tag} label="Categories" value={usedCategories.length} color="blue" />
-        <StatCard icon={Percent} label="On sale" value={available.filter((p) => (p.discount ?? 0) > 0).length} color="orange" />
+        <StatCard icon={Percent} label="On sale" value={available.filter(isOnSale).length} color="orange" />
       </div>
 
       {/* Category filter — scrolls sideways on phones */}
       <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <div className="flex gap-2 pb-1">
           {chip('all', 'All')}
-          {available.some((p) => (p.discount ?? 0) > 0) && chip('__discounted__', 'On sale')}
+          {available.some(isOnSale) && chip('__discounted__', 'On sale')}
           {usedCategories.map((c) => chip(c.id, c.name))}
         </div>
       </div>

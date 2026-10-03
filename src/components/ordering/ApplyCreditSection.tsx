@@ -54,7 +54,7 @@ export function ApplyCreditSection({
       .then(notes =>
         setCreditNotes(
           notes
-            .filter(n => n.status === 'available' || n.status === 'partially_used')
+            .filter(n => (n.status === 'available' || n.status === 'partially_used') && !n.payoutRequested)
             .sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0))
         )
       )

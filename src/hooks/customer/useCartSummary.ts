@@ -11,6 +11,7 @@ import { areAllDaysDisabled } from '../../utils/weekUtils';
 import { DAY_LABELS } from '../../types/customer-dashboard';
 import type { Product } from '../../types';
 import type { DayQuantities } from '../../types/cart';
+import { dailyMinimumOf } from '../../functions/src/lib/orderPlacement';
 
 interface CartItem {
   product: Product;
@@ -69,8 +70,8 @@ export function useCartSummary({
       if (!product) return;
       DAY_LABELS.forEach(d => {
         const qty = quantities[d.key as keyof DayQuantities];
-        if (qty > 0 && qty < (product.dailyMinOrder ?? 0)) {
-          errors.push(`${product.name} on ${d.label}: ${qty} ordered, minimum is ${(product.dailyMinOrder ?? 0)}`);
+        if (qty > 0 && qty < dailyMinimumOf(product as any)) {
+          errors.push(`${product.name} on ${d.label}: ${qty} ordered, minimum is ${dailyMinimumOf(product as any)}`);
         }
       });
     });

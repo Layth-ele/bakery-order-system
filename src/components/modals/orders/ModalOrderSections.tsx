@@ -1,5 +1,5 @@
 import { discountOn } from '../../../functions/src/lib/orderRevision';
-import { gstLabel } from '../../../utils/orderMoney';
+import { gstLabel, orderAmountDue } from '../../../utils/orderMoney';
 import React from 'react';
 /**
  * ModalOrderSections — Shared 3-section layout for all order modals.
@@ -261,6 +261,8 @@ export function OrderFinancialSummary({
   // Flat + percentage discount, exactly as the server applies it.
   const discount    = discountOn(order.subtotal ?? 0, order as any);
   const credit      = order.creditApplied ?? 0;
+  const fee         = Number((order as any).cancellationFee) || 0;
+  const creditIssued = Number((order as any).creditIssued) || 0;
   const total       = order.total ?? 0;
 
   const Row = ({ lbl, val, green = false, bold = false }: { lbl: string; val: string; green?: boolean; bold?: boolean }) => (
@@ -276,19 +278,25 @@ export function OrderFinancialSummary({
       {service > 0    && <Row lbl="Service Charge"  val={`$${service.toFixed(2)}`} />}
       {deliveryFee > 0 && <Row lbl="Delivery Fee"   val={`$${deliveryFee.toFixed(2)}`} />}
       {discount > 0   && <Row lbl="Discount"        val={`-$${discount.toFixed(2)}`} green />}
+      {fee > 0        && <Row lbl="Cancellation Fee" val={`$${fee.toFixed(2)}`} />}
       {gst > 0        && <Row lbl={gstLabel(gst, (order.subtotal ?? 0) - discount)} val={`$${gst.toFixed(2)}`} />}
-      {credit > 0     && <Row lbl="💳 Credit Applied" val={`-$${credit.toFixed(2)}`} green />}
       <div className="h-px bg-[#E8C4A2] my-1" />
       {credit > 0 ? (
         <>
-          <Row lbl="Invoice Total" val={`$${total.toFixed(2)}`} bold />
+          <Row lbl="Invoice Total" val={`$${total.toFixed(2)}`} />
+          <Row lbl="💳 Store Credit Applied" val={`-$${credit.toFixed(2)}`} green />
           <div className="mt-1 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 flex justify-between">
-            <span className="text-sm font-bold text-emerald-900">AMOUNT DUE (After Credit)</span>
-            <span className="text-sm font-bold text-emerald-900">${Math.max(0, total - credit).toFixed(2)}</span>
+            <span className="text-sm font-bold text-emerald-900">{label === 'Amount Due' ? 'AMOUNT DUE (After Credit)' : label.toUpperCase()}</span>
+            <span className="text-sm font-bold text-emerald-900">${orderAmountDue(order as any).toFixed(2)}</span>
           </div>
         </>
       ) : (
         <Row lbl={label} val={`$${total.toFixed(2)}`} bold />
+      )}
+      {creditIssued > 0 && (
+        <p className="text-[11px] text-emerald-700 pt-2">
+          ${creditIssued.toFixed(2)} was returned as store credit after the order was reduced.
+        </p>
       )}
     </SectionCard>
   );

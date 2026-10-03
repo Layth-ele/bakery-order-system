@@ -422,7 +422,7 @@ describe('Voided invoices create ownership (R10 lock-in for S2-F24)', () => {
 describe('Credit application history (T2R7-C2: server-only writer)', () => {
   beforeEach(seedAdminAndCustomer);
 
-  // The applyOrderCredit Cloud Function (Admin SDK) is the only legitimate
+  // The placeOrder Cloud Function (Admin SDK) is the only legitimate
   // writer. Customers must not be able to write ANY history entry — not even
   // a "reasonable" one — or they could fake credit applications that don't
   // reconcile against the credit notes.

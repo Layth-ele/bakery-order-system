@@ -57,7 +57,8 @@ export function PaidOrderDetailsModal({
   const amountDue      = orderAmountDue(order as any);
 
   // ✅ FIX: Fall back to order fields when editDetails is missing/incomplete
-  const creditAmount   = editDetails?.creditAmount || (order as any).creditIssued || (order as any).creditApplied || 0;
+  // Credit ISSUED to the customer by changes (not credit they spent on the order).
+  const creditAmount   = editDetails?.creditAmount || (order as any).creditIssued || 0;
   const itemsChanged   = editDetails?.itemsChanged || (order as any).itemsChanged || [];
   const increasedItems = itemsChanged.filter((i: any) => i.quantityChange > 0);
   const decreasedItems = itemsChanged.filter((i: any) => i.quantityChange < 0);
@@ -193,12 +194,14 @@ export function PaidOrderDetailsModal({
             <div className="p-6 space-y-4">
               <div className="bg-green-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-700 text-sm">Subtotal Credit (Before GST):</span>
+                  <span className="text-gray-700 text-sm">Items removed (before tax):</span>
                   <span className="text-[#333333] font-semibold">${subtotalCredit.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-700 text-sm">GST Credit (5%):</span>
-                  <span className="text-[#333333] font-semibold">${(subtotalCredit * 0.05).toFixed(2)}</span>
+                  <span className="text-gray-700 text-sm">GST, discount &amp; fees:</span>
+                  <span className="text-[#333333] font-semibold">
+                    {creditAmount - subtotalCredit < 0 ? '−' : ''}${Math.abs(creditAmount - subtotalCredit).toFixed(2)}
+                  </span>
                 </div>
                 <div className="pt-3 border-t border-green-300">
                   <div className="flex items-center justify-between">

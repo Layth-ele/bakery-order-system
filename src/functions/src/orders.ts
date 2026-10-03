@@ -20,6 +20,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { reserveDailyId } from "./idGenerator";
+import { isoWeekMonday } from "./lib/orderCompletion";
 import { requireApprovedCustomer } from "./_shared";
 import {
   PlacementError,
@@ -175,7 +176,7 @@ export const placeOrder = onCall(async (request): Promise<PlaceOrderResult> => {
     }
 
     const amountDue = amountDueOf(priced.total, credit.applied);
-    const now = new Date();
+    const deliveryMonday = isoWeekMonday(input.year, input.week);
     tx.set(orderRef, {
       orderNumber,
       customerId: caller.uid,
@@ -188,7 +189,8 @@ export const placeOrder = onCall(async (request): Promise<PlaceOrderResult> => {
       week: input.week,
       year: input.year,
       weekRange: `Week ${input.week}, ${input.year}`,
-      yearMonth: `${input.year}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`,
+      // Month of the delivery week (its Monday), so monthly invoices group by delivery.
+      yearMonth: `${deliveryMonday.getUTCFullYear()}-${String(deliveryMonday.getUTCMonth() + 1).padStart(2, "0")}`,
       items: priced.items,
       subtotal: priced.subtotal,
       gst: priced.gst,

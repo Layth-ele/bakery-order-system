@@ -28,6 +28,7 @@ import { useCategoryActions } from '../../hooks/admin/useCategoryActions';
 
 // ✅ PHASE 2 REFACTOR: Import extracted view component
 import { ManageProductsView } from '../../components/admin/manage-products/ManageProductsView';
+import { isLegacyDiscountCopy } from '../../utils/productDiscount';
 
 // ============================================================================
 // TYPES
@@ -154,14 +155,10 @@ function ManageProductsBase({
   
   const openProductModal = useCallback(
     (product?: Product) => {
-      // If editing a discounted copy, find and edit the original product instead
+      // An old discounted copy → edit the real product instead.
       let productToEdit = product;
-      if (product?.id.endsWith('-discounted')) {
-        const originalId = product.id.replace('-discounted', '');
-        const originalProduct = products.find((p) => p.id === originalId);
-        if (originalProduct) {
-          productToEdit = originalProduct;
-        }
+      if (product && isLegacyDiscountCopy(product)) {
+        productToEdit = products.find((p) => !isLegacyDiscountCopy(p) && p.name === product.name) ?? product;
       }
       
       openModal('EDIT_PRODUCT', {

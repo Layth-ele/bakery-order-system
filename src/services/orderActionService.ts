@@ -27,6 +27,7 @@ import {
   callableErrorMessage,
 } from './firebase/cloudFunctions';
 import { displayOrderNumber } from '../utils/displayId';
+import { resolveFreeDeliveryMin } from '../functions/src/lib/settingsValues';
 
 // ============================================
 // TYPES
@@ -98,7 +99,7 @@ export async function approveOrderAction(
       // back to a stale localStorage value or the hardcoded 250 default.
       // Fix: read from Firestore via getSettings() so approval always uses the live value.
       const settings = await getSettings();
-      const freeDeliveryMin = settings.freeDeliveryMin ?? 250;
+      const freeDeliveryMin = resolveFreeDeliveryMin(settings as any); // same rule as the server
       
       if (qualifiesForFreeDelivery(order.subtotal, freeDeliveryMin)) {
         finalDeliveryFee = 0;
