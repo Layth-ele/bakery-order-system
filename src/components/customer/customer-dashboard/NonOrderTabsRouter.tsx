@@ -18,6 +18,7 @@ import type {
   Category,
 } from "../../../types";
 import type { User } from "../../../hooks/useAuth";
+import { BakeryPolicies } from '../BakeryPolicies';
 
 export interface NonOrderTabsRouterProps {
   activeTab: DashboardTab;
@@ -71,6 +72,7 @@ export function NonOrderTabsRouter({
     return (
       <ActiveOrders
         user={user}
+        onOpenPolicies={() => onTabChange(DashboardTab.POLICIES)}
         onNavigateBack={() => {
           onTabChange(DashboardTab.PLACE_ORDER);
           const anchor = document.querySelector('[data-scroll-anchor]');
@@ -86,6 +88,7 @@ export function NonOrderTabsRouter({
     return (
       <OutstandingTab
         user={user}
+        onOpenPolicies={() => onTabChange(DashboardTab.POLICIES)}
         onNavigateBack={() => {
           onTabChange(DashboardTab.PLACE_ORDER);
           const anchor = document.querySelector('[data-scroll-anchor]');
@@ -116,11 +119,17 @@ export function NonOrderTabsRouter({
     );
   }
 
+  // Bakery Policies (live from Settings)
+  if (activeTab === DashboardTab.POLICIES) {
+    return <BakeryPolicies onBack={() => onTabChange(DashboardTab.MY_PROFILE)} />;
+  }
+
   // ✅ MY PROFILE TAB (default fallback)
   return (
     <MyProfile
       user={currentUser}
       onProfileUpdate={onProfileUpdate}
+      onOpenPolicies={() => onTabChange(DashboardTab.POLICIES)}
       onNavigateBack={() =>
         onTabChange(DashboardTab.PLACE_ORDER)
       }

@@ -36,15 +36,23 @@ import { UnifiedOrderList, ActionButtonSection } from './UnifiedOrderList';
 import type { User } from '../../hooks/useAuth';
 import type {Order} from '../../types'
 import { displayOrderNumber, orderFilename } from '../../utils/displayId';
+import { resolvePolicy } from '../../functions/src/lib/settingsValues';
+import { useCachedSettings } from '../../hooks/useCachedFirebase';
 // ✅ STEP 6: Use modal registry for all modals (eliminates duplicate systems)
 // import { PendingOrderDetailsModal } from '../modals/orders/PendingOrderDetailsModal';
 
 interface ActiveOrdersProps {
   user: User;
   onNavigateBack: () => void;
+  /** Opens the Bakery Policies page. */
+  onOpenPolicies?: () => void;
 }
 
-export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.Element | null {
+export function ActiveOrders({ user, onNavigateBack, onOpenPolicies }: ActiveOrdersProps): JSX.Element | null {
+  // Live bakery policy (Settings) for the cancellation note.
+  const { data: policySettings } = useCachedSettings();
+  const policy = resolvePolicy((policySettings ?? null) as Record<string, unknown> | null);
+
   const { openModal, closeModal } = useModal();
   const { data: allOrders = [], isLoading: ordersLoading, refetch } = useCachedCustomerOrders(user.id);
   
@@ -325,9 +333,18 @@ export function ActiveOrders({ user, onNavigateBack }: ActiveOrdersProps): JSX.E
                 quantities or delivery days for you, before or after approval.
               </p>
               <p className="text-sm leading-relaxed">
-                <strong className="text-[#D32F2F]">To cancel:</strong> contact the bakery. If you've already paid,
-                the cancelled part comes back as store credit (a fee may apply close to delivery).
+                <strong className="text-[#D32F2F]">To cancel:</strong> contact the bakery — free until{' '}
+                <strong>{policy.cancellationNoticeHours} hours before noon</strong> on the delivery day.
+                {policy.lateCancellationFeePercent > 0
+                  ? <> After that, a <strong>{policy.lateCancellationFeePercent}% fee</strong> applies to the cancelled part of a paid order.</>
+                  : null}{' '}
+                If you've already paid, the cancelled part comes back as store credit.
               </p>
+              {onOpenPolicies && (
+                <button type="button" onClick={onOpenPolicies} className="text-sm font-semibold text-[#8B6F47] underline">
+                  Full bakery policies →
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -43,6 +43,7 @@ import { ModalRoot } from '../ui/modals/ModalRoot';
 import { useCachedSettings } from '../hooks/useCachedFirebase';
 import { setPDFSettings } from '../utils/pdf/index';
 import { DataPreloader } from '../components/shared/DataPreloader';
+import { setPolicySettings } from '../utils/policyCache';
 
 /**
  * GlobalSettingsSync — keeps PDF settings in sync with Firestore for ALL routes
@@ -59,6 +60,7 @@ function GlobalSettingsSync(): null {
   const { data: settings } = useCachedSettings();
   useEffect(() => {
     if (!settings) return;
+    setPolicySettings(settings as Record<string, unknown>);
     setPDFSettings({
       // Everything in Settings (payment methods, policies, logo …) plus the
       // company fields the documents print.

@@ -582,12 +582,12 @@ export function SystemSettingsView({
             </div>
             
             <InputField
-              label="Order Deadline"
-              value={settings.orderDeadline || ''}
-              onChange={(value) => updateField('orderDeadline', value)}
-              placeholder="12:00 PM"
+              label="Order cutoff (hours before delivery, noon)"
+              value={settings.orderCutoffHours ?? 48}
+              onChange={(value) => updateField('orderCutoffHours', Math.max(0, Math.min(336, Math.round(parseFloat(value) || 0))))}
+              type="number"
+              placeholder="48"
               icon={Clock}
-              required
             />
           </div>
           
@@ -716,10 +716,14 @@ export function SystemSettingsView({
         </FormSection>
 
         {/* Order Policies */}
-        <FormSection icon={FileText} title="📋 ORDER POLICIES">
+        <FormSection icon={FileText} title="📋 POLICIES & TIMING">
+          <p className="text-xs text-neutral-600 mb-3">
+            These rules apply everywhere right away — ordering, invoices and the customers' <strong>Bakery Policies</strong> page.
+            The texts below are added to that page as extra notes.
+          </p>
           <TextAreaField
             id="daily-order-policy"
-            label="Daily Order Policy"
+            label="Extra note — daily orders (optional)"
             value={settings.dailyOrderPolicy || ''}
             onChange={(value) => updateField('dailyOrderPolicy', value)}
             placeholder="Daily order policy and terms..."
@@ -728,7 +732,7 @@ export function SystemSettingsView({
           
           <TextAreaField
             id="weekly-order-policy"
-            label="Weekly Order Policy"
+            label="Extra note — weekly orders (optional)"
             value={settings.weeklyOrderPolicy || ''}
             onChange={(value) => updateField('weeklyOrderPolicy', value)}
             placeholder="Weekly order policy and terms..."
@@ -737,7 +741,7 @@ export function SystemSettingsView({
           
           <TextAreaField
             id="cancellation-policy"
-            label="Cancellation Policy"
+            label="Cancellation policy text (optional — replaces the automatic wording)"
             value={settings.cancellationPolicy || ''}
             onChange={(value) => updateField('cancellationPolicy', value)}
             placeholder="Cancellation policy and terms..."
@@ -746,7 +750,7 @@ export function SystemSettingsView({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <InputField
-              label="Late Cancellation Fee Description"
+              label="Late fee note (optional)"
               value={settings.lateCancellationFee || ''}
               onChange={(value) => updateField('lateCancellationFee', value)}
               placeholder="e.g., 50% of order total"
@@ -754,20 +758,27 @@ export function SystemSettingsView({
             />
             
             <InputField
-              label="Default Cancellation Fee % (pre-fills Cancel Order modal)"
+              label="Payment due (hours before delivery, noon)"
+              value={settings.paymentDueHours ?? settings.orderCutoffHours ?? 48}
+              onChange={(value) => updateField('paymentDueHours', Math.max(0, Math.min(336, Math.round(parseFloat(value) || 0))))}
+              type="number"
+              placeholder="48"
+              icon={Clock}
+            />
+            <InputField
+              label="Free cancellation until (hours before delivery, noon)"
+              value={settings.cancellationNoticeHours ?? 24}
+              onChange={(value) => updateField('cancellationNoticeHours', Math.max(0, Math.min(336, Math.round(parseFloat(value) || 0))))}
+              type="number"
+              placeholder="24"
+              icon={Clock}
+            />
+            <InputField
+              label="Late cancellation fee % (paid orders, after that time)"
               value={settings.cancellationFeePercent ?? ''}
-              onChange={(value) => updateField('cancellationFeePercent', parseFloat(value) || 0)}
+              onChange={(value) => updateField('cancellationFeePercent', Math.max(0, Math.min(100, parseFloat(value) || 0)))}
               type="number"
               placeholder="e.g., 0 (no fee) or 50"
-              icon={Hash}
-            />
-
-            <InputField
-              label="Max Monthly Cancellations"
-              value={settings.maxMonthlyCancellations ?? ''}
-              onChange={(value) => updateField('maxMonthlyCancellations', parseInt(value) || 0)}
-              type="number"
-              placeholder="e.g., 3"
               icon={Hash}
             />
           </div>

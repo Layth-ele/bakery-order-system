@@ -63,3 +63,62 @@ export function resolveServiceCharge(general: Doc, legacy?: Doc): number {
   if (enabled === false) return 0;
   return first([general, legacy], ["serviceChargeAmount"], amount) ?? DEFAULT_SERVICE_CHARGE;
 }
+
+// ── Bakery policy timings (Admin → Settings → Policies & timing) ────────────
+
+export const DEFAULT_ORDER_CUTOFF_HOURS = 48;
+export const DEFAULT_CANCELLATION_NOTICE_HOURS = 24;
+
+/** Whole hours, 0 … 14 days. */
+const hours = (v: unknown): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 336 ? Math.round(v) : undefined;
+const percent = (v: unknown): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100 ? v : undefined;
+
+/** Ordering for a delivery day closes this many hours before noon that day. */
+export function resolveOrderCutoffHours(general: Doc, legacy?: Doc): number {
+  return first([general, legacy], ["orderCutoffHours"], hours) ?? DEFAULT_ORDER_CUTOFF_HOURS;
+}
+
+/** Payment must arrive this many hours before noon of the first delivery day (default: the order cutoff). */
+export function resolvePaymentDueHours(general: Doc, legacy?: Doc): number {
+  return first([general, legacy], ["paymentDueHours"], hours) ?? resolveOrderCutoffHours(general, legacy);
+}
+
+/** Cancel at least this many hours before noon of a delivery day to avoid the late fee. */
+export function resolveCancellationNoticeHours(general: Doc, legacy?: Doc): number {
+  return first([general, legacy], ["cancellationNoticeHours"], hours) ?? DEFAULT_CANCELLATION_NOTICE_HOURS;
+}
+
+/** Fee (% of the cancelled part) for a late cancellation of a paid order. */
+export function resolveLateCancellationFeePercent(general: Doc, legacy?: Doc): number {
+  return first([general, legacy], ["cancellationFeePercent", "cancellationFeePercentage"], percent) ?? 0;
+}
+
+/** Everything a customer needs to know, resolved from Settings (Policies page, invoices). */
+export interface BakeryPolicy {
+  orderCutoffHours: number;
+  paymentDueHours: number;
+  cancellationNoticeHours: number;
+  lateCancellationFeePercent: number;
+  taxRate: number;
+  serviceCharge: number;
+  deliveryFee: number;
+  freeDeliveryEnabled: boolean;
+  freeDeliveryMin: number;
+}
+
+export function resolvePolicy(general: Doc, legacy?: Doc): BakeryPolicy {
+  return {
+    orderCutoffHours: resolveOrderCutoffHours(general, legacy),
+    paymentDueHours: resolvePaymentDueHours(general, legacy),
+    cancellationNoticeHours: resolveCancellationNoticeHours(general, legacy),
+    lateCancellationFeePercent: resolveLateCancellationFeePercent(general, legacy),
+    taxRate: resolveTaxRate(general, legacy),
+    serviceCharge: resolveServiceCharge(general, legacy),
+    deliveryFee: resolveDeliveryFee(general, legacy),
+    freeDeliveryEnabled: isFreeDeliveryEnabled(general, legacy),
+    freeDeliveryMin: resolveFreeDeliveryMin(general, legacy),
+  };
+}
+

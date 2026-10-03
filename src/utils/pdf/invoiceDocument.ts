@@ -20,7 +20,8 @@ import {
   noticeDate,
   type OrderChange,
 } from '../documents/orderDocument';
-import { CUTOFF_HOURS, DAYS, dayCutoff } from '../../functions/src/lib/orderPlacement';
+import { DAYS, deliveryNoon } from '../../functions/src/lib/orderPlacement';
+import { resolvePolicy } from '../../functions/src/lib/settingsValues';
 import { toDate } from '../timestampFormatting';
 
 export type DocumentKind = 'invoice' | 'production';
@@ -62,13 +63,13 @@ function stateOf(o: any, kind: DocumentKind): { title: string; label: string; to
   }
 }
 
-/** Pay before the first delivery day closes (production needs payment). */
-function paymentDueBy(o: any): Date | null {
+/** Pay this many hours (Settings → payment due) before the first delivery day's noon. */
+function paymentDueBy(o: any, dueHours: number): Date | null {
   const year = Number(o.year), week = Number(o.week);
   if (!Number.isInteger(year) || !Number.isInteger(week)) return null;
   const items = Array.isArray(o.items) ? o.items : [];
   const first = DAYS.find((d) => items.some((it: any) => Number(it?.[d]) > 0));
-  return first ? dayCutoff(year, week, first) : null;
+  return first ? new Date(deliveryNoon(year, week, first).getTime() - dueHours * 3_600_000) : null;
 }
 
 export function buildInvoiceDocument(input: InvoiceDocumentInput): string {
@@ -81,7 +82,8 @@ export function buildInvoiceDocument(input: InvoiceDocumentInput): string {
   const totals = documentTotals(order as any);
   const notices = kind === 'production' ? [] : changeNotices(order as any, changes);
   const unpaid = kind === 'invoice' && o.status === 'approved' && o.paymentReceived !== true;
-  const dueBy = unpaid ? paymentDueBy(o) : null;
+  const policy = resolvePolicy(settings);
+  const dueBy = unpaid ? paymentDueBy(o, policy.paymentDueHours) : null;
 
   const biz = {
     name: settings.businessName || settings.companyName || 'Bakery',
@@ -119,7 +121,11 @@ export function buildInvoiceDocument(input: InvoiceDocumentInput): string {
   const methods = [settings.paymentMethod1 || 'Interac e-Transfer', settings.paymentMethod2].filter(Boolean);
   const terms =
     settings.cancellationPolicy ||
-    `Orders close ${CUTOFF_HOURS} hours before noon (Vancouver time) on each delivery day. Payment is due before the first delivery day closes; orders are baked once payment is confirmed. To change or cancel an order, contact us — the cancelled part of a paid order is returned as store credit and a cancellation fee may apply.`;
+    `Orders close ${policy.orderCutoffHours} hours before noon (Vancouver time) on each delivery day. ` +
+    `Payment is due ${policy.paymentDueHours} hours before noon on the first delivery day; orders are baked once payment is confirmed. ` +
+    `To change or cancel, contact us at least ${policy.cancellationNoticeHours} hours before noon on the delivery day. ` +
+    `The cancelled part of a paid order is returned as store credit` +
+    (policy.lateCancellationFeePercent > 0 ? `; later cancellations have a ${policy.lateCancellationFeePercent}% fee.` : '.');
 
   return `<!DOCTYPE html>
 <html lang="en"><head>

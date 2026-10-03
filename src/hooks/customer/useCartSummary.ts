@@ -12,6 +12,7 @@ import { DAY_LABELS } from '../../types/customer-dashboard';
 import type { Product } from '../../types';
 import type { DayQuantities } from '../../types/cart';
 import { dailyMinimumOf } from '../../functions/src/lib/orderPlacement';
+import { getPolicy } from '../../utils/policyCache';
 
 interface CartItem {
   product: Product;
@@ -60,7 +61,7 @@ export function useCartSummary({
     if (areAllDaysDisabled(selectedWeek, selectedYear)) {
       const weekRange = getWeekRange(selectedWeek, selectedYear);
       errors.push(
-        `⏰ The delivery week ending ${weekRange} is fully past the 48-hour order cutoff (Vancouver time). Please select a future week.`
+        `⏰ The delivery week ending ${weekRange} is fully past the ${getPolicy().orderCutoffHours}-hour order cutoff (Vancouver time). Please select a future week.`
       );
       return { isValid: false, errors };
     }

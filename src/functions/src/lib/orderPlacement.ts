@@ -16,7 +16,7 @@ export const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "sa
 export type Day = (typeof DAYS)[number];
 export type DayQuantities = Record<Day, number>;
 
-/** A delivery day closes this many hours before noon (Vancouver) that day. */
+/** Default: a delivery day closes this many hours before noon (Vancouver) that day (Settings → orderCutoffHours). */
 export const CUTOFF_HOURS = 48;
 export const MAX_ITEMS = 200;
 export const MAX_QTY_PER_DAY = 10_000;
@@ -90,17 +90,19 @@ export function parsePlaceOrderInput(raw: unknown): PlaceOrderInput {
 
 // ── Cutoff ──────────────────────────────────────────────────────────────────
 
-/** Moment ordering closes for a delivery day: noon Vancouver that day − 48 h. */
-export function dayCutoff(year: number, week: number, day: Day): Date {
-  const date = isoWeekMonday(year, week);
-  date.setUTCDate(date.getUTCDate() + DAYS.indexOf(day));
-  const noon = vancouverTimeToUtc(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12);
-  return new Date(noon.getTime() - CUTOFF_HOURS * 60 * 60 * 1000);
-}
-
 /** Noon (Vancouver) on a delivery day — after this the day is delivered/over. */
 export function deliveryNoon(year: number, week: number, day: Day): Date {
-  return new Date(dayCutoff(year, week, day).getTime() + CUTOFF_HOURS * 60 * 60 * 1000);
+  const date = isoWeekMonday(year, week);
+  date.setUTCDate(date.getUTCDate() + DAYS.indexOf(day));
+  return vancouverTimeToUtc(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12);
+}
+
+/**
+ * Moment ordering closes for a delivery day: noon Vancouver that day minus
+ * the cutoff hours (Settings → orderCutoffHours, default 48).
+ */
+export function dayCutoff(year: number, week: number, day: Day, cutoffHours: number = CUTOFF_HOURS): Date {
+  return new Date(deliveryNoon(year, week, day).getTime() - cutoffHours * 60 * 60 * 1000);
 }
 
 /**
@@ -134,9 +136,13 @@ export function passedDaysMessage(days: Day[], what: string): string {
 }
 
 /** Days that have quantities but are already closed for ordering. */
-export function closedDaysInOrder(input: Pick<PlaceOrderInput, "week" | "year" | "items">, now: Date): Day[] {
+export function closedDaysInOrder(
+  input: Pick<PlaceOrderInput, "week" | "year" | "items">,
+  now: Date,
+  cutoffHours: number = CUTOFF_HOURS
+): Day[] {
   return DAYS.filter(
-    (day) => input.items.some((it) => it.quantities[day] > 0) && now.getTime() >= dayCutoff(input.year, input.week, day).getTime()
+    (day) => input.items.some((it) => it.quantities[day] > 0) && now.getTime() >= dayCutoff(input.year, input.week, day, cutoffHours).getTime()
   );
 }
 

@@ -29,6 +29,7 @@ import { useEditOrderState, days } from '../../hooks/orders/useEditOrderState';
 import { toDate } from '../../utils/timestampFormatting';
 import { logger } from '../../utils/logger';
 import { gstLabel } from '../../utils/orderMoney';
+import { getPolicy } from '../../utils/policyCache';
 
 // ❌ REMOVED: createRevision, submitRevision - revisions feature removed
 
@@ -131,7 +132,7 @@ export function EditOrderPage({
   const updateQuantity = (productId: string, day: keyof DayQuantities, quantity: number) => {
     // Check if this day is editable for customers
     if (!isAdmin && editPermission.allowedDeliveryDays && !editPermission.allowedDeliveryDays.includes(day)) {
-      setErrorMessage(`Cannot edit ${day} - delivery is within 48 hours`);
+      setErrorMessage(`Cannot edit ${day} - ordering for that day has closed (${getPolicy().orderCutoffHours} h cutoff)`);
       setTimeout(() => setErrorMessage(''), 3000);
       return;
     }

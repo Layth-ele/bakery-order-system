@@ -37,6 +37,10 @@ export const settingsSchema = z.object({
   freeDeliveryThreshold: positiveAmountSchema.optional(),
   freeDeliveryMin: positiveAmountSchema.optional(), // Minimum order for free delivery
   freeDeliveryEnabled: z.boolean().optional(), // Off → delivery always charged
+  orderCutoffHours: z.number().min(0).max(336).optional(), // ordering closes N h before delivery noon
+  paymentDueHours: z.number().min(0).max(336).optional(), // payment due N h before first delivery noon
+  cancellationNoticeHours: z.number().min(0).max(336).optional(), // free cancellation until N h before
+  cancellationFeePercent: z.number().min(0).max(100).optional(), // late cancellation fee % (was missing: never saved)
   deliveryFeeDowntown: positiveAmountSchema.optional(),
   deliveryFeeEastVan: positiveAmountSchema.optional(),
   

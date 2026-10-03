@@ -517,6 +517,14 @@ async function main() {
   const coveredNote = (await customerNotes(CUST.uid)).find((n) => n.id === `order_${covered.orderId}_paid`);
   check('the customer is told it was paid with store credit', () => assert.match(coveredNote.message, /store credit/));
 
+  console.log('\n18. Policies from Settings');
+  // Order cutoff = 14 days → next week's Monday is already closed.
+  await db.doc('settings/general').set({ orderCutoffHours: 336 }, { merge: true });
+  const soon = isoWeekOf(new Date(Date.now() + 8 * 86400000));
+  await cust.fails('placeOrder', { requestId: reqId(), week: soon.week, year: soon.year, items: [{ productId: 'bread', quantities: { ...zero, sunday: 5 } }] }, /Ordering has closed/);
+  check('the server refuses days inside the order cutoff set in Settings', () => {});
+  await db.doc('settings/general').set({ orderCutoffHours: 48 }, { merge: true });
+
   await deleteApp(admin.app);
   await deleteApp(cust.app);
   console.log(`\n✅ ${passed} end-to-end checks passed`);
