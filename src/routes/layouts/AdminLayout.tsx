@@ -32,6 +32,7 @@ import { RouteErrorBoundary } from '../components/ErrorBoundary';
 import { AdminRouteLoader } from '../components/RouteLoader';
 import { preloadAdminPages } from '../adminPageLoaders';
 import { prefersReducedMotion } from '../../pwa/viewTransition';
+import { PushOptIn } from '../../components/pwa/PushOptIn';
 
 interface AdminLoaderData {
   user: {
@@ -257,6 +258,7 @@ export function AdminLayout(): JSX.Element | null {
         
         {/* Main Content - Padding to account for fixed header only */}
         <main className="pt-[120px]">
+          {user?.id && <PushOptIn uid={user.id} />}
           <RouteErrorBoundary>
             <Suspense fallback={<AdminRouteLoader />}>
               <Outlet context={{ user, currentPage, setCurrentPage: handlePageChange }} />

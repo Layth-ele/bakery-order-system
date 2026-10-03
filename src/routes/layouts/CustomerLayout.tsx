@@ -15,6 +15,7 @@ import { CustomerNotificationProvider } from '../../notifications';
 import { RouteErrorBoundary } from '../components/ErrorBoundary';
 import { Suspense } from 'react';
 import { CustomerRouteLoader } from '../components/RouteLoader';
+import { PushOptIn } from '../../components/pwa/PushOptIn';
 
 interface CustomerLoaderData {
   user: {
@@ -67,6 +68,7 @@ export function CustomerLayout(): JSX.Element | null {
   
   return (
     <CustomerNotificationProvider customerId={user.id}>
+      <PushOptIn uid={user.id} />
       <RouteErrorBoundary>
         <Suspense fallback={<CustomerRouteLoader />}>
           <Outlet context={{ user, onLogout: handleLogout }} />
