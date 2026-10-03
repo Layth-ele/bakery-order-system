@@ -20,7 +20,7 @@ import { WITH_EMAIL, emailOrderUpdated, type EmailCallResult } from "./emails";
 import { createNotificationInTx } from "./notify";
 import { orderUpdatedNotification, orderReducedNotification } from "./lib/accountNotifications";
 import { buildCreditNote, gstShareOf } from "./lib/creditNotes";
-import { unitPriceFor, type CatalogProduct, type PriceTier } from "./lib/orderPlacement";
+import { DAYS, deliveryNoon, unitPriceFor, type CatalogProduct, type PriceTier } from "./lib/orderPlacement";
 import {
   RevisionError,
   autoDeliveryFee,
@@ -128,6 +128,15 @@ export const editOrder = onCall(WITH_EMAIL, async (request): Promise<EditOrderRe
       );
     }
     const before = normalizeItems(order.items);
+    // A day already over can't get more (it wasn't baked) — only less.
+    const over = DAYS.filter((d) => Date.now() >= deliveryNoon(Number(order.year), Number(order.week), d).getTime());
+    for (const r of requested) {
+      const was = before.find((it) => it.productId === r.productId);
+      const grew = over.filter((d) => (r.quantities[d] ?? 0) > (was?.[d] ?? 0));
+      if (grew.length > 0) {
+        throw new HttpsError("failed-precondition", `${grew.map((d) => d[0].toUpperCase() + d.slice(1)).join(", ")} ${grew.length > 1 ? "have" : "has"} already passed — quantities for ${grew.length > 1 ? "those days" : "that day"} can only be reduced.`);
+      }
+    }
     const newIds = requested
       .filter((r) => !r.custom && !before.some((it) => it.productId === r.productId))
       .map((r) => r.productId);

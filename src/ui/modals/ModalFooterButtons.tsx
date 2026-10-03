@@ -132,6 +132,7 @@ export function CancelConfirmFooter({
   confirmLabel = "Confirm",
   confirmVariant = "primary",
   isProcessing = false,
+  disabled = false,
 }: {
   onCancel: () => void;
   onConfirm: () => void;
@@ -139,6 +140,8 @@ export function CancelConfirmFooter({
   confirmLabel?: string;
   confirmVariant?: ButtonVariant;
   isProcessing?: boolean;
+  /** Confirm not allowed (e.g. a rule shown in the modal blocks it). */
+  disabled?: boolean;
 }) {
   return (
     <ModalFooterButtons
@@ -154,6 +157,7 @@ export function CancelConfirmFooter({
         onClick: onConfirm, 
         variant: confirmVariant, 
         loading: isProcessing,
+        disabled,
         keyboardShortcut: "Enter" // ✅ APR 1, 2026: Enter to confirm
       }}
     />

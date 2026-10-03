@@ -16,7 +16,7 @@
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { amountDueOf } from "./lib/orderPlacement";
+import { amountDueOf, passedDeliveryDays, passedDaysMessage } from "./lib/orderPlacement";
 import { buildCreditNote, gstShareOf } from "./lib/creditNotes";
 import {
   DAYS,
@@ -64,6 +64,9 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
 
   const { ref, data: order } = await loadOrder(orderId, admin);
   assertTransitionAllowed(order.status, "approved");
+  // Only paid orders are baked: a day already over can't be approved.
+  const passedDays = passedDeliveryDays(order, new Date());
+  if (passedDays.length > 0) throw new HttpsError("failed-precondition", passedDaysMessage(passedDays, "approved"));
 
   // ─── Compute final totals server-side (lib/orderRevision rules) ──────────
   const gstRate = await getTaxRate();
@@ -89,7 +92,7 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
 
   // ─── Atomic update + audit log ───────────────────────────────────────────
   const fromStatus = order.status;
-  const { amountDue, creditReturned } = await db.runTransaction(async (tx) => {
+  const { amountDue, creditReturned, status: newStatus } = await db.runTransaction(async (tx) => {
     const fresh = await tx.get(ref);
     if (!fresh.exists) {
       throw new HttpsError("not-found", "Order disappeared mid-transaction.");
@@ -122,8 +125,20 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
         : null;
     const due = amountDueOf(newTotal, creditApplied);
 
+    // Store credit covers everything → nothing to pay: paid, into production.
+    const coveredByCredit = due <= 0;
     tx.update(ref, {
-      status: "approved",
+      status: coveredByCredit ? "in_process" : "approved",
+      ...(coveredByCredit
+        ? {
+            paymentReceived: true,
+            paymentSubmitted: true,
+            paymentMethod: "credit",
+            paidAt: FieldValue.serverTimestamp(),
+            paymentConfirmedBy: "store-credit",
+            paymentConfirmedAt: FieldValue.serverTimestamp(),
+          }
+        : {}),
       items,
       subtotal: totals.subtotal,
       gst: totals.gst,
@@ -138,16 +153,16 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
       updateRequestedAt: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { amountDue: due, creditReturned: returned };
+    return { amountDue: due, creditReturned: returned, status: coveredByCredit ? "in_process" : "approved" };
   });
 
   await logStatusChange({
     orderId,
     fromStatus,
-    toStatus: "approved",
+    toStatus: newStatus,
     actorUid: admin.uid,
     actorEmail: admin.email,
-    metadata: { deliveryFee: finalDeliveryFee, total: newTotal, gst: totals.gst, amountDue, creditReturned },
+    metadata: { deliveryFee: finalDeliveryFee, total: newTotal, gst: totals.gst, amountDue, creditReturned, ...(newStatus === "in_process" ? { paidWith: "store credit" } : {}) },
   });
 
   // Customer notification + email: onOrderLifecycle trigger.
@@ -159,6 +174,7 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
     gst: totals.gst,
     amountDue,
     deliveryFee: finalDeliveryFee,
+    status: newStatus,
   };
 });
 

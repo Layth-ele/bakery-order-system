@@ -10,6 +10,7 @@
  */
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { passedDeliveryDays, passedDaysMessage } from "./lib/orderPlacement";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import {
   requireAuth,
@@ -61,6 +62,10 @@ export const submitPaymentProof = onCall<SubmitPaymentProofInput>(async (request
       `Payment proof can only be submitted on approved orders (current status: ${order.status}).`
     );
   }
+
+  // A delivery day already over wasn't baked (unpaid) — don't take payment for it.
+  const passedDays = passedDeliveryDays(order, new Date());
+  if (passedDays.length > 0) throw new HttpsError("failed-precondition", passedDaysMessage(passedDays, "paid"));
 
   // Don't accept duplicate submissions
   if (order.paymentSubmitted) {

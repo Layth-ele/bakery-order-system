@@ -44,7 +44,6 @@ import { useCacheInvalidation } from "../../../hooks/useCacheInvalidation";
 import {
   getInitialOrderWeek,
   getYearForWeek,
-  isBeforeThursdayCutoff,
   isRestoredWeekValid,
 } from "../../../utils/weekSelection";
 import { BUSINESS_RULES } from "../../../constants/businessRules";
@@ -850,7 +849,6 @@ export function CustomerDashboardMain(): JSX.Element | null {
             lockedDaysForWeek={lockedDaysForWeek}
             areAllDaysDisabled={areAllDaysDisabled}
             isWeekDisabled={isWeekDisabled}
-            isBeforeThursdayNoon={isBeforeThursdayCutoff()}
             onWeekChange={(week) => {
               setSelectedWeek(week);
               setShowWeekSelection(false); // auto-collapse after selection

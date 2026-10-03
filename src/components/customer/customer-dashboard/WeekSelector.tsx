@@ -25,7 +25,6 @@ interface WeekSelectorProps {
   // Logic functions
   areAllDaysDisabled: (week: number) => boolean;
   isWeekDisabled: (week: number) => boolean;
-  isBeforeThursdayNoon: boolean;
 
   // Handlers
   onWeekChange: (week: number) => void;
@@ -46,7 +45,6 @@ export function WeekSelector({
   showAllWeeks,
   areAllDaysDisabled,
   isWeekDisabled,
-  isBeforeThursdayNoon,
   onWeekChange,
   onToggleWeekSelection,
   onToggleAllWeeks,

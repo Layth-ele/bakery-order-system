@@ -98,6 +98,41 @@ export function dayCutoff(year: number, week: number, day: Day): Date {
   return new Date(noon.getTime() - CUTOFF_HOURS * 60 * 60 * 1000);
 }
 
+/** Noon (Vancouver) on a delivery day — after this the day is delivered/over. */
+export function deliveryNoon(year: number, week: number, day: Day): Date {
+  return new Date(dayCutoff(year, week, day).getTime() + CUTOFF_HOURS * 60 * 60 * 1000);
+}
+
+/**
+ * Delivery days on an order that are already over (past noon that day).
+ * Only paid orders are baked, so an unpaid order can't be approved, paid or
+ * increased for such a day — the admin removes the day (cancel days) first.
+ */
+export function passedDeliveryDays(
+  order: { year?: unknown; week?: unknown; items?: unknown },
+  now: Date
+): Day[] {
+  const year = Number(order.year);
+  const week = Number(order.week);
+  if (!Number.isInteger(year) || !Number.isInteger(week)) return [];
+  const items = Array.isArray(order.items) ? (order.items as Array<Record<string, unknown>>) : [];
+  return DAYS.filter(
+    (day) => items.some((it) => Number(it?.[day]) > 0) && now.getTime() >= deliveryNoon(year, week, day).getTime()
+  );
+}
+
+const DAY_NAME: Record<Day, string> = {
+  monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday",
+  friday: "Friday", saturday: "Saturday", sunday: "Sunday",
+};
+
+/** "Monday and Tuesday have already passed — …" */
+export function passedDaysMessage(days: Day[], what: string): string {
+  const names = days.map((d) => DAY_NAME[d]);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+  return `${list} ${names.length > 1 ? "have" : "has"} already passed, so this order can't be ${what}. Cancel ${names.length > 1 ? "those days" : "that day"} (or the order) first.`;
+}
+
 /** Days that have quantities but are already closed for ordering. */
 export function closedDaysInOrder(input: Pick<PlaceOrderInput, "week" | "year" | "items">, now: Date): Day[] {
   return DAYS.filter(
