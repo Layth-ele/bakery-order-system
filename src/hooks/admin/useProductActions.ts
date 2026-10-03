@@ -21,6 +21,7 @@
 
 import { useCallback } from 'react';
 import type { Product } from '../../types';
+import { legacyDiscountCopiesOf } from '../../utils/productDiscount';
 import { useAlert } from '../../contexts/AlertContext';
 import * as firestoreProducts from '../../firebase/firestore/products';
 import { 
@@ -87,69 +88,26 @@ export function useProductActions({
   const { showConfirm } = useAlert();
   
   // ============================================================================
-  // SAVE PRODUCT - Create or update with discount handling
+  // SAVE PRODUCT - Create or update
   // ============================================================================
   
   const saveProduct = useCallback(
     async (productData: any, isEditing: boolean, products: Product[]) => {
       try {
         setLoading(true);
-        const discountValue = productData.discount || 0;
-        
+        const cleanData = cleanProductData(productData);
+        // One product document per product. A discount is a field on it; the
+        // "Discounted items" filter shows every product with a discount.
         if (isEditing && productData.id) {
-          // ======================================================================
-          // UPDATE EXISTING PRODUCT
-          // ======================================================================
-          
-          // Handle discounted copy
-          const discountedCopyId = `${productData.id}-discounted`;
-          const hasDiscountedCopy = products.some((p) => p.id === discountedCopyId);
-          
-          // ✅ Clean data (convert empty strings to undefined)
-          const cleanData = cleanProductData(productData);
-          
-          // ✅ Update main product in Firebase (correct signature)
           await updateProductDS(productData.id, cleanData);
-          
-          // Handle discounted copy
-          if (discountValue > 0) {
-            if (hasDiscountedCopy) {
-              // ✅ Update existing discounted copy
-              await firestoreProducts.updateProduct(discountedCopyId, {
-                ...cleanData,
-                categoryId: 'cat-0',
-              });
-            } else {
-              // ✅ Create new discounted copy (no id in input)
-              await createProductDS({
-                ...cleanData,
-                categoryId: 'cat-0',
-              } as any);
-            }
-          } else if (hasDiscountedCopy) {
-            // ✅ Remove discounted copy if discount is 0
-            await deleteProductDS(discountedCopyId);
-          }
         } else {
-          // ======================================================================
-          // CREATE NEW PRODUCT
-          // ======================================================================
-          
-          // ✅ Clean data (convert empty strings to undefined)
-          const cleanData = cleanProductData(productData);
-          
-          // ✅ Create main product (Firebase generates ID)
           await createProductDS(cleanData as any);
-          
-          // ✅ If product has discount, also create a copy in discounted category
-          if (discountValue > 0) {
-            await firestoreProducts.createProduct({
-              ...cleanData,
-              categoryId: 'cat-0', // DISCOUNTED ITEMS category
-            });
-          }
         }
-        
+        // Remove copies the old "discounted copy" feature left behind.
+        for (const copy of legacyDiscountCopiesOf(productData, products)) {
+          await deleteProductDS(copy.id);
+        }
+
         // Invalidate cache to trigger refetch
         await invalidateProducts();
         
@@ -165,7 +123,7 @@ export function useProductActions({
   );
   
   // ============================================================================
-  // DELETE PRODUCT - With confirmation and discounted copy handling
+  // DELETE PRODUCT - With confirmation
   // ============================================================================
   
   const deleteProduct = useCallback(
@@ -177,17 +135,12 @@ export function useProductActions({
           try {
             setLoading(true);
             
-            // Also delete the discounted copy if it exists
-            const discountedCopyId = `${productId}-discounted`;
-            const hasDiscountedCopy = products.some((p) => p.id === discountedCopyId);
-            
-            // ✅ Delete from Firebase
             await firestoreProducts.deleteProduct(productId);
-            
-            if (hasDiscountedCopy) {
-              await deleteProductDS(discountedCopyId);
+            const product = products.find((p) => p.id === productId);
+            for (const copy of product ? legacyDiscountCopiesOf(product, products) : []) {
+              await deleteProductDS(copy.id);
             }
-            
+
             // Invalidate cache to trigger refetch
             await invalidateProducts();
             

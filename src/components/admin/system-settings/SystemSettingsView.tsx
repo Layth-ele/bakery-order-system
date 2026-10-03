@@ -558,40 +558,13 @@ export function SystemSettingsView({
             />
             
             <InputField
-              label="Free Delivery Threshold"
-              value={settings.freeDeliveryThreshold ?? ''}
-              onChange={(value) => updateField('freeDeliveryThreshold', parseFloat(value) || 0)}
-              type="number"
-              placeholder="0.00"
-              icon={DollarSign}
-              required
-            />
-            
-            <InputField
-              label="Free Delivery Minimum"
-              value={settings.freeDeliveryMin ?? ''}
+              label="Free Delivery Minimum (subtotal after discount)"
+              value={settings.freeDeliveryMin ?? settings.freeDeliveryThreshold ?? ''}
               onChange={(value) => updateField('freeDeliveryMin', parseFloat(value) || 0)}
               type="number"
-              placeholder="0.00"
+              placeholder="250.00"
               icon={DollarSign}
-            />
-            
-            <InputField
-              label="Delivery Fee (Downtown)"
-              value={settings.deliveryFeeDowntown ?? ''}
-              onChange={(value) => updateField('deliveryFeeDowntown', parseFloat(value) || 0)}
-              type="number"
-              placeholder="0.00"
-              icon={DollarSign}
-            />
-            
-            <InputField
-              label="Delivery Fee (East Van)"
-              value={settings.deliveryFeeEastVan ?? ''}
-              onChange={(value) => updateField('deliveryFeeEastVan', parseFloat(value) || 0)}
-              type="number"
-              placeholder="0.00"
-              icon={DollarSign}
+              required
             />
             
             <InputField

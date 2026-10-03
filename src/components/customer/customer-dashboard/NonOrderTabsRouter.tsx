@@ -25,7 +25,6 @@ export interface NonOrderTabsRouterProps {
   categories: Category[];
   user: User;
   currentUser: any; // ✅ TYPE: Should match your user profile type
-  pendingAdjustmentsCount: number;
   onTabChange: (tab: DashboardTab) => void;
   onProfileUpdate: (updatedUser: any) => void;
   onRefreshProducts?: () => Promise<void>; // ✅ NEW: Refresh products callback
@@ -38,7 +37,6 @@ export function NonOrderTabsRouter({
   categories,
   user,
   currentUser,
-  pendingAdjustmentsCount,
   onTabChange,
   onProfileUpdate,
   onRefreshProducts, // ✅ NEW: Destructure callback

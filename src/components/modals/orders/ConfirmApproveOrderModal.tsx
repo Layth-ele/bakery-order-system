@@ -32,6 +32,9 @@ import { CheckCircle } from 'lucide-react'; // ✅ FEB 21, 2026
 
 import type { Order, Product, Category } from '../../../types';
 import { useState } from 'react';
+import { useCachedSettings } from '../../../hooks/useCachedFirebase';
+import { normalizeItems, orderTotals } from '../../../functions/src/lib/orderRevision';
+import { resolveTaxRate } from '../../../functions/src/lib/settingsValues';
  // Using canonical formatCurrency
 
 interface ConfirmApproveOrderModalProps {
@@ -56,8 +59,19 @@ export function ConfirmApproveOrderModal({
   const [feeInput, setFeeInput] = useState(String(initialDeliveryFee ?? order?.deliveryFee ?? 0));
   const [feeError, setFeeError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const { data: settings } = useCachedSettings();
 
   if (!order) return null;
+
+  // What approveOrder will save for this fee (same rules: lib/orderRevision).
+  const previewFee = Number(feeInput);
+  const preview = Number.isFinite(previewFee) && previewFee >= 0
+    ? orderTotals(normalizeItems(order.items), order as any, resolveTaxRate((settings ?? null) as Record<string, unknown> | null), {
+        deliveryFee: Math.round(previewFee * 100) / 100,
+      })
+    : null;
+  const creditOnOrder = Number((order as any).creditApplied) || 0;
+  const previewCredit = preview ? Math.min(creditOnOrder, preview.total) : 0;
 
   const handleConfirm = async () => {
     const fee = Number(feeInput);
@@ -116,6 +130,14 @@ export function ConfirmApproveOrderModal({
         <p className="mt-2 text-xs text-green-800">
           Pre-filled with the estimate the customer saw. Change it if needed — GST and the total are recalculated on approval.
         </p>
+        {preview && (
+          <div className="mt-3 rounded-lg bg-white/80 border border-green-200 px-3 py-2 text-sm text-green-900 space-y-1">
+            <div className="flex justify-between"><span>Total after approval</span><strong>${preview.total.toFixed(2)}</strong></div>
+            {previewCredit > 0 && (
+              <div className="flex justify-between"><span>Amount due after store credit</span><strong>${Math.max(0, preview.total - previewCredit).toFixed(2)}</strong></div>
+            )}
+          </div>
+        )}
         {feeError && <p className="mt-2 text-sm font-medium text-red-700">{feeError}</p>}
       </section>
 

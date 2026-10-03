@@ -204,25 +204,5 @@ export const confirmOrderPayment = onCall<ConfirmOrderPaymentInput>(async (reque
 
   // Customer notification + email: onOrderLifecycle trigger.
 
-  // Update customer totalSpent (best-effort, non-fatal)
-  try {
-    if (order.customerId && (order.total ?? 0) > 0) {
-      const cref = db.collection("customers").doc(order.customerId);
-      await db.runTransaction(async (tx) => {
-        const csnap = await tx.get(cref);
-        if (!csnap.exists) return;
-        const cur = (csnap.data() as any)?.totalSpent ?? 0;
-        const credit = (order.creditApplied ?? 0);
-        const cashPaid = Math.max(0, (order.total ?? 0) - credit);
-        tx.update(cref, {
-          totalSpent: Number((cur + cashPaid).toFixed(2)),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      });
-    }
-  } catch (err) {
-    console.warn("[confirmOrderPayment] totalSpent update failed:", err);
-  }
-
   return { success: true, orderId };
 });

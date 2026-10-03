@@ -15,6 +15,8 @@ import {
   WeeklyData,
   CategorySalesData
 } from './analyticsService'; // ✅ UPDATED: Now both files are in /services
+import { lineAmount, orderRevenue } from '../utils/orderMoney';
+import { discountOn } from '../functions/src/lib/orderRevision';
 
 // ============================================================================
 // METRICS CALCULATION
@@ -67,16 +69,21 @@ export function calculateMetrics(allOrders: Order[], approvedOrders: Order[]): S
 
   // Single pass through approved orders for sales metrics
   approvedOrders.forEach(order => {
-    totalSales += order.total || 0;
+    totalSales += orderRevenue(order);
     gstCollected += order.gst || 0;
     deliveryFeesCollected += order.deliveryFee || 0;
     serviceChargesCollected += order.serviceCharge || (order as any).serviceFee || 0;
     
-    const discount = order.discount || 0;
+    const discount = discountOn(order.subtotal ?? 0, order as any); // flat + percentage
     if (discount > 0) {
       totalDiscountsGiven += discount;
       ordersWithDiscounts++;
     }
+  });
+
+  // Cancellation fees kept on cancelled orders are income too.
+  allOrders.forEach(order => {
+    if (order.status === 'cancelled') totalSales += orderRevenue(order);
   });
 
   const totalOrders = approvedOrders.length;
@@ -120,16 +127,16 @@ export function calculateTopProducts(orders: Order[], limit: number = 10): Produ
       
       if (existing) {
         // Update existing product
-        existing.totalQuantity += (item.quantity ?? item.total);
-        existing.totalRevenue += item.total;
+        existing.totalQuantity += item.total ?? 0;
+        existing.totalRevenue += lineAmount(item);
         existing.orderCount += 1;
       } else {
         // Add new product
         productMap.set(item.productId, {
           productId: item.productId,
           productName: item.productName,
-          totalQuantity: (item.quantity ?? item.total),
-          totalRevenue: item.total ?? 0,
+          totalQuantity: item.total ?? 0,
+          totalRevenue: lineAmount(item),
           orderCount: 1,
         });
       }
@@ -158,7 +165,7 @@ export function calculateTopCustomers(orders: Order[], limit: number = 10): Cust
     
     if (existing) {
       // Update existing customer
-      existing.totalRevenue += order.total || 0;
+      existing.totalRevenue += orderRevenue(order);
       existing.orderCount += 1;
       existing.averageOrderValue = existing.totalRevenue / existing.orderCount;
     } else {
@@ -166,9 +173,9 @@ export function calculateTopCustomers(orders: Order[], limit: number = 10): Cust
       customerMap.set(order.customerId, {
         customerId: order.customerId || "",
         customerName: order.customerName,
-        totalRevenue: order.total || 0,
+        totalRevenue: orderRevenue(order),
         orderCount: 1,
-        averageOrderValue: order.total || 0,
+        averageOrderValue: orderRevenue(order),
       });
     }
   });
@@ -205,7 +212,7 @@ export function calculateMonthlyData(
     
     if (existing) {
       // Update existing month
-      existing.sales += order.total || 0;
+      existing.sales += orderRevenue(order);
       existing.orders += 1;
       existing.averageOrder = existing.sales / existing.orders;
     } else {
@@ -214,9 +221,9 @@ export function calculateMonthlyData(
         month: `${monthNames[monthNumber]} ${year}`,
         monthNumber,
         year,
-        sales: order.total || 0,
+        sales: orderRevenue(order),
         orders: 1,
-        averageOrder: order.total || 0,
+        averageOrder: orderRevenue(order),
       });
     }
   });
@@ -253,7 +260,7 @@ export function calculateWeeklyData(
     
     if (existing) {
       // Update existing week
-      existing.sales += order.total || 0;
+      existing.sales += orderRevenue(order);
       existing.orders += 1;
     } else {
       // Add new week
@@ -261,7 +268,7 @@ export function calculateWeeklyData(
         weekNumber,
         year,
         weekLabel: `Week ${weekNumber}, ${year}`,
-        sales: order.total || 0,
+        sales: orderRevenue(order),
         orders: 1,
       });
     }
@@ -293,16 +300,16 @@ export function calculateCategorySales(orders: Order[]): CategorySalesData[] {
       const existing = categoryMap.get(category);
       
       if (existing) {
-        existing.revenue += item.total;
+        existing.revenue += lineAmount(item);
         existing.orderCount += 1;
       } else {
         categoryMap.set(category, {
-          revenue: item.total ?? 0,
+          revenue: lineAmount(item),
           orderCount: 1,
         });
       }
       
-      totalRevenue += item.total;
+      totalRevenue += lineAmount(item);
     });
   });
   

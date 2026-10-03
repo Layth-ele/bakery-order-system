@@ -6,11 +6,13 @@
  */
 import { useMemo } from 'react';
 import type { Order, OrderItem } from '../../types';
+import { useCachedSettings } from '../useCachedFirebase';
+import { resolveTaxRate } from '../../functions/src/lib/settingsValues';
 import {
   diffItems,
   effectiveGstRate,
   normalizeItems,
-  orderTotals,
+  reducedTotals,
   round2,
 } from '../../functions/src/lib/orderRevision';
 
@@ -36,17 +38,18 @@ export interface UseEditPaidOrderCalculationsResult {
   changes: ItemChange[];
 }
 
-/** Fallback GST rate if the order carries none (never used for taxed orders). */
-const FALLBACK_GST_RATE = 0.05;
 
 export function useEditPaidOrderCalculations(
   order: Order,
   editedItems: { [productId: string]: OrderItem },
 ): UseEditPaidOrderCalculationsResult {
+  // Used only when the order carries no GST of its own — same as the server.
+  const { data: settings } = useCachedSettings();
+  const fallbackRate = resolveTaxRate((settings ?? null) as Record<string, unknown> | null);
   return useMemo(() => {
     const before = normalizeItems(order.items);
     const after = normalizeItems(Object.values(editedItems)).filter((it) => it.total > 0);
-    const t = orderTotals(after, order, effectiveGstRate(order, FALLBACK_GST_RATE));
+    const { totals: t } = reducedTotals(order as any, after, effectiveGstRate(order as any, fallbackRate));
     return {
       calculatedTotals: {
         subtotal: t.subtotal,
@@ -58,5 +61,5 @@ export function useEditPaidOrderCalculations(
       creditAmount: Math.max(0, round2((order.total ?? 0) - t.total)),
       changes: diffItems(before, after),
     };
-  }, [order, editedItems]);
+  }, [order, editedItems, fallbackRate]);
 }

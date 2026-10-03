@@ -23,6 +23,7 @@ import { useEditPaidOrderCalculations } from '../../../hooks/admin/useEditPaidOr
 import { getWeekDayDate, formatShortDate } from '../../../utils/weekUtils'; // Add week utility functions
 import { ModalThreeSections } from './ModalOrderSections';
 import { displayOrderNumber } from '../../../utils/displayId';
+import { orderAmountDue } from '../../../utils/orderMoney';
 
 interface EditPaidOrderModalProps {
   order: Order;
@@ -346,7 +347,7 @@ export function EditPaidOrderModal({
                         Actual Amount Charged
                       </span>
                       <span className="text-sm font-bold text-[#D4A574]">
-                        ${((order as any).amountDue || order.total || 0).toFixed(2)}
+                        ${orderAmountDue(order as any).toFixed(2)}
                       </span>
                     </div>
                     {creditAmount > 0 && (

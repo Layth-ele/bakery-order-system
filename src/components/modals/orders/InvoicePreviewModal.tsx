@@ -9,7 +9,7 @@
  * - Category/items table: clean, readable with proper column widths
  */
 
-import { discountOn } from '../../../functions/src/lib/orderRevision';
+import { discountOn, round2 } from '../../../functions/src/lib/orderRevision';
 import { gstLabel } from '../../../utils/orderMoney';
 import { orderAmountDue } from '../../../utils/orderMoney';
 import React from 'react';
@@ -126,14 +126,16 @@ export function InvoicePreviewModal({
   })();
   const deliveryFee   = order.deliveryFee   || 0;
   const serviceCharge = order.serviceCharge || 0;
-  const discount      = discountOn(order.subtotal ?? 0, order as any); // flat + percentage
+  const discount      = discountOn(subtotal, order as any); // flat + percentage
   const creditApplied = order.creditApplied || 0;
   // ✅ FIX: GST on (subtotal - discount), not raw subtotal
   const discountedBase = Math.max(0, subtotal - discount);
-  const gst = order.gst || Math.round((discountedBase * 0.05 + Number.EPSILON) * 100) / 100;
+  // Amounts as the server charged them (GST can legitimately be 0).
+  const gst = order.gst ?? 0;
+  const cancellationFee = Number((order as any).cancellationFee) || 0;
   // ✅ FIX: amountDue = total - credit (what customer actually pays)
   const amountDue = orderAmountDue(order as any);
-  const grandTotal = order.total || (discountedBase + gst + deliveryFee + serviceCharge);
+  const grandTotal = order.total ?? round2(discountedBase + gst + deliveryFee + serviceCharge + cancellationFee);
 
   // ── Dates ─────────────────────────────────────────────────────────────────
   const fmtDate = (d: any) =>
@@ -156,7 +158,7 @@ export function InvoicePreviewModal({
   }, [weekNum, weekYear, order.weekRange]);
 
   // ── Payment status ────────────────────────────────────────────────────────
-  const ps = order.paymentStatus || (order.status === 'completed' ? 'paid' : 'unpaid');
+  const ps = order.paymentStatus || ((order as any).paymentReceived === true || order.status === 'completed' || order.status === 'in_process' ? 'paid' : 'unpaid');
   const psMap = {
     paid:      { label: 'Paid',      cls: 'text-green-700 bg-green-50 border-green-200', icon: CheckCircle },
     unpaid:    { label: 'Unpaid',    cls: 'text-red-700   bg-red-50   border-red-200',   icon: Clock },
@@ -492,6 +494,12 @@ export function InvoicePreviewModal({
                 <span>Subtotal</span>
                 <span className="font-semibold text-gray-900">{formatCurrency(subtotal)}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Discount</span>
+                  <span className="font-semibold">−{formatCurrency(discount)}</span>
+                </div>
+              )}
               {deliveryFee > 0 && (
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Delivery Fee</span>
@@ -504,20 +512,24 @@ export function InvoicePreviewModal({
                   <span className="font-semibold text-gray-900">{formatCurrency(serviceCharge)}</span>
                 </div>
               )}
-              {discount > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Discount</span>
-                  <span className="font-semibold">−{formatCurrency(discount)}</span>
+              {cancellationFee > 0 && (
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Cancellation Fee</span>
+                  <span className="font-semibold text-gray-900">{formatCurrency(cancellationFee)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm text-gray-600">
-                <span>{gstLabel(order.gst, (order.subtotal ?? 0) - discount)}</span>
+                <span>{gstLabel(gst, subtotal - discount)}</span>
                 <span className="font-semibold text-gray-900">{formatCurrency(gst)}</span>
+              </div>
+              <div className="flex justify-between pt-3 border-t-2 border-[#D4A574]/40 items-baseline">
+                <span className="text-base font-bold text-gray-900">Total</span>
+                <span className="text-xl font-bold text-[#D4A574]">{formatCurrency(grandTotal)}</span>
               </div>
               {creditApplied > 0 && (
                 <>
                   <div className="flex justify-between text-sm text-emerald-600">
-                    <span>Credit Applied</span>
+                    <span>Store Credit Applied</span>
                     <span className="font-semibold">−{formatCurrency(creditApplied)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1">
@@ -526,10 +538,6 @@ export function InvoicePreviewModal({
                   </div>
                 </>
               )}
-              <div className="flex justify-between pt-3 border-t-2 border-[#D4A574]/40 items-baseline">
-                <span className="text-base font-bold text-gray-900">Total</span>
-                <span className="text-xl font-bold text-[#D4A574]">{formatCurrency(grandTotal)}</span>
-              </div>
               {ps === 'paid' && (
                 <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 mt-1">
                   <span className="flex items-center gap-1.5 text-xs font-bold text-green-700">

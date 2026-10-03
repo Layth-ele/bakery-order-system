@@ -28,6 +28,7 @@ import {
 import { useSystemSettingsData } from '../../../hooks/admin/useSystemSettingsData';
 import { ModalThreeSections } from './ModalOrderSections';
 import { displayOrderNumber } from '../../../utils/displayId';
+import { resolveTaxRate } from '../../../functions/src/lib/settingsValues';
 
 interface CancelOrderModalProps {
   onClose: () => void;
@@ -131,8 +132,13 @@ export function CancelOrderModal({
     if (selectedDays.size === 0) {
       return calculateRefundAmount(order, new Set(), 0);
     }
-    return calculateRefundAmount(order, selectedDays, typeof cancellationFeePercentage === "number" ? cancellationFeePercentage : 0);
-  }, [order, selectedDays, cancellationFeePercentage]);
+    return calculateRefundAmount(
+      order,
+      selectedDays,
+      typeof cancellationFeePercentage === "number" ? cancellationFeePercentage : 0,
+      resolveTaxRate((settings ?? null) as Record<string, unknown> | null)
+    );
+  }, [order, selectedDays, cancellationFeePercentage, settings]);
 
   // Check if this is a full order cancellation
   const isFullCancellation = useMemo(

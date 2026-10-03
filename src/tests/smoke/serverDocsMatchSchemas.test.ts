@@ -47,7 +47,7 @@ describe('server-written records pass the client schemas', () => {
     }
   });
   it('a credit note', () => {
-    const note = { id: 'n1', ...buildCreditNote({ id: 'n1abc', customerId: 'cust-1', amount: 21, type: 'admin_edit', reason: 'Short on flour', createdBy: 'admin@x.test', gstRate: 0.05, now: new Date() }), createdAt: now };
+    const note = { id: 'n1', ...buildCreditNote({ id: 'n1abc', customerId: 'cust-1', amount: 21, type: 'admin_edit', reason: 'Short on flour', createdBy: 'admin@x.test', gstShare: 1 / 21, now: new Date() }), createdAt: now };
     const r = creditNoteSchema.safeParse(note);
     expect(r.success ? 'ok' : JSON.stringify(r.error.issues.slice(0, 5))).toBe('ok');
   });

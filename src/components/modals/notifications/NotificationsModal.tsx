@@ -26,6 +26,8 @@ const CUSTOMER_TYPE_UI: Record<string, { icon: string; label: string; style: str
   ORDER_COMPLETED: { icon: "✅", label: "View Invoice", style: "bg-green-50 hover:bg-green-100 text-green-600" },
   PAYMENT_REMINDER: { icon: "⏳", label: "Check Status", style: "bg-purple-50 hover:bg-purple-100 text-purple-600" },
   CREDIT_ISSUED: { icon: "💰", label: "View Credit", style: "bg-emerald-50 hover:bg-emerald-100 text-emerald-600" },
+  CREDIT_PAYOUT_COMPLETED: { icon: "💸", label: "View Credit", style: "bg-emerald-50 hover:bg-emerald-100 text-emerald-600" },
+  CREDIT_PAYOUT_DECLINED: { icon: "💰", label: "View Credit", style: "bg-amber-50 hover:bg-amber-100 text-amber-700" },
   ORDER_EDITED: { icon: "✏️", label: "View Changes", style: "bg-blue-50 hover:bg-blue-100 text-blue-600" },
 };
 

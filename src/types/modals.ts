@@ -93,6 +93,7 @@ export type ModalConfig =
         selectedWeek: number;
         selectedYear: number;
         onConfirm: () => void;
+        summary?: { subtotal: number; gst: number; deliveryFee: number; serviceCharge: number; creditApplied: number; total: number };
       };
     }
   | {

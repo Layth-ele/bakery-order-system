@@ -22,6 +22,7 @@ import { Customer, Order } from "../../../types";
 import { getOrdersByCustomer } from "../../../services/data/ordersDataService";
 import { displayOrderNumber, displayCustomerCode } from '../../../utils/displayId';
 import { useModal } from "../../../contexts/ModalContextNew";
+import { AdminCreditPanel } from './AdminCreditPanel';
 
 interface CustomerProfileModalProps {
   customerEmail: string;
@@ -55,7 +56,7 @@ export function CustomerProfileModal({
   const [orders,   setOrders]   = useState<Order[]>([]);
   const [loading,  setLoading]  = useState(true);
 
-  const loadCustomerData = async (cancelled: { value: boolean }) => {
+  const loadCustomerData = async (cancelled: { value: boolean } = { value: false }) => {
     setLoading(true);
     try {
       const { getAllCustomers } = await import('../../../services/customersService');
@@ -233,9 +234,10 @@ export function CustomerProfileModal({
   // ── CUSTOMER PROFILE ───────────────────────────────────────────────────────
   const totalOrders     = orders.length;
   const completedOrders = orders.filter(o => o.status === 'completed').length;
+  // Paid orders' invoice totals (cash and store credit alike).
   const totalSpent      = orders
     .filter(o => o.status === 'completed' || o.status === 'in_process')
-    .reduce((s, o) => s + o.total, 0);
+    .reduce((s, o) => s + (o.total || 0), 0);
 
   const isCommercial = customer.customerType === 'commercial';
   const badgeColor   = isCommercial ? '#2196F3' : '#9C27B0';
@@ -305,7 +307,7 @@ export function CustomerProfileModal({
             {[
               { icon: Package,     label: 'Total Orders',   value: totalOrders,              color: 'text-[#D4A574]' },
               { icon: Package,     label: 'Completed',      value: completedOrders,          color: 'text-emerald-600' },
-              { icon: DollarSign,  label: 'Total Spent',    value: `$${totalSpent.toFixed(2)}`, color: 'text-[#D4A574]' },
+              { icon: DollarSign,  label: 'Total Paid',    value: `$${totalSpent.toFixed(2)}`, color: 'text-[#D4A574]' },
             ].map(({ icon: Icon, label, value, color }) => (
               <div key={label} className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
                 <Icon className={`w-5 h-5 ${color} mx-auto mb-1.5`} />
@@ -316,23 +318,8 @@ export function CustomerProfileModal({
           </div>
         </div>
 
-        {/* Credits */}
-        {(customer as any).creditBalance !== undefined && (customer as any).creditBalance > 0 && (
-          <div className="bg-gray-50 rounded-xl p-4">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Account Credits</h3>
-            <div className="bg-gradient-to-r from-[#D4A574]/10 to-[#C5A028]/10 border border-[#D4A574]/20 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-[#D4A574]" />
-                  <span className="font-semibold text-gray-900 text-sm">Available Credits</span>
-                </div>
-                <span className="text-xl font-bold text-[#D4A574]">
-                  ${((customer as any).creditBalance ?? 0).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Credits — real balance from the customer's credit notes */}
+        {isAdmin && customer.id && <AdminCreditPanel customerId={customer.id} />}
 
         {/* Recent Orders */}
         {orders.length > 0 && (

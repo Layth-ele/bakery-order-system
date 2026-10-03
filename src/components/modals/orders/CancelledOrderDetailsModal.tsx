@@ -108,15 +108,21 @@ export function CancelledOrderDetailsModal({
   const wasPaid = !!(order.paymentReceived || order.paymentReceivedAt);
   
   // ✅ Calculate refund/credit details for paid orders
+  // Amounts as the cancelOrder function stored them:
+  //   order total = credit issued + cancellation fees kept.
   const orderTotal = order.total || 0;
   const cancellationFeePercentage = order.cancellationFeePercentage || 0;
-  const cancellationFeeAmount = (orderTotal * cancellationFeePercentage) / 100;
-  const refundAmount = orderTotal - cancellationFeeAmount;
-  
-  // ✅ GST breakdown (5% of refund amount)
-  const gstRate = 0.05;
-  const subtotalRefund = refundAmount / (1 + gstRate);
-  const gstRefund = refundAmount - subtotalRefund;
+  const storedCredit = (order as any).creditAmount;
+  const refundAmount = typeof storedCredit === 'number'
+    ? storedCredit
+    : Math.round(orderTotal * (100 - cancellationFeePercentage)) / 100; // older orders
+  const cancellationFeeAmount = Math.max(0, Math.round((orderTotal - refundAmount) * 100) / 100);
+
+  // GST share of the credit = GST's share of what the order charged
+  // (delivery and service charge carry no GST).
+  const gstShare = order.gst && orderTotal > 0 ? order.gst / orderTotal : 0;
+  const gstRefund = Math.round(refundAmount * gstShare * 100) / 100;
+  const subtotalRefund = Math.round((refundAmount - gstRefund) * 100) / 100;
 
   // ✅ Get cancellation reason
   const cancellationReason = order.cancellationReason || 'No reason provided';
@@ -161,9 +167,9 @@ export function CancelledOrderDetailsModal({
                   <span className="text-[#666666]">Original Order Total:</span>
                   <span className="text-[#333333] font-semibold">${orderTotal.toFixed(2)}</span>
                 </div>
-                {cancellationFeePercentage > 0 && (
+                {cancellationFeeAmount > 0 && (
                   <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="text-[#666666]">Cancellation Fee ({cancellationFeePercentage}%):</span>
+                    <span className="text-[#666666]">Cancellation Fee{cancellationFeePercentage > 0 ? ` (${cancellationFeePercentage}%)` : ''}:</span>
                     <span className="text-red-600 font-semibold">-${cancellationFeeAmount.toFixed(2)}</span>
                   </div>
                 )}
@@ -247,11 +253,11 @@ export function CancelledOrderDetailsModal({
           <div className="p-6 space-y-4">
             <div className="bg-green-50 rounded-lg p-3 sm:p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-gray-700 text-xs sm:text-sm">Subtotal Credit (Before GST):</span>
+                <span className="text-gray-700 text-xs sm:text-sm">Credit before GST:</span>
                 <span className="text-[#333333] font-semibold">${subtotalRefund.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-700 text-xs sm:text-sm">GST Refund (5%):</span>
+                <span className="text-gray-700 text-xs sm:text-sm">GST:</span>
                 <span className="text-[#333333] font-semibold">${gstRefund.toFixed(2)}</span>
               </div>
               <div className="pt-3 border-t border-green-300">
@@ -262,7 +268,7 @@ export function CancelledOrderDetailsModal({
               </div>
             </div>
             
-            {cancellationFeePercentage > 0 && (
+            {cancellationFeeAmount > 0 && (
               <div className="bg-amber-50 rounded-lg p-3 sm:p-4 border border-amber-300">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -271,7 +277,7 @@ export function CancelledOrderDetailsModal({
                       Cancellation Fee Applied
                     </p>
                     <p className="text-[#666666] text-xs sm:text-sm">
-                      A {cancellationFeePercentage}% cancellation fee (${cancellationFeeAmount.toFixed(2)}) was deducted from your refund.
+                      A cancellation fee of ${cancellationFeeAmount.toFixed(2)} was kept; the rest was returned as store credit.
                     </p>
                   </div>
                 </div>

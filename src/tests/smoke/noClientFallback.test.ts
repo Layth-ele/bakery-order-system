@@ -14,7 +14,6 @@ const { updateOrder, cf } = vi.hoisted(() => ({
     cancelOrderViaCloudFunction: vi.fn(),
     confirmOrderPaymentViaCloudFunction: vi.fn(),
     submitPaymentProofViaCloudFunction: vi.fn(),
-    applyOrderCreditViaCloudFunction: vi.fn(),
     completeOrderViaCloudFunction: vi.fn(),
     editOrderViaCloudFunction: vi.fn(),
     editPaidOrderViaCloudFunction: vi.fn(),
@@ -49,7 +48,7 @@ import { callableErrorMessage } from '../../services/firebase/cloudFunctions';
 import { approveOrder, rejectOrder } from '../../services/ordersService';
 import { rejectOrderAction, cancelOrderAction } from '../../services/orderActionService';
 import { confirmPaymentAction, submitPaymentAction } from '../../services/orders/paymentActionService';
-import { applyCreditToOrder, requestCreditPayout } from '../../services/creditService';
+import { requestCreditPayout } from '../../services/creditService';
 import { saveOrderEdit, savePaidOrderReduction } from '../../services/orders/orderEdits';
 import { remindCustomerToPay } from '../../services/orders/paymentReminders';
 import { completeOrderNow } from '../../services/orderCompletion/completeOrderNow';
@@ -103,11 +102,6 @@ describe('no client-side fallback', () => {
 
   it('customer payment submission', async () => {
     await expect(submitPaymentAction('o1', 'c1', 'ET-1', 'pw')).rejects.toThrow(/submit your payment/);
-    expect(updateOrder).not.toHaveBeenCalled();
-  });
-
-  it('apply store credit', async () => {
-    await expect(applyCreditToOrder('o1', 'c1', 20)).rejects.toThrow(/apply your credit/);
     expect(updateOrder).not.toHaveBeenCalled();
   });
 

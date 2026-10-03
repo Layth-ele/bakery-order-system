@@ -22,6 +22,8 @@ export const ACCOUNT_NOTIFICATION_TYPES = [
   "CREDIT_ISSUED",
   "ORDER_EDITED",
   "CREDIT_PAYOUT_REQUESTED",
+  "CREDIT_PAYOUT_COMPLETED",
+  "CREDIT_PAYOUT_DECLINED",
 ] as const;
 export type AccountNotificationType = (typeof ACCOUNT_NOTIFICATION_TYPES)[number];
 
@@ -179,6 +181,37 @@ export function payoutRequestedNotification(input: {
       amount: input.amount,
       actions: [{ type: "view_account", label: "View Customer", payload: { customerId: input.customerId } }],
       metadata: { creditNoteId: input.creditNoteId, amount: input.amount, customerId: input.customerId },
+    },
+  };
+}
+
+/** The admin paid out (or declined) a credit payout request. */
+export function payoutResolvedNotification(input: {
+  creditNoteId: string;
+  customerId: string;
+  customerName: string;
+  amount: number;
+  outcome: "paid" | "declined";
+  note: string;
+}): NotificationWrite {
+  const paid = input.outcome === "paid";
+  return {
+    audience: "customer",
+    customerId: input.customerId,
+    id: `payout_${input.outcome}_${input.creditNoteId}`,
+    mode: "create",
+    content: {
+      type: paid ? "CREDIT_PAYOUT_COMPLETED" : "CREDIT_PAYOUT_DECLINED",
+      title: paid ? "💸 Credit Paid Out" : "Store Credit Kept",
+      message: paid
+        ? `We've paid out ${money(input.amount)} of your store credit${input.note ? `: ${input.note}` : "."}`
+        : `Your payout request for ${money(input.amount)} wasn't processed${input.note ? `: ${input.note}` : ""}. The credit is available on your account again.`,
+      orderId: "",
+      customerId: input.customerId,
+      customerName: input.customerName,
+      amount: input.amount,
+      actions: [viewAccount("View Account")],
+      metadata: { creditNoteId: input.creditNoteId, amount: input.amount, outcome: input.outcome, customerId: input.customerId },
     },
   };
 }

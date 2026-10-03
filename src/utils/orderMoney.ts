@@ -26,3 +26,26 @@ export function gstLabel(gst: unknown, taxableBase: unknown): string {
   const pct = Math.round((g / b) * 1000) / 10; // one decimal, e.g. 5 or 12.5
   return `GST (${pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)}%)`;
 }
+
+// ── Revenue — one definition for analytics, reports and exports ────────────
+
+/** Orders that are sales: accepted by the bakery and not cancelled. */
+export const SALE_STATUSES = ['approved', 'in_process', 'completed'] as const;
+
+export const isSaleOrder = (order: { status?: unknown }): boolean =>
+  (SALE_STATUSES as readonly unknown[]).includes(order.status);
+
+/**
+ * What the bakery earns from an order: the invoice total for a sale (GST,
+ * fees and any kept cancellation fee included), the cancellation fee kept on
+ * a cancelled order, nothing for pending or rejected orders.
+ */
+export function orderRevenue(order: { status?: unknown; total?: unknown; cancellationFee?: unknown }): number {
+  if (isSaleOrder(order)) return num(order.total);
+  if (order.status === 'cancelled') return num(order.cancellationFee);
+  return 0;
+}
+
+/** Money for one order line: unit price × quantity (item.total is the quantity). */
+export const lineAmount = (item: { price?: unknown; total?: unknown }): number =>
+  Math.round(num(item.price) * num(item.total) * 100) / 100;

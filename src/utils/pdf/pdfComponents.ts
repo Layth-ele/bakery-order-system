@@ -217,7 +217,7 @@ export const generateOrderTable = (
 export const generateTotals = (totals: {
   subtotal: number; discount?: number; discountPercentage?: number;
   deliveryFee?: number; serviceCharge?: number; gst?: number; total: number;
-  creditApplied?: number; amountDue?: number; invoiceNumber?: string;
+  creditApplied?: number; amountDue?: number; invoiceNumber?: string; cancellationFee?: number;
 }): string => {
   const fmt = (n: number) => `$${n.toFixed(2)}`;
   const rows = [
@@ -227,7 +227,10 @@ export const generateTotals = (totals: {
     totals.deliveryFee !== undefined ? `<div class="totals-row"><span class="t-label">Delivery Fee</span><span class="t-value">${totals.deliveryFee === 0 ? '<span style="color:#2D7A3A">FREE</span>' : fmt(totals.deliveryFee)}</span></div>` : '',
     totals.serviceCharge ? `<div class="totals-row"><span class="t-label">Service Charge</span><span class="t-value">${fmt(totals.serviceCharge)}</span></div>` : '',
     totals.gst ? `<div class="totals-row"><span class="t-label">${gstLabel(totals.gst, (totals.subtotal ?? 0) - (totals.discount ?? 0))}</span><span class="t-value">${fmt(totals.gst)}</span></div>` : '',
-    totals.creditApplied ? `<div class="totals-row discount"><span class="t-label">Credit Applied</span><span class="t-value">−${fmt(totals.creditApplied)}</span></div>` : '',
+    totals.cancellationFee ? `<div class="totals-row"><span class="t-label">Cancellation Fee</span><span class="t-value">${fmt(totals.cancellationFee)}</span></div>` : '',
+    // With store credit: the invoice total first, then the credit taken off it.
+    totals.creditApplied ? `<div class="totals-row"><span class="t-label">Invoice Total</span><span class="t-value">${fmt(totals.total)}</span></div>` : '',
+    totals.creditApplied ? `<div class="totals-row discount"><span class="t-label">Store Credit Applied</span><span class="t-value">−${fmt(totals.creditApplied)}</span></div>` : '',
   ].filter(Boolean).join('');
 
   const due = totals.amountDue !== undefined ? totals.amountDue : totals.total;

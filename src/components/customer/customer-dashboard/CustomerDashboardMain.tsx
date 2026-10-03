@@ -21,6 +21,7 @@
  */
 
 import { DAYS, dayCutoff, unitPriceFor } from '../../../functions/src/lib/orderPlacement';
+import { DISCOUNTED_FILTER_ID, isLegacyDiscountCopy, isOnSale } from '../../../utils/productDiscount';
 import {
   useEffect,
   useMemo,
@@ -30,11 +31,6 @@ import {
 } from "react";
 
 import { useOutletContext } from "react-router";
-
-import {
-  getAvailableCredit,
-  applyCreditToOrder,
-} from "../../../services/creditService";
 
 // ✅ Data loading: Uses TanStack Query cache hooks (Firebase layer)
 
@@ -170,7 +166,7 @@ export function CustomerDashboardMain(): JSX.Element | null {
   const { data: allOrders = [], isLoading: ordersLoading } = useCachedCustomerOrders(user.id);
 
   // ✅ Badge counts for nav tabs (active orders, outstanding, unread notifications)
-  const { badgeCounts, unreadCount, pendingAdjustmentsCount } = useDashboardBadges({
+  const { badgeCounts, unreadCount } = useDashboardBadges({
     user,
     allOrders,
     notifications: notificationContext?.notifications,
@@ -242,8 +238,6 @@ export function CustomerDashboardMain(): JSX.Element | null {
   const [applyCreditEnabled, setApplyCreditEnabled] =
     useState<boolean>(false);
   const [creditToApply, setCreditToApply] = useState<number>(0);
-  const [availableCredit, setAvailableCredit] =
-    useState<number>(0);
 
   const [currentUser, setCurrentUser] = useState(user);
 
@@ -487,21 +481,11 @@ export function CustomerDashboardMain(): JSX.Element | null {
     return products
       // The server refuses unavailable products, so don't offer them.
       .filter((p) => p.available !== false)
+      .filter((p) => !isLegacyDiscountCopy(p))
       .filter((p) => {
-        // Discounted category — show all products with discount > 0
-        if (selectedCategory === "__discounted__") {
-          return (p.discount ?? 0) > 0;
-        }
-        if (selectedCategory === "all") {
-          if (p.categoryId === "cat-0") return true;
-          return !p.id.endsWith("-discounted");
-        }
-        if (selectedCategory === "cat-0")
-          return p.categoryId === "cat-0";
-        return (
-          p.categoryId === selectedCategory &&
-          !p.id.endsWith("-discounted")
-        );
+        if (selectedCategory === "__discounted__" || selectedCategory === DISCOUNTED_FILTER_ID) return isOnSale(p);
+        if (selectedCategory === "all") return true;
+        return p.categoryId === selectedCategory;
       })
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [products, selectedCategory]);
@@ -720,10 +704,6 @@ export function CustomerDashboardMain(): JSX.Element | null {
   const { gst, deliveryFee, serviceCharge, baseTotal, total } =
     computeTotals(subtotal, applyCreditEnabled, creditToApply);
 
-  useEffect(() => {
-    // ✅ FIX: Must not return the Promise — React treats any return value as a cleanup function
-    getAvailableCredit(user.id).then(setAvailableCredit).catch(() => setAvailableCredit(0));
-  }, [user.id]);
 
   const handleCreditChange = (
     creditAmount: number,
@@ -754,6 +734,14 @@ export function CustomerDashboardMain(): JSX.Element | null {
         selectedWeek,
         selectedYear,
         onConfirm: handleConfirmSubmitOrder,
+        summary: {
+          subtotal,
+          gst,
+          deliveryFee,
+          serviceCharge,
+          creditApplied: applyCreditEnabled ? Math.min(creditToApply, baseTotal) : 0,
+          total,
+        },
       },
       "lg",
       "md",
@@ -926,7 +914,6 @@ export function CustomerDashboardMain(): JSX.Element | null {
             categories={categories}
             user={user}
             currentUser={currentUser}
-            pendingAdjustmentsCount={pendingAdjustmentsCount}
             onTabChange={(tab) => withViewTransition(() => setActiveTab(tab))}
             onProfileUpdate={(updatedUser) =>
               setCurrentUser(updatedUser)

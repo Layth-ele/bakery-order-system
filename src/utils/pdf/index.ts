@@ -10,6 +10,7 @@ import type { Order, Product, Category } from "../../types";
 import { toDate } from '../timestampFormatting';
 import { buildPDFTemplate, openPDFWindow } from "./pdfTemplates";
 import { getPDFStyles } from "./pdfStyles";
+import { orderRevenue } from '../orderMoney';
 
 // ── Settings helper ────────────────────────────────────────────────────────
 // Fetch from Firebase cache (useCachedSettings) or fall back to defaults
@@ -264,7 +265,8 @@ export const downloadOrderHistoryPDF = (
 ) => {
   const settings = getSettings();
   const periodDisplay = formatPeriod(period, customStartDate, customEndDate);
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  // Revenue: sales (approved, paid, completed) + fees kept on cancellations.
+  const totalRevenue = orders.reduce((sum, o) => sum + orderRevenue(o as any), 0);
   const generatedDate = new Date().toLocaleDateString(undefined, {
     year: "numeric", month: "long", day: "numeric",
   });

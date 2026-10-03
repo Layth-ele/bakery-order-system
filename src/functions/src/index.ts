@@ -12,7 +12,8 @@
  *                editPaidOrder (reduce → store credit) · completeOrder ·
  *                autoCompleteOrders (weekly schedule)
  *   Payments     submitPaymentProof · confirmOrderPayment
- *   Credit       applyOrderCredit · issueStoreCredit · requestCreditPayout
+ *   Credit       issueStoreCredit · requestCreditPayout · resolveCreditPayout
+ *                (store credit is used when placing an order — placeOrder)
  *   Reminders    sendPaymentReminder
  *   Accounts     createCustomerWithCode (self-registration) · approveCustomer ·
  *                rejectCustomer · setCustomerSuspended · adminCreateAccount ·
@@ -41,9 +42,6 @@ export { approveOrder, rejectOrder, cancelOrder } from "./orderActions";
 
 // ─── Pass 2: Payment functions ──────────────────────────────────────────────
 export { submitPaymentProof, confirmOrderPayment } from "./payments";
-
-// ─── Pass 2: Credit functions ───────────────────────────────────────────────
-export { applyOrderCredit } from "./credit";
 
 // ─── Pass 4: Data migrations ────────────────────────────────────────────────
 export { backfillSnapshotCustomerId } from "./backfillSnapshotCustomerId";
@@ -76,7 +74,7 @@ export { sendPasswordResetEmail, sendTestEmail } from "./emails";
 export { editOrder, editPaidOrder } from "./orderRevisions";
 
 // ─── Reminders and store credit (notification written in the same tx) ──────
-export { sendPaymentReminder, issueStoreCredit, requestCreditPayout } from "./accountActions";
+export { sendPaymentReminder, issueStoreCredit, requestCreditPayout, resolveCreditPayout } from "./accountActions";
 
 // ─── Account administration (status + sign-in kept in sync) ─────────────────
 export { approveCustomer, rejectCustomer, setCustomerSuspended, adminCreateAccount } from "./accountAdmin";

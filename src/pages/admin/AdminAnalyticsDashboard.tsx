@@ -17,6 +17,7 @@ import {
   Calendar, Receipt, BarChart2, Star,
   CheckCircle, Clock, XCircle, AlertCircle, Wallet, X, ChevronRight, Sparkles,
 } from 'lucide-react';
+import { isSaleOrder, orderRevenue } from '../../utils/orderMoney';
 
 interface AdminAnalyticsDashboardProps {
   isActive?: boolean;
@@ -126,13 +127,18 @@ function AdminAnalyticsDashboardComponent({ user, onLogout }: AdminAnalyticsDash
       return d && d >= start && d <= end;
     });
 
-    const totalServiceCharge = filtered.reduce((s, o) => s + (o.serviceCharge || 0), 0);
-    const serviceChargeOrders = filtered.filter(o => (o.serviceCharge || 0) > 0).length;
-    const waivedOrders = filtered.filter(o => o.serviceChargeWaived).length;
-    const totalGST = filtered.reduce((s, o) => s + (o.gst || 0), 0);
-    const totalDelivery = filtered.reduce((s, o) => s + (o.deliveryFee || 0), 0);
-    const totalCreditIssued = filtered.reduce((s, o) => s + ((o as any).creditIssued || 0), 0);
-    const totalCreditApplied = filtered.reduce((s, o) => s + ((o as any).creditApplied || 0), 0);
+    // Money cards use the same sales as the headline numbers (approved, paid,
+    // completed) — not pending, rejected or cancelled orders.
+    const sales = filtered.filter(isSaleOrder);
+    const totalServiceCharge = sales.reduce((s, o) => s + (o.serviceChargeWaived ? 0 : o.serviceCharge || 0), 0);
+    const serviceChargeOrders = sales.filter(o => !o.serviceChargeWaived && (o.serviceCharge || 0) > 0).length;
+    const waivedOrders = sales.filter(o => o.serviceChargeWaived).length;
+    const totalGST = sales.reduce((s, o) => s + (o.gst || 0), 0);
+    const totalDelivery = sales.reduce((s, o) => s + (o.deliveryFee || 0), 0);
+    // Store credit given back: reductions of paid orders + paid orders cancelled.
+    const totalCreditIssued = filtered.reduce((s, o) =>
+      s + ((o as any).creditIssued || 0) + (o.status === 'cancelled' && o.paymentReceived ? (o as any).creditAmount || 0 : 0), 0);
+    const totalCreditApplied = sales.reduce((s, o) => s + ((o as any).creditApplied || 0), 0);
 
     const paymentTimes: number[] = [];
     filtered.filter(o => o.status === 'in_process' || o.status === 'completed').forEach(o => {
@@ -171,7 +177,7 @@ function AdminAnalyticsDashboardComponent({ user, onLogout }: AdminAnalyticsDash
     filtered.forEach(o => {
       if (!o.week) return;
       const wk = `W${o.week}`;
-      weekRevenue[wk] = (weekRevenue[wk] || 0) + (o.total || 0);
+      weekRevenue[wk] = (weekRevenue[wk] || 0) + orderRevenue(o);
     });
     const weekEntries = Object.entries(weekRevenue)
       .sort((a,b) => a[0].localeCompare(b[0])).slice(-10);

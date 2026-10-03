@@ -18,8 +18,20 @@ export interface CreditNoteInput {
   type: CreditNoteType;
   reason: string;
   createdBy: string;
-  gstRate: number;
+  /**
+   * Fraction of the credit that is GST (0–1). For credit that comes from an
+   * order, use gstShareOf(order): the share of GST in what the order charged,
+   * since delivery and service charge carry no GST. Manual credit: 0.
+   */
+  gstShare: number;
   now: Date;
+}
+
+/** Share of an order's total that is GST (0 when there is none). */
+export function gstShareOf(order: { gst?: unknown; total?: unknown }): number {
+  const gst = typeof order.gst === "number" && Number.isFinite(order.gst) ? order.gst : 0;
+  const total = typeof order.total === "number" && Number.isFinite(order.total) ? order.total : 0;
+  return gst > 0 && total > 0 ? Math.min(1, gst / total) : 0;
 }
 
 export function creditNoteNumber(id: string, now: Date): string {
@@ -29,7 +41,8 @@ export function creditNoteNumber(id: string, now: Date): string {
 
 export function buildCreditNote(input: CreditNoteInput): Record<string, unknown> {
   const amount = round2(input.amount);
-  const subtotal = round2(amount / (1 + Math.max(0, input.gstRate)));
+  const gst = round2(amount * Math.min(1, Math.max(0, input.gstShare)));
+  const subtotal = round2(amount - gst);
   const orderId = input.orderId || input.id;
   return {
     customerId: input.customerId,
@@ -39,7 +52,7 @@ export function buildCreditNote(input: CreditNoteInput): Record<string, unknown>
     amount,
     total: amount,
     subtotal,
-    gst: round2(amount - subtotal),
+    gst,
     deliveryFeeAdjustment: 0,
     remainingBalance: amount,
     fullyApplied: false,

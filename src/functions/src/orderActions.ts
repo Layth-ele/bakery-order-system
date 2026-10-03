@@ -17,7 +17,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { amountDueOf } from "./lib/orderPlacement";
-import { buildCreditNote } from "./lib/creditNotes";
+import { buildCreditNote, gstShareOf } from "./lib/creditNotes";
 import {
   DAYS,
   RevisionError,
@@ -117,7 +117,7 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
             reason: "Order approved — store credit beyond the order total returned",
             type: "refund",
             createdBy: admin.email,
-            gstRate,
+            gstShare: gstShareOf(freshData),
           })
         : null;
     const due = amountDueOf(newTotal, creditApplied);
@@ -168,7 +168,7 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
 
 function returnCreditNote(
   tx: FirebaseFirestore.Transaction,
-  input: { customerId: string; orderId: string; amount: number; reason: string; type: "refund" | "cancellation"; createdBy: string; gstRate: number }
+  input: { customerId: string; orderId: string; amount: number; reason: string; type: "refund" | "cancellation"; createdBy: string; gstShare: number }
 ): string {
   const ref = db.collection("creditNotes").doc();
   tx.set(ref, {
@@ -220,7 +220,7 @@ export const rejectOrder = onCall<RejectOrderInput>(async (request) => {
             reason: "Order not accepted — store credit returned",
             type: "refund",
             createdBy: admin.email,
-            gstRate,
+            gstShare: gstShareOf(freshData),
           })
         : null;
     tx.update(ref, {
@@ -334,7 +334,7 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request): Promise<Can
             reason: `${plan.full ? "Order cancelled" : "Delivery days cancelled"}: ${reason}`,
             type: paid ? "cancellation" : "refund",
             createdBy: admin.email,
-            gstRate,
+            gstShare: gstShareOf(freshData),
           })
         : null;
 
@@ -348,6 +348,9 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request): Promise<Can
         cancellationReason: reason,
         cancelledDays: days,
         cancellationFeePercentage: paid ? cancellationFeePercentage ?? 0 : 0,
+        // Every fee the bakery keeps on this order (earlier partial
+        // cancellations included) — what the cancelled invoice shows.
+        cancellationFee: plan.feeKept,
         creditAmount: plan.credit,
         ...(!paid && { creditApplied: plan.creditApplied, amountDue: 0 }),
         // Data minimization: the e-transfer answer is never needed again.
@@ -375,6 +378,7 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request): Promise<Can
       tx.update(ref, {
         items: plan.items,
         subtotal: t.subtotal,
+        discount: plan.discount,
         gst: t.gst,
         total: t.total,
         ...(paid

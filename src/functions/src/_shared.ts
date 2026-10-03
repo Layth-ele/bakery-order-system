@@ -9,7 +9,7 @@
 import { HttpsError, CallableRequest } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { canTransitionOrderStatus } from "./lib/orderLifecycle";
-import { resolveTaxRate, resolveFreeDeliveryMin } from "./lib/settingsValues";
+import { resolveTaxRate, resolveFreeDeliveryMin, resolveDeliveryFee } from "./lib/settingsValues";
 
 const db = getFirestore();
 
@@ -243,6 +243,12 @@ export async function getTaxRate(): Promise<number> {
 export async function getFreeDeliveryMin(): Promise<number> {
   const { general, legacy } = await loadBusinessSettings();
   return resolveFreeDeliveryMin(general, legacy);
+}
+
+/** Standard delivery fee below the free-delivery minimum. */
+export async function getDeliveryFee(): Promise<number> {
+  const { general, legacy } = await loadBusinessSettings();
+  return resolveDeliveryFee(general, legacy);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
