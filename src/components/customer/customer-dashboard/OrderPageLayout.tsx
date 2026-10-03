@@ -206,13 +206,26 @@ export function OrderPageLayout({
           ======================================== */}
       <div className="flex-shrink-0 px-3 lg:px-6">
         <ProductFiltersAndTableHeader
+          part="filters"
           categories={categories}
           products={products}
           selectedCategory={selectedCategory}
           onCategoryChange={onCategoryChange}
           selectedWeek={selectedWeek}
           selectedYear={selectedYear}
-          stickyTop={0}
+        />
+      </div>
+      {/* Day + date header: pinned just below the menu on every screen size,
+          so the customer always sees which date each column is. */}
+      <div className="sticky z-30 px-3 lg:px-6" style={{ top: headerHeight }} data-testid="order-day-header">
+        <ProductFiltersAndTableHeader
+          part="header"
+          categories={categories}
+          products={products}
+          selectedCategory={selectedCategory}
+          onCategoryChange={onCategoryChange}
+          selectedWeek={selectedWeek}
+          selectedYear={selectedYear}
         />
       </div>
 
