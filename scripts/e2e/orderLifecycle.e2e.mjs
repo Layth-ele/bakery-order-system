@@ -388,6 +388,102 @@ async function main() {
   await admin.fails('approveCustomer', { uid: regUid }, /archived/);
   check('an archived account cannot be re-approved', () => {});
 
+  console.log('\n16. Money rules (money audit)');
+  // Payout requests: decline puts the credit back, a new request is allowed, paid uses it up.
+  const before16 = await creditBalance(CUST.uid);
+  await cust.fails('resolveCreditPayout', { creditNoteId: sc.creditNoteId, outcome: 'paid' }, /permission-denied/);
+  check('customers cannot resolve payouts', () => {});
+  const dec = await admin.call('resolveCreditPayout', { creditNoteId: sc.creditNoteId, outcome: 'declined', note: 'Use it on orders' });
+  const afterDecline = await creditBalance(CUST.uid);
+  check('decline: the $15 is spendable again; admin alert resolved', () => {
+    assert.equal(dec.outcome, 'declined');
+    near(afterDecline, before16 + 15, 'balance after decline');
+  });
+  assert.equal((await db.doc(`notifications/admin/items/payout_${sc.creditNoteId}`).get()).data().read, true);
+  await cust.call('requestCreditPayout', { creditNoteId: sc.creditNoteId });
+  check('a new payout request after a decline works (its own alert)', () => {});
+  assert.ok((await db.doc(`notifications/admin/items/payout_${sc.creditNoteId}_2`).get()).exists);
+  const paidOut = await admin.call('resolveCreditPayout', { creditNoteId: sc.creditNoteId, outcome: 'paid', method: 'bank_transfer' });
+  const paidNote = (await db.doc(`creditNotes/${sc.creditNoteId}`).get()).data();
+  check('paid: note paid_out with $0 left; balance unchanged by the payout', async () => {});
+  assert.equal(paidNote.status, 'paid_out');
+  near(paidNote.remainingBalance, 0, 'remaining');
+  near(paidOut.amount, 15, 'paid amount');
+  near(await creditBalance(CUST.uid), before16, 'balance after payout');
+  await cust.fails('requestCreditPayout', { creditNoteId: sc.creditNoteId }, /no remaining balance|paid out/);
+  check('a paid-out credit cannot be requested again', () => {});
+  const custNotes16 = await customerNotes(CUST.uid);
+  check('customer told about the decline and the payout', () => {
+    assert.ok(custNotes16.find((n) => n.id === `payout_declined_${sc.creditNoteId}`));
+    assert.ok(custNotes16.find((n) => n.id === `payout_paid_${sc.creditNoteId}_2`));
+  });
+
+  // Prices in cents + daily minimum enforced by the server.
+  await db.doc('products/bun').set({ name: 'Brioche Bun', wholesale: 2.105, retail: 3, discount: 5, dailyMinOrder: 6, available: true });
+  await cust.fails('placeOrder', { requestId: reqId(), week, year, items: [{ productId: 'bun', quantities: { ...zero, monday: 3 } }] }, /minimum per delivery day is 6/);
+  check('below the daily minimum is refused by the server', () => {});
+  const bun = await cust.call('placeOrder', { requestId: reqId(), week, year, items: [{ productId: 'bun', quantities: { ...zero, monday: 6 } }] });
+  const bunOrder = await order(bun.orderId);
+  check('unit price stored in cents ($2.105 − 5% = $2.00) and 6 × $2.00 = $12.00', () => {
+    assert.equal(bunOrder.items[0].price, 2);
+    near(bunOrder.subtotal, 12, 'subtotal');
+  });
+  const mon = new Date(Date.UTC(year, 0, 4));
+  mon.setUTCDate(mon.getUTCDate() - ((mon.getUTCDay() + 6) % 7) + (week - 1) * 7);
+  check('yearMonth is the delivery week’s month', () =>
+    assert.equal(bunOrder.yearMonth, `${mon.getUTCFullYear()}-${String(mon.getUTCMonth() + 1).padStart(2, '0')}`));
+
+  // Edit without a fee: free delivery is re-checked for the new subtotal.
+  const big = await cust.call('placeOrder', { requestId: reqId(), week, year, items: [{ productId: 'bread', quantities: { ...zero, monday: 70 } }] });
+  near((await order(big.orderId)).deliveryFee, 0, 'free delivery at $280');
+  await admin.call('editOrder', { orderId: big.orderId, items: [{ productId: 'bread', quantities: { ...zero, monday: 20 } }] });
+  const smaller = await order(big.orderId);
+  check('editing $280 → $80 without a fee brings back the $10 delivery fee', () => {
+    near(smaller.deliveryFee, 10, 'fee');
+    near(smaller.total, 80 + 4 + 3.99 + 10, 'total');
+  });
+
+  // Paid orders: cancelling in steps = cancelling at once.
+  const paidOrder = async () => {
+    const p = await cust.call('placeOrder', { requestId: reqId(), week, year, items: [{ productId: 'bread', quantities: { ...zero, monday: 10, tuesday: 10 } }] });
+    await admin.call('approveOrder', { orderId: p.orderId, deliveryFee: 10 });
+    await cust.call('submitPaymentProof', { orderId: p.orderId, paymentMethod: 'etransfer', paymentReference: 'ET-9', transferPassword: 'x' });
+    await admin.call('confirmOrderPayment', { orderId: p.orderId });
+    return p.orderId;
+  };
+  const A = await paidOrder();
+  const B = await paidOrder();
+  near((await order(A)).total, 97.99, 'paid order total');
+  const once = await admin.call('cancelOrder', { orderId: A, reason: 'Closed', cancellationFeePercentage: 10 });
+  const s1 = await admin.call('cancelOrder', { orderId: B, reason: 'Closed Mon', cancelledDays: ['monday'], cancellationFeePercentage: 10 });
+  const s2 = await admin.call('cancelOrder', { orderId: B, reason: 'Closed Tue', cancelledDays: ['tuesday'], cancellationFeePercentage: 10 });
+  const [oa, ob] = [await order(A), await order(B)];
+  check('at once: credit $88.19, fee $9.80 stored on the cancelled order', () => {
+    near(once.credit, 88.19, 'credit');
+    near(oa.cancellationFee, 9.8, 'fee kept');
+  });
+  check('in steps: $37.80 + $50.39 = $88.19, fee kept $9.80 — same as at once', () => {
+    near(s1.credit, 37.8, 'step 1');
+    near(s2.credit, 50.39, 'step 2');
+    near(s1.credit + s2.credit, once.credit, 'same credit');
+    near(ob.cancellationFee, oa.cancellationFee, 'same fee');
+  });
+  const noteA = (await db.doc(`creditNotes/${oa.creditNoteId}`).get()).data();
+  check('credit note GST = the order’s GST share ($4 of $97.99), not 5% of everything', () =>
+    near(noteA.gst, Math.round(88.19 * (4 / 97.99) * 100) / 100, 'credit note gst'));
+
+  // A flat discount shrinks with the order.
+  const C = await cust.call('placeOrder', { requestId: reqId(), week, year, items: [{ productId: 'bread', quantities: { ...zero, monday: 10, tuesday: 10 } }] });
+  await admin.call('approveOrder', { orderId: C.orderId, deliveryFee: 10 });
+  await admin.call('editOrder', { orderId: C.orderId, deliveryFee: 10, discount: { type: 'fixed', value: 20 },
+    items: [{ productId: 'bread', quantities: { ...zero, monday: 10, tuesday: 10 } }] });
+  await admin.call('cancelOrder', { orderId: C.orderId, reason: 'Mon closed', cancelledDays: ['monday'] });
+  const oc = await order(C.orderId);
+  check('$20 flat discount on $80 → $10 on the remaining $40; total = (40 − 10) × 1.05 + 3.99 + 10 = $45.49', () => {
+    near(oc.discount, 10, 'discount');
+    near(oc.total, 45.49, 'total');
+  });
+
   await deleteApp(admin.app);
   await deleteApp(cust.app);
   console.log(`\n✅ ${passed} end-to-end checks passed`);

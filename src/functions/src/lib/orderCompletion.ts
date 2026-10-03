@@ -234,6 +234,10 @@ export function buildCompletionSnapshot(order: Doc, orderId: string, actor: stri
     finalInvoiceId,
   };
   if (order.discount !== undefined) snapshot.discount = order.discount;
+  if (order.discountPercentage !== undefined) snapshot.discountPercentage = order.discountPercentage;
+  if (num(order.cancellationFee) > 0) snapshot.cancellationFee = num(order.cancellationFee);
+  if (order.creditApplied !== undefined) snapshot.creditApplied = num(order.creditApplied);
+  if (order.creditIssued !== undefined) snapshot.creditIssued = num(order.creditIssued);
   if (order.discountNote) snapshot.discountNote = order.discountNote;
   if (order.paidAt !== undefined) snapshot.paidAt = order.paidAt;
   return snapshot;
