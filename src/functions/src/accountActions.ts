@@ -19,6 +19,7 @@ import {
   creditIssuedNotification,
   payoutRequestedNotification,
   payoutResolvedNotification,
+  payoutAlertId,
   paymentReminderNotification,
 } from "./lib/accountNotifications";
 import { buildCreditNote, type CreditNoteType } from "./lib/creditNotes";
@@ -149,9 +150,13 @@ export const requestCreditPayout = onCall(async (request): Promise<{ creditNoteI
     if (note.payoutRequested === true) throw new HttpsError("already-exists", "A payout was already requested for this credit.");
     const balance = round2(num(note.remainingBalance ?? note.amount));
     if (balance <= 0) throw new HttpsError("failed-precondition", "This credit has no remaining balance.");
+    if (note.status === "paid_out") throw new HttpsError("failed-precondition", "This credit was already paid out.");
+    // Numbered so a request after a decline gets its own alert.
+    const requestNumber = Math.floor(num(note.payoutRequestCount)) + 1;
 
     tx.update(noteRef, {
       payoutRequested: true,
+      payoutRequestCount: requestNumber,
       payoutRequestedAt: FieldValue.serverTimestamp(),
       payoutRequestedAmount: balance,
       updatedAt: FieldValue.serverTimestamp(),
@@ -163,6 +168,7 @@ export const requestCreditPayout = onCall(async (request): Promise<{ creditNoteI
         customerId: customer.uid,
         customerName: str(customer.storeName) || customer.email,
         amount: balance,
+        requestNumber,
       })
     );
     return balance;
@@ -196,7 +202,8 @@ export const resolveCreditPayout = onCall(async (request): Promise<{ creditNoteI
     if (!snap.exists || !credit) throw new HttpsError("not-found", "Credit note not found.");
     if (credit.payoutRequested !== true) throw new HttpsError("failed-precondition", "There's no open payout request on this credit.");
     const customerSnap = await tx.get(db.doc(`customers/${str(credit.customerId) || "_"}`));
-    const alertRef = db.doc(`notifications/admin/items/payout_${creditNoteId}`);
+    const requestNumber = Math.max(1, Math.floor(num(credit.payoutRequestCount)));
+    const alertRef = db.doc(`notifications/admin/items/${payoutAlertId(creditNoteId, requestNumber)}`);
     const alertSnap = await tx.get(alertRef);
     const balance = round2(num(credit.remainingBalance ?? credit.amount));
 
@@ -233,6 +240,7 @@ export const resolveCreditPayout = onCall(async (request): Promise<{ creditNoteI
         amount: balance,
         outcome,
         note,
+        requestNumber,
       })
     );
     return balance;

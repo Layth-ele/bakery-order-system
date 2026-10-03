@@ -51,4 +51,32 @@ describe('server-written records pass the client schemas', () => {
     const r = creditNoteSchema.safeParse(note);
     expect(r.success ? 'ok' : JSON.stringify(r.error.issues.slice(0, 5))).toBe('ok');
   });
+  it('orders written by the money-audit rules', () => {
+    for (const extra of [
+      // fully cancelled paid order: fee kept + credit issued
+      { status: 'cancelled', paymentReceived: true, cancelledAt: now, cancelledBy: 'admin@x.test', cancellationReason: 'Closed',
+        cancelledDays: ['monday'], cancellationFeePercentage: 10, cancellationFee: 2.55, creditAmount: 22.93, creditNoteId: 'n2' },
+      // fully cancelled unpaid order: nothing kept
+      { status: 'cancelled', cancellationFee: 0, creditAmount: 0, creditApplied: 0, amountDue: 0, cancellationFeePercentage: 0 },
+      // partial cancellation with a prorated flat discount
+      { status: 'approved', discount: 12.5, discountType: 'fixed', discountNote: '', cancelledDays: ['tuesday'] },
+      // percentage discount set by an admin edit
+      { status: 'approved', discount: 0, discountPercentage: 10, discountType: 'percentage' },
+    ]) {
+      const r = orderSchema.safeParse(placedOrder(extra));
+      expect(r.success ? 'ok' : JSON.stringify(r.error.issues.slice(0, 5))).toBe('ok');
+    }
+  });
+  it('credit notes through a payout: requested, paid out, declined', () => {
+    const base = { id: 'n3', ...buildCreditNote({ id: 'n3abc', customerId: 'cust-1', amount: 30, type: 'cancellation', reason: 'Cancelled', createdBy: 'admin@x.test', gstShare: 0, now: new Date() }), createdAt: now };
+    for (const extra of [
+      { payoutRequested: true, payoutRequestedAt: now, payoutRequestedAmount: 30 },
+      { payoutRequested: false, payoutApproved: true, payoutApprovedAt: now, payoutApprovedBy: 'admin@x.test', payoutCompletedAt: now,
+        payoutMethod: 'bank_transfer', payoutAmount: 30, remainingBalance: 0, status: 'paid_out' },
+      { payoutRequested: false, payoutNote: 'Use it on your next order' },
+    ]) {
+      const r = creditNoteSchema.safeParse({ ...base, ...extra });
+      expect(r.success ? 'ok' : JSON.stringify(r.error.issues.slice(0, 5))).toBe('ok');
+    }
+  });
 });

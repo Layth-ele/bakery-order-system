@@ -161,15 +161,21 @@ export function orderReducedNotification(
   };
 }
 
+/** Id of the admin alert for the n-th payout request on a credit note. */
+export const payoutAlertId = (creditNoteId: string, requestNumber = 1): string =>
+  requestNumber > 1 ? `payout_${creditNoteId}_${requestNumber}` : `payout_${creditNoteId}`;
+
 export function payoutRequestedNotification(input: {
   creditNoteId: string;
   customerId: string;
   customerName: string;
   amount: number;
+  /** 1 for the first request on this credit, 2 after a decline, … */
+  requestNumber?: number;
 }): NotificationWrite {
   return {
     audience: "admin",
-    id: `payout_${input.creditNoteId}`,
+    id: payoutAlertId(input.creditNoteId, input.requestNumber ?? 1),
     mode: "create",
     content: {
       type: "CREDIT_PAYOUT_REQUESTED",
@@ -193,12 +199,14 @@ export function payoutResolvedNotification(input: {
   amount: number;
   outcome: "paid" | "declined";
   note: string;
+  requestNumber?: number;
 }): NotificationWrite {
   const paid = input.outcome === "paid";
+  const n = input.requestNumber ?? 1;
   return {
     audience: "customer",
     customerId: input.customerId,
-    id: `payout_${input.outcome}_${input.creditNoteId}`,
+    id: `payout_${input.outcome}_${input.creditNoteId}${n > 1 ? `_${n}` : ""}`,
     mode: "create",
     content: {
       type: paid ? "CREDIT_PAYOUT_COMPLETED" : "CREDIT_PAYOUT_DECLINED",

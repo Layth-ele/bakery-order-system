@@ -226,7 +226,7 @@ export function WeeklyInvoices({
       <div className="w-full">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5 items-stretch">
           <StatCard icon={FileText} label="Total Invoices" value={globalStats.totalOrders} color="tan" />
-          <StatCard icon={DollarSign} label="Total Revenue" value={`$${globalStats.totalRevenue.toFixed(0)}`} color="green" />
+          <StatCard icon={DollarSign} label="Total Invoiced" value={`$${globalStats.totalRevenue.toFixed(2)}`} color="green" />
           <StatCard icon={Receipt} label="Avg Order" value={`$${globalStats.averageOrderValue.toFixed(0)}`} color="blue" />
         </div>
       </div>

@@ -167,7 +167,10 @@ export function buildOrderNotifications(
         message:
           `Your order ${describe(o)} has been cancelled.` +
           (o.cancellationReason ? `\n\nReason: ${o.cancellationReason}` : "") +
-          (credit > 0 ? `\n\n💰 ${money(credit)} store credit has been added to your account.` : "") +
+          (credit > 0
+            ? `\n\n💰 ${money(credit)} store credit has been added to your account.` +
+              (num(raw.cancellationFee) > 0 ? ` A ${money(num(raw.cancellationFee))} cancellation fee was kept.` : "")
+            : "") +
           `\n\nPlease contact us if you have any questions.`,
         amount: credit || undefined,
         actions: [{ ...viewOrder, label: "View Details" }],
@@ -196,9 +199,10 @@ export function buildOrderNotifications(
             type: "PAYMENT_CONFIRMED_ADMIN",
             title: "✅ Payment Confirmed — Order in Production",
             message: `${o.storeName || "Customer"}'s payment for order ${describe(o)} has been confirmed. Order is now in production.`,
-            amount: o.total,
+            // What the customer paid (the total less any store credit used).
+            amount: o.amountDue,
             actions: [viewOrder],
-            metadata: { ...orderMeta, amount: o.total, invoiceNumber: o.invoiceNumber },
+            metadata: { ...orderMeta, amount: o.amountDue, invoiceNumber: o.invoiceNumber },
             read: true,
           },
         },
