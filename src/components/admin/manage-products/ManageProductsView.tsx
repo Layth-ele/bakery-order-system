@@ -25,6 +25,7 @@ import { StatCard } from '../../shared/StatCard';
 import type { Product, Category } from '../../../types';
 import type { ProductStats } from '../../../hooks/admin/useManageProductsData';
 import { ToastNotification } from '../../ToastNotification';
+import { NO_CATEGORY_FILTER_ID } from '../../../hooks/admin/useManageProductsData';
 
 // ============================================================================
 // TYPES
@@ -44,6 +45,8 @@ export interface ManageProductsViewProps {
   // Actions
   onAddCategory: () => void;
   onEditCategory: (category: Category) => void;
+  /** Products whose category was deleted (shown under "No category"). */
+  orphanCount?: number;
   onDeleteCategory: (categoryId: string) => void;
   onAddProduct: () => void;
   onEditProduct: (product: Product) => void;
@@ -68,6 +71,7 @@ export function ManageProductsView({
   onAddCategory,
   onEditCategory,
   onDeleteCategory,
+  orphanCount = 0,
   onAddProduct,
   onEditProduct,
   onDeleteProduct,
@@ -240,6 +244,19 @@ export function ManageProductsView({
                 {category.name}
               </button>
             ))}
+            {orphanCount > 0 && (
+              <button
+                onClick={() => onSelectCategory(NO_CATEGORY_FILTER_ID)}
+                title="These products' category was deleted — edit each one and pick a category"
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-all text-xs sm:text-sm font-semibold border-2 ${
+                  selectedCategory === NO_CATEGORY_FILTER_ID
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-md'
+                    : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                }`}
+              >
+                ⚠️ No category ({orphanCount})
+              </button>
+            )}
           </div>
 
           {/* Add Product Button */}

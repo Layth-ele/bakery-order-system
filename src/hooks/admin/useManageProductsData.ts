@@ -25,6 +25,9 @@ import { useCachedCategories } from '../useCachedCategories';
 import { useCacheInvalidation } from '../useCacheInvalidation';
 import { DISCOUNTED_FILTER_ID, isLegacyDiscountCopy, isOnSale } from '../../utils/productDiscount';
 
+/** Filter id for products whose category was deleted. */
+export const NO_CATEGORY_FILTER_ID = '__no_category__';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -41,6 +44,8 @@ export interface ManageProductsData {
   products: Product[];
   categories: Category[];
   filteredProducts: Product[];
+  /** Products whose category no longer exists. */
+  orphanCount: number;
   stats: ProductStats;
   
   // Loading states
@@ -124,12 +129,20 @@ export function useManageProductsData(isActive: boolean): ManageProductsData {
   // ============================================================================
   
   // Filter products based on selected category
+  // Products whose category no longer exists — invisible under every
+  // category tab, so they get their own "No category" filter to fix them.
+  const orphanProducts = useMemo(() => {
+    const ids = new Set(categories.map((c) => c.id));
+    return products.filter((p) => !isLegacyDiscountCopy(p) && !ids.has(p.categoryId));
+  }, [products, categories]);
+
   const filteredProducts = useMemo(() => {
     const real = products.filter((p) => !isLegacyDiscountCopy(p));
+    if (selectedCategory === NO_CATEGORY_FILTER_ID) return orphanProducts;
     return selectedCategory === DISCOUNTED_FILTER_ID
       ? real.filter(isOnSale)
       : real.filter((p) => p.categoryId === selectedCategory);
-  }, [products, selectedCategory]);
+  }, [products, selectedCategory, orphanProducts]);
   
   // Calculate statistics
   const stats = useMemo<ProductStats>(() => {
@@ -151,6 +164,7 @@ export function useManageProductsData(isActive: boolean): ManageProductsData {
     products,
     categories,
     filteredProducts,
+    orphanCount: orphanProducts.length,
     stats,
     
     // Loading states

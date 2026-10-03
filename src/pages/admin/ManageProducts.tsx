@@ -64,6 +64,7 @@ function ManageProductsBase({
     products,
     categories,
     filteredProducts,
+    orphanCount,
     stats,
     productsLoading,
     categoriesLoading,
@@ -197,6 +198,7 @@ function ManageProductsBase({
     <ManageProductsView
       // Data
       categories={categories}
+      orphanCount={orphanCount}
       filteredProducts={filteredProducts}
       stats={stats}
       

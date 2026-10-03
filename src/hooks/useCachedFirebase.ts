@@ -141,6 +141,9 @@ export const useCachedCustomers = (isActive: boolean = true) => {
     },
     // ✅ initialData ensures data is always Customer[] (never undefined)
     initialData: [] as Customer[],
+    // The empty list is a placeholder, not data: mark it stale so the real
+    // list loads as soon as the screen opens (not after staleTime).
+    initialDataUpdatedAt: 0,
     enabled: isActive,
     staleTime: CACHE_TIMES.STALE_TIME.customers,
     gcTime: CACHE_TIMES.CACHE_TIME.customers,
@@ -214,6 +217,9 @@ export const useCachedOrders = (
     },
     // ✅ initialData ensures data is always Order[] (never undefined)
     initialData: [] as Order[],
+    // The empty list is a placeholder, not data: mark it stale so the real
+    // list loads as soon as the screen opens (not after staleTime).
+    initialDataUpdatedAt: 0,
     staleTime: CACHE_TIMES.STALE_TIME.orders,
     gcTime: CACHE_TIMES.CACHE_TIME.orders,
     enabled,
@@ -243,6 +249,9 @@ export const useCachedActiveOrders = (enabled: boolean = true) => {
     queryKey: ['orders', 'active'],
     queryFn: () => getActiveOrders(),
     initialData: [] as Order[],
+    // The empty list is a placeholder, not data: mark it stale so the real
+    // list loads as soon as the screen opens (not after staleTime).
+    initialDataUpdatedAt: 0,
     staleTime: CACHE_TIMES.STALE_TIME.orders,
     gcTime: CACHE_TIMES.CACHE_TIME.orders,
     enabled,
@@ -276,6 +285,9 @@ export const useCachedCustomerOrders = (customerId: string | null, options?: { r
       return await getOrdersByCustomer(customerId);
     },
     initialData: [] as Order[],
+    // The empty list is a placeholder, not data: mark it stale so the real
+    // list loads as soon as the screen opens (not after staleTime).
+    initialDataUpdatedAt: 0,
     staleTime: CACHE_TIMES.STALE_TIME.orders,
     gcTime: CACHE_TIMES.CACHE_TIME.orders,
     enabled: !!customerId,
@@ -299,6 +311,9 @@ export const useCachedProducts = (enabled: boolean = true) => {
     },
     // ✅ initialData ensures data is always Product[] (never undefined)
     initialData: [] as Product[],
+    // The empty list is a placeholder, not data: mark it stale so the real
+    // list loads as soon as the screen opens (not after staleTime).
+    initialDataUpdatedAt: 0,
     staleTime: CACHE_TIMES.STALE_TIME.products,
     gcTime: CACHE_TIMES.CACHE_TIME.products,
     enabled,

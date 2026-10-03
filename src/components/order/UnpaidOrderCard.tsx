@@ -15,6 +15,7 @@ import React, { useMemo } from 'react';
 import { Eye, Check, Bell, Mail, XCircle, User, ExternalLink } from 'lucide-react';
 import { Order } from '../../types';
 import { useModal } from '../../contexts/ModalContextNew';
+import { passedDeliveryDays, passedDaysMessage } from '../../functions/src/lib/orderPlacement';
 
 interface UnpaidOrderCardProps {
   order: Order;
@@ -47,6 +48,10 @@ function UnpaidOrderCardComponent({
   );
 
   const reminderCount = order.paymentReminderCount || 0;
+  // Same rule as the server: no reminders for a delivery day that's over —
+  // cancel that day (or the order) instead.
+  const daysOver = passedDeliveryDays(order as any, new Date());
+  const reminderBlocked = daysOver.length > 0;
   const emailCount = order.emailReminderCount || 0;
   const isEmailMode = reminderCount >= 2;
 
@@ -132,12 +137,14 @@ function UnpaidOrderCardComponent({
               onClick={async () => {
                 await onSendReminder(order);
               }}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#9C27B0] to-[#7B1FA2] hover:from-[#7B1FA2] hover:to-[#6A1B9A] text-white rounded-lg transition-all duration-300 font-medium text-sm shadow-md hover:shadow-lg"
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#9C27B0] to-[#7B1FA2] hover:from-[#7B1FA2] hover:to-[#6A1B9A] text-white rounded-lg transition-all duration-300 font-medium text-sm shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
+              disabled={reminderBlocked}
+              title={reminderBlocked ? passedDaysMessage(daysOver, "paid") : undefined}
             >
               <Mail className="w-4 h-4" />
               <span className="uppercase tracking-wide">
-                {emailCount > 0 ? `SEND EMAIL (${emailCount})` : 'SEND EMAIL REMINDER'}
+                {reminderBlocked ? 'DATE PASSED — CANCEL DAY' : emailCount > 0 ? `SEND EMAIL (${emailCount})` : 'SEND EMAIL REMINDER'}
               </span>
             </button>
           ) : (
@@ -145,12 +152,14 @@ function UnpaidOrderCardComponent({
               onClick={async () => {
                 await onSendReminder(order);
               }}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#29B6F6] to-[#039BE5] hover:from-[#039BE5] hover:to-[#0288D1] text-white rounded-lg transition-all duration-300 font-medium text-sm shadow-md hover:shadow-lg"
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#29B6F6] to-[#039BE5] hover:from-[#039BE5] hover:to-[#0288D1] text-white rounded-lg transition-all duration-300 font-medium text-sm shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
+              disabled={reminderBlocked}
+              title={reminderBlocked ? passedDaysMessage(daysOver, "paid") : undefined}
             >
               <Bell className="w-4 h-4" />
               <span className="uppercase tracking-wide">
-                {reminderCount > 0 ? `SEND REMINDER (${reminderCount}/2)` : 'SEND REMINDER'}
+                {reminderBlocked ? 'DATE PASSED — CANCEL DAY' : reminderCount > 0 ? `SEND REMINDER (${reminderCount}/2)` : 'SEND REMINDER'}
               </span>
             </button>
           )}
@@ -266,12 +275,14 @@ function UnpaidOrderCardComponent({
               onClick={async () => {
                 await onSendReminder(order);
               }}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#9C27B0] to-[#7B1FA2] hover:from-[#7B1FA2] hover:to-[#6A1B9A] text-white transition-all duration-300 font-medium shadow-md hover:shadow-lg"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#9C27B0] to-[#7B1FA2] hover:from-[#7B1FA2] hover:to-[#6A1B9A] text-white transition-all duration-300 font-medium shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
+              disabled={reminderBlocked}
+              title={reminderBlocked ? passedDaysMessage(daysOver, "paid") : undefined}
             >
               <Mail className="w-4 h-4 flex-shrink-0" />
               <span className="text-xs font-bold leading-tight uppercase tracking-wide">
-                {emailCount > 0 ? `SEND EMAIL (${emailCount})` : 'SEND EMAIL REMINDER'}
+                {reminderBlocked ? 'DATE PASSED — CANCEL DAY' : emailCount > 0 ? `SEND EMAIL (${emailCount})` : 'SEND EMAIL REMINDER'}
               </span>
             </button>
           ) : (
@@ -279,12 +290,14 @@ function UnpaidOrderCardComponent({
               onClick={async () => {
                 await onSendReminder(order);
               }}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#29B6F6] to-[#039BE5] hover:from-[#039BE5] hover:to-[#0288D1] text-white transition-all duration-300 font-medium shadow-md hover:shadow-lg"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#29B6F6] to-[#039BE5] hover:from-[#039BE5] hover:to-[#0288D1] text-white transition-all duration-300 font-medium shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
+              disabled={reminderBlocked}
+              title={reminderBlocked ? passedDaysMessage(daysOver, "paid") : undefined}
             >
               <Bell className="w-4 h-4 flex-shrink-0" />
               <span className="text-xs font-bold leading-tight uppercase tracking-wide">
-                {reminderCount > 0 ? `SEND REMINDER (${reminderCount}/2)` : 'SEND REMINDER'}
+                {reminderBlocked ? 'DATE PASSED — CANCEL DAY' : reminderCount > 0 ? `SEND REMINDER (${reminderCount}/2)` : 'SEND REMINDER'}
               </span>
             </button>
           )}

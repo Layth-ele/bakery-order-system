@@ -78,6 +78,9 @@ export function useCachedCategories() {
     // as never[] in TS, which conflicts with TData. initialData with a cast is the
     // canonical TanStack Query v5 fix.
     initialData: [] as Category[],
+    // The empty list is a placeholder, not data: mark it stale so the real
+    // list loads as soon as the screen opens (not after staleTime).
+    initialDataUpdatedAt: 0,
     // Cache configuration
     staleTime: 5 * 60 * 1000, // 5 minutes - categories rarely change
     gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache

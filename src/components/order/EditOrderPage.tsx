@@ -88,7 +88,7 @@ export function EditOrderPage({
     customProducts, setCustomProducts,
     customProductDays, setCustomProductDays,
     customProductQty, setCustomProductQty,
-    editPermission, itemsSubtotal, finalOrderTotal, totals, freeDeliveryMin,
+    editPermission, itemsSubtotal, finalOrderTotal, totals, freeDeliveryMin, standardDeliveryFee,
     feeTouched, setFeeTouched,
     getProduct, getProductTotal, getItemSubtotal,
   } = useEditOrderState(order, products, isAdmin);
@@ -670,7 +670,9 @@ export function EditOrderPage({
               </div>
               {!feeTouched && (
                 <p className="px-5 pt-3 text-xs text-[#8B4513]">
-                  Automatic: free from ${freeDeliveryMin.toFixed(2)} (after discount), otherwise the order's delivery fee.
+                  {standardDeliveryFee <= 0 && !(order.deliveryFee > 0)
+                    ? 'Automatic: no delivery fee (Settings delivery fee is $0).'
+                    : `Automatic: free from $${freeDeliveryMin.toFixed(2)} (after discount), otherwise $${(order.deliveryFee > 0 ? order.deliveryFee : standardDeliveryFee).toFixed(2)}.`}
                 </p>
               )}
               {(feeTouched ? deliveryFeeEnabled : totals.deliveryFee > 0) && (
