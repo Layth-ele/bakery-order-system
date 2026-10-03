@@ -41,6 +41,13 @@
         ]
       },
       {
+        "//": "PWA: the service worker must always be re-fetched, or new app versions would never be detected.",
+        "source": "/push-sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      },
+      {
         "//": "PWA: web app manifest — correct MIME type, short cache so name/icon changes reach installed apps.",
         "source": "/manifest.webmanifest",
         "headers": [

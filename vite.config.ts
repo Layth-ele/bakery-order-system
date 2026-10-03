@@ -64,6 +64,8 @@ const pwa = VitePWA({
     // Never hijack Firebase's reserved paths (auth handler, init.json).
     navigateFallbackDenylist: [/^\/__\//],
     cleanupOutdatedCaches: true,
+    // Phone push notifications + app-icon badge (public/push-sw.js).
+    importScripts: ['push-sw.js'],
     runtimeCaching: [
       {
         // Hashed build files are immutable — safe to cache-first.

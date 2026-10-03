@@ -78,3 +78,6 @@ export { sendPaymentReminder, issueStoreCredit, requestCreditPayout, resolveCred
 
 // ─── Account administration (status + sign-in kept in sync) ─────────────────
 export { approveCustomer, rejectCustomer, setCustomerSuspended, adminCreateAccount } from "./accountAdmin";
+
+// ─── Phone push for every new in-app notification ───────────────────────────
+export { onNotificationCreated } from "./pushNotifications";
