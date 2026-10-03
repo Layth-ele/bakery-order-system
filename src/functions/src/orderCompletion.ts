@@ -139,11 +139,12 @@ export const completeOrder = onCall<{ orderId: string }>(async (request): Promis
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Weekly schedule
+// Daily schedule
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const autoCompleteOrders = onSchedule(
-  { schedule: "5 12 * * 5", timeZone: COMPLETION_TIME_ZONE, retryCount: 1 },
+  // Daily: each order completes the day its last delivery is done (noon).
+  { schedule: "5 12 * * *", timeZone: COMPLETION_TIME_ZONE, retryCount: 1 },
   async () => {
     const now = new Date();
     const snap = await db

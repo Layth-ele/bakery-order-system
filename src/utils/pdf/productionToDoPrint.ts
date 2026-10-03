@@ -16,6 +16,7 @@ import type {
 } from "../../types";
 import { getWeekDayDate } from "../../utils/weekUtils";
 import { getPDFStyles } from "./pdfStyles";
+import { OTHER_ITEMS } from "../../services/production/productionAggregationService";
 
 const DAY_KEYS: Array<keyof OrderItem> = [
   "monday",
@@ -120,7 +121,7 @@ export function openProductionPrintView(
       } else {
         aggregated.set(item.productId, {
           productName: item.productName,
-          categoryName: category?.name || "Uncategorized",
+          categoryName: category?.name || OTHER_ITEMS,
           qty,
           ordersCount: 1,
         });

@@ -186,6 +186,8 @@ export const placeOrder = onCall(async (request): Promise<PlaceOrderResult> => {
       customerAddress: str(customer.storeAddress) || str(customer.address) || "Address not provided",
       customerContactPerson: str(customer.contactPerson) || str(customer.storeName),
       customerPhone: str(customer.phone),
+      // Mirrored for the production sheet (commercial vs individual).
+      customerType: customer.customerType === "commercial" ? "commercial" : "individual",
       week: input.week,
       year: input.year,
       weekRange: `Week ${input.week}, ${input.year}`,

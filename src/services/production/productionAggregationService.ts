@@ -17,6 +17,9 @@
 import type { Order, OrderItem, Product, Category } from '../../types'; // ✅ FIXED: Import from types instead of demo data
 import { isProductionEligible } from '../../utils/orderSelectors';
 
+/** Group for items with no catalogue category (custom / removed products). */
+export const OTHER_ITEMS = 'Other items';
+
 // Day keys for mapping to OrderItem fields
 export const DAY_KEYS: Array<keyof OrderItem> = [
   "monday",
@@ -133,13 +136,17 @@ export function getQtyForOrderOnDate(
  * @param getWeekDayDateFn - Function to get week day date
  * @returns Orders that should be produced for this date
  */
+/** Which orders count on the sheet (default: paid orders in production). */
+export type EligibilityFn = (order: Order) => boolean;
+
 export function getOrdersForDate(
   orders: Order[],
   date: Date,
-  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date
+  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date,
+  eligible: EligibilityFn = isProductionEligible
 ): Order[] {
   return orders.filter(order => {
-    if (!isProductionEligible(order)) return false;
+    if (!eligible(order)) return false;
     return getQtyForOrderOnDate(order, date, getWeekDayDateFn) > 0;
   });
 }
@@ -161,9 +168,10 @@ export function calculateProductSummary(
   date: Date,
   products: Product[],
   categories: Category[],
-  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date
+  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date,
+  eligible: EligibilityFn = isProductionEligible
 ): ProductSummary[] {
-  const dayOrders = getOrdersForDate(orders, date, getWeekDayDateFn);
+  const dayOrders = getOrdersForDate(orders, date, getWeekDayDateFn, eligible);
   const productMap = new Map<string, ProductSummary>();
   const monIndex = getMonBasedDayIndex(date);
   const key = DAY_KEYS[monIndex];
@@ -183,10 +191,10 @@ export function calculateProductSummary(
 
     // ✅ CRITICAL: Always use order.items (NOT productsByDay)
     order.items?.forEach(item => {
+      // Custom items and products since removed from the catalogue are still
+      // on the order and must be baked — grouped under "Other items".
       const product = products.find(p => p.id === item.productId);
       const category = categories.find(c => c.id === product?.categoryId);
-      
-      if (!product) return;
 
       const qty = Number(item[key] ?? 0) || 0;
       
@@ -199,8 +207,8 @@ export function calculateProductSummary(
           productMap.set(item.productId, {
             productId: item.productId,
             productName: item.productName,
-            categoryId: product.categoryId,
-            categoryName: category?.name || 'Unknown',
+            categoryId: product?.categoryId ?? '',
+            categoryName: category?.name || OTHER_ITEMS,
             quantity: qty,
             orderCount: 1,
           });
@@ -233,9 +241,10 @@ export function calculateProductSummary(
 export function calculateCustomerData(
   orders: Order[],
   date: Date,
-  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date
+  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date,
+  eligible: EligibilityFn = isProductionEligible
 ): { commercial: CustomerDayData[]; individual: CustomerDayData[] } {
-  const dayOrders = getOrdersForDate(orders, date, getWeekDayDateFn);
+  const dayOrders = getOrdersForDate(orders, date, getWeekDayDateFn, eligible);
   const commercial: CustomerDayData[] = [];
   const individual: CustomerDayData[] = [];
   const monIndex = getMonBasedDayIndex(date);
@@ -275,9 +284,10 @@ export function calculateCustomerData(
 export function calculateCustomerCounts(
   orders: Order[],
   date: Date,
-  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date
+  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date,
+  eligible: EligibilityFn = isProductionEligible
 ): { commercial: number; individual: number } {
-  const dayOrders = getOrdersForDate(orders, date, getWeekDayDateFn);
+  const dayOrders = getOrdersForDate(orders, date, getWeekDayDateFn, eligible);
   
   const commercial = dayOrders.filter(o => o.customerType === 'commercial').length;
   const individual = dayOrders.filter(o => o.customerType !== 'commercial').length;
@@ -314,12 +324,13 @@ export function calculateDayInfo(
   date: Date,
   dayIndex: number,
   getDayStatusFn: (date: Date) => 'done' | 'locked' | 'open',
-  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date
+  getWeekDayDateFn: (week: number, dayIndex: number, year: number) => Date,
+  eligible: EligibilityFn = isProductionEligible
 ): Omit<DayInfo, 'dayName' | 'dayShort'> {
   const dateStr = formatDate(date);
   const status = getDayStatusFn(date);
   
-  const dayOrders = getOrdersForDate(orders, date, getWeekDayDateFn);
+  const dayOrders = getOrdersForDate(orders, date, getWeekDayDateFn, eligible);
 
   // Calculate products for this day
   const productMap = new Map<string, number>();
