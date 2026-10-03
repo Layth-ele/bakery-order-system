@@ -8,6 +8,7 @@
 import { getWeekDayDate, formatShortDate } from "../../../utils/weekUtils";
 import type { Category } from "../../../types";
 import { DAYS, TableColGroup } from "../../../constants/tableColumns";
+import { isLegacyDiscountCopy, isOnSale } from "../../../utils/productDiscount";
 
 interface ProductFiltersAndTableHeaderProps {
   categories: Category[];
@@ -17,6 +18,11 @@ interface ProductFiltersAndTableHeaderProps {
   selectedYear: number;
   stickyTop?: number;
   products?: import('../../../types').Product[];
+  /**
+   * Which part to render. The order page renders the day/date header on its
+   * own so it can stay pinned below the menu while the products scroll.
+   */
+  part?: 'both' | 'filters' | 'header';
 }
 
 export function ProductFiltersAndTableHeader({
@@ -26,6 +32,7 @@ export function ProductFiltersAndTableHeader({
   selectedWeek,
   selectedYear,
   products = [],
+  part = 'both',
 }: ProductFiltersAndTableHeaderProps): JSX.Element | null {
 
   const pillBase = "px-2 sm:px-3.5 py-0.5 sm:py-1.5 rounded-full border text-[10px] sm:text-xs font-semibold transition-all duration-150 leading-tight whitespace-nowrap flex-shrink-0";
@@ -39,6 +46,7 @@ export function ProductFiltersAndTableHeader({
       <div className="bg-white border-b-2 border-[#D4A574]/30 shadow-sm">
 
         {/* ── Category pills ── */}
+        {part !== 'header' && (
         <div className="px-2 sm:px-4 lg:px-6 py-1.5 sm:py-2.5 border-b border-[#D4A574]/15">
           {/* Header bar */}
           <div className="bg-gradient-to-r from-[#8B6F47] to-[#D4A574] -mx-2 sm:-mx-4 lg:-mx-6 px-3 sm:px-5 py-1.5 mb-2 sm:mb-2.5 -mt-2.5">
@@ -59,7 +67,7 @@ export function ProductFiltersAndTableHeader({
             </button>
             {/* Discounted — directly after All Products, with count badge */}
             {(() => {
-              const discountedCount = products.filter(p => (p.discount ?? 0) > 0).length;
+              const discountedCount = products.filter(p => isOnSale(p) && !isLegacyDiscountCopy(p) && p.available !== false).length;
               return (
                 <button
                   type="button"
@@ -91,7 +99,10 @@ export function ProductFiltersAndTableHeader({
           </div>
         </div>
 
+        )}
+
         {/* ── Table column header — synced with TableColGroup widths ── */}
+        {part !== 'filters' && (
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             <TableColGroup />
@@ -131,6 +142,7 @@ export function ProductFiltersAndTableHeader({
             </thead>
           </table>
         </div>
+        )}
       </div>
     </section>
   );
