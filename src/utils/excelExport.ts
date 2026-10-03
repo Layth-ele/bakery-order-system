@@ -130,64 +130,47 @@ export function exportOrderToExcel(
     { wch: 8 }, { wch: 11 }, { wch: 12 },
   ];
 
+  // Clean invoice styling (matches the PDF): white page, grey headers,
+  // brown accent for categories, amber/green for amount due/paid.
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
-  const statusBg = STATUS_COLOUR[order.status] || 'FAFAFA';
-  const statusFg = STATUS_TEXT[order.status] || BRAND.BLACK;
+  const INK = '1F2937', MUTED = '6B7280', LINE = 'E5E7EB', SOFT = 'F9FAFB', ACCENT = '8B6F47', W = 'FFFFFF';
+  const thin = (c = LINE) => ({ bottom: { style: 'thin', color: { rgb: c } } });
   for (let R = range.s.r; R <= range.e.r; R++) {
     const kind = kinds[R] ?? '';
     for (let C = range.s.c; C <= range.e.c; C++) {
       const ref = XLSX.utils.encode_cell({ r: R, c: C });
       if (!ws[ref]) ws[ref] = { t: 's', v: '' };
       const money = C === C_PRICE || C === C_AMT;
-      if (kind === 'title') { ws[ref].s = cs(BRAND.BLACK, BRAND.GOLD, 15, true, 'left', {}); continue; }
-      if (kind === 'spacer') { ws[ref].s = cs(BRAND.WHITE, BRAND.WHITE, 5, false, 'left', {}); continue; }
-      if (kind === 'info' || kind === 'status') {
-        ws[ref].s = C < 2
-          ? cs('F5EDD0', BRAND.GOLD_DARK, 9, true, 'left', BORDER_THIN(BRAND.GOLD))
-          : kind === 'status' ? cs(statusBg, statusFg, 10, true, 'left', BORDER_THIN(statusFg))
-          : cs('FAFAFA', BRAND.BLACK, 10, false, 'left', BORDER_THIN('DDDDDD'));
-        continue;
-      }
-      if (kind === 'head') {
-        const isDay = C >= C_DAY0 && C < C_QTY;
-        ws[ref].s = isDay ? cs(BRAND.GOLD, BRAND.BLACK, 10, true, 'center', BORDER_THIN('888888'))
-          : cs(BRAND.BLACK, BRAND.WHITE, 10, true, C <= 1 ? 'left' : 'center', BORDER_THIN('444444'));
-        continue;
-      }
-      if (kind === 'dates') { ws[ref].s = cs('F5EDD0', '555555', 9, false, 'center', BORDER_THIN(BRAND.GOLD)); continue; }
-      if (kind.startsWith('line:')) {
-        const [hdrBg, dataBg, accent] = catColour.get(kind.slice(5)) ?? CAT_PALETTE[0];
-        const isDay = C >= C_DAY0 && C < C_QTY;
-        const hasVal = !!data[R]?.[C];
-        ws[ref].s = C === 0 ? cs(hasVal ? hdrBg : dataBg, BRAND.WHITE, 9, true, 'left', BORDER_THIN(accent))
-          : C === 1 ? cs(dataBg, BRAND.BLACK, 10, false, 'left', BORDER_THIN(accent))
-          : isDay ? cs(hasVal ? dataBg : 'F8F8F8', hasVal ? hdrBg : 'BBBBBB', hasVal ? 11 : 9, hasVal, 'center', BORDER_THIN(accent))
-          : C === C_QTY ? cs('F5EDD0', BRAND.GOLD_DARK, 11, true, 'center', BORDER_THIN(BRAND.GOLD))
-          : cs(dataBg, '333333', 10, C === C_AMT, 'right', BORDER_THIN(accent));
-        if (money && typeof ws[ref].v === 'number') ws[ref].z = CURRENCY_FMT;
-        continue;
-      }
-      if (kind === 'grand') {
-        ws[ref].s = cs(BRAND.BLACK, BRAND.GOLD, 11, true, C <= 1 ? 'left' : 'center', BORDER_MEDIUM(BRAND.GOLD));
-        if (money && typeof ws[ref].v === 'number') ws[ref].z = CURRENCY_FMT;
-        continue;
-      }
-      if (kind.startsWith('total:')) {
+      const isDay = C >= C_DAY0 && C < C_QTY;
+      let st: any;
+      if (kind === 'title') st = cs(W, INK, 16, true, 'left', {});
+      else if (kind === 'spacer') st = cs(W, W, 5, false, 'left', {});
+      else if (kind === 'info') st = C < 2 ? cs(W, MUTED, 9, true, 'left', thin()) : cs(W, INK, 10, false, 'left', thin());
+      else if (kind === 'status') st = C < 2 ? cs(W, MUTED, 9, true, 'left', thin()) : cs(W, ACCENT, 10, true, 'left', thin());
+      else if (kind === 'head') st = cs('F3F4F6', '374151', 9, true, C <= 1 ? 'left' : 'center', { top: { style: 'thin', color: { rgb: LINE } } });
+      else if (kind === 'dates') st = cs('F3F4F6', MUTED, 9, false, 'center', thin());
+      else if (kind.startsWith('line:')) {
+        st = C === 0 ? cs(W, ACCENT, 9, true, 'left', thin('F1F5F9'))
+          : C === 1 ? cs(W, INK, 10, false, 'left', thin('F1F5F9'))
+          : isDay ? cs(W, data[R]?.[C] ? INK : 'BBBBBB', 10, false, 'center', thin('F1F5F9'))
+          : C === C_QTY ? cs(W, INK, 10, true, 'center', thin('F1F5F9'))
+          : cs(W, INK, 10, C === C_AMT, 'right', thin('F1F5F9'));
+      } else if (kind === 'grand') st = cs(W, INK, 10, true, C <= 1 ? 'left' : money ? 'right' : 'center', { top: { style: 'medium', color: { rgb: INK } } });
+      else if (kind.startsWith('total:')) {
         const t = kind.slice(6);
-        const strong = t === 'total' || t === 'due' || t === 'paid';
-        ws[ref].s = data[R][C] === ''
-          ? cs(BRAND.WHITE, BRAND.WHITE, 9, false, 'left', {})
-          : cs(strong ? BRAND.BLACK : 'FAFAFA', strong ? BRAND.GOLD : (t === 'discount' || t === 'credit' ? '15803D' : '333333'), strong ? 12 : 10, strong, C === C_AMT ? 'right' : 'right', BORDER_THIN('DDDDDD'));
-        if (C === C_AMT && typeof ws[ref].v === 'number') ws[ref].z = CURRENCY_FMT;
-        continue;
+        const empty = data[R][C] === '';
+        st = empty ? cs(W, W, 9, false, 'left', {})
+          : t === 'due' ? cs('FFFBEB', '92400E', 11, true, 'right', {})
+          : t === 'paid' ? cs('F0FDF4', '166534', 11, true, 'right', {})
+          : t === 'total' ? cs(W, INK, 12, true, 'right', { top: { style: 'thin', color: { rgb: INK } } })
+          : cs(W, t === 'discount' || t === 'credit' ? '15803D' : '374151', 10, false, 'right', {});
+      } else if (kind === 'section') st = cs(W, MUTED, 9, true, 'left', thin());
+      else if (kind === 'notice') {
+        st = C === 0 ? cs(W, MUTED, 9, false, 'left', thin('F1F5F9')) : cs(W, INK, 10, false, 'left', thin('F1F5F9'));
+        if (C === 1) st.alignment = { ...(st.alignment || {}), wrapText: true, vertical: 'top' };
       }
-      if (kind === 'section') { ws[ref].s = cs('E8F4FD', '1565C0', 10, true, 'left', BORDER_THIN('1565C0')); continue; }
-      if (kind === 'notice') {
-        ws[ref].s = C === 0 ? cs('F9F9F9', '555555', 9, false, 'left', BORDER_THIN('DDDDDD'))
-          : cs(BRAND.WHITE, BRAND.BLACK, 10, false, 'left', { ...BORDER_THIN('DDDDDD') });
-        if (C === 1) ws[ref].s.alignment = { ...(ws[ref].s.alignment || {}), wrapText: true, vertical: 'top' };
-        continue;
-      }
+      if (st) ws[ref].s = st;
+      if (money && typeof ws[ref].v === 'number') ws[ref].z = CURRENCY_FMT;
     }
   }
   const merges: XLSX.Range[] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: LAST } }];
@@ -221,10 +204,11 @@ export function exportOrderToExcel(
       const ref = XLSX.utils.encode_cell({ r: R, c: C });
       if (!ws2[ref]) ws2[ref] = { t: 's', v: '' };
       const last = R === r2.e.r;
-      ws2[ref].s = R === 0 ? cs(BRAND.BLACK, BRAND.GOLD, 14, true, 'left', {})
-        : R === 1 ? cs(BRAND.WHITE, BRAND.WHITE, 5, false, 'left', {})
-        : R === 2 || last ? cs(BRAND.BLACK, last ? BRAND.GOLD : BRAND.WHITE, 10, true, C === 0 ? 'left' : 'center', BORDER_THIN('444444'))
-        : cs('FAFAFA', BRAND.BLACK, 10, false, C === 0 ? 'left' : 'center', BORDER_THIN('DDDDDD'));
+      ws2[ref].s = R === 0 ? cs('FFFFFF', '1F2937', 14, true, 'left', {})
+        : R === 1 ? cs('FFFFFF', 'FFFFFF', 5, false, 'left', {})
+        : R === 2 ? cs('F3F4F6', '374151', 9, true, C === 0 ? 'left' : 'center', BORDER_THIN('E5E7EB'))
+        : last ? cs('FFFFFF', '1F2937', 10, true, C === 0 ? 'left' : 'center', { top: { style: 'medium', color: { rgb: '1F2937' } } })
+        : cs('FFFFFF', '1F2937', 10, false, C === 0 ? 'left' : 'center', BORDER_THIN('F1F5F9'));
       if (C === 2 && typeof ws2[ref].v === 'number') ws2[ref].z = CURRENCY_FMT;
     }
   }

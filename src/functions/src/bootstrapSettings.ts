@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS = {
   // Money — the field names and defaults lib/settingsValues reads, so a
   // fresh install charges exactly what the resolvers assume.
   gstRate: DEFAULT_TAX_RATE,
+  freeDeliveryEnabled: false,   // Admin → Settings switches it on
   freeDeliveryMin: DEFAULT_FREE_DELIVERY_MIN,
   deliveryFee: DEFAULT_DELIVERY_FEE,
   serviceChargeEnabled: true,

@@ -50,6 +50,7 @@ const DEFAULT_SETTINGS: Settings = {
   // ✅ REQUIRED FIELDS
   // Same defaults the server charges with (functions/src/lib/settingsValues).
   deliveryFee: DEFAULT_DELIVERY_FEE,
+  freeDeliveryEnabled: false,
   freeDeliveryMin: DEFAULT_FREE_DELIVERY_MIN,
   orderDeadline: '12:00 PM',
   deliveryDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],

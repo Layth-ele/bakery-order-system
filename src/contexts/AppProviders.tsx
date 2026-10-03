@@ -60,6 +60,9 @@ function GlobalSettingsSync(): null {
   useEffect(() => {
     if (!settings) return;
     setPDFSettings({
+      // Everything in Settings (payment methods, policies, logo …) plus the
+      // company fields the documents print.
+      ...settings,
       companyName:    settings.businessName     || 'Your Bakery Name',
       companyAddress: settings.businessLocation || '123 Example St, City, BC V0V 0V0',
       companyPhone:   settings.businessPhone    || '604-555-0100',

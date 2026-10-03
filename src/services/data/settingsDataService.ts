@@ -27,6 +27,8 @@ export interface SystemSettings {
   // Financial Settings
   deliveryFee?: number;
   freeDeliveryMin?: number;
+  /** Off → delivery is always charged (Admin → Settings). */
+  freeDeliveryEnabled?: boolean;
   serviceChargeAmount?: number;
   serviceChargeEnabled?: boolean;
   gstRate?: number;

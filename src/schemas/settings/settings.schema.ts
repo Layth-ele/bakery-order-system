@@ -36,6 +36,7 @@ export const settingsSchema = z.object({
   deliveryFee: positiveAmountSchema.optional(),
   freeDeliveryThreshold: positiveAmountSchema.optional(),
   freeDeliveryMin: positiveAmountSchema.optional(), // Minimum order for free delivery
+  freeDeliveryEnabled: z.boolean().optional(), // Off → delivery always charged
   deliveryFeeDowntown: positiveAmountSchema.optional(),
   deliveryFeeEastVan: positiveAmountSchema.optional(),
   

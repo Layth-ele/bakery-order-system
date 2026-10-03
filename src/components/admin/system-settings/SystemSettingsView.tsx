@@ -557,15 +557,29 @@ export function SystemSettingsView({
               required
             />
             
-            <InputField
-              label="Free Delivery Minimum (subtotal after discount)"
-              value={settings.freeDeliveryMin ?? settings.freeDeliveryThreshold ?? ''}
-              onChange={(value) => updateField('freeDeliveryMin', parseFloat(value) || 0)}
-              type="number"
-              placeholder="250.00"
-              icon={DollarSign}
-              required
-            />
+            <div className="md:col-span-2 rounded-lg border border-[#D4A574]/30 p-3">
+              <CheckboxField
+                label="Offer free delivery"
+                checked={settings.freeDeliveryEnabled === true}
+                onChange={(checked) => {
+                  updateField('freeDeliveryEnabled', checked);
+                  if (checked && !(settings.freeDeliveryMin && settings.freeDeliveryMin < 1_000_000)) updateField('freeDeliveryMin', 500);
+                }}
+                description="Off: every order pays the delivery fee. On: orders whose subtotal (after discount) reaches the minimum get free delivery."
+              />
+              {settings.freeDeliveryEnabled === true && (
+                <div className="mt-3">
+                  <InputField
+                    label="Free delivery minimum (order subtotal)"
+                    value={settings.freeDeliveryMin ?? 500}
+                    onChange={(value) => updateField('freeDeliveryMin', parseFloat(value) || 0)}
+                    type="number"
+                    placeholder="500.00"
+                    icon={DollarSign}
+                  />
+                </div>
+              )}
+            </div>
             
             <InputField
               label="Order Deadline"

@@ -672,13 +672,15 @@ export function EditOrderPage({
                 <p className="px-5 pt-3 text-xs text-[#8B4513]">
                   {standardDeliveryFee <= 0 && !(order.deliveryFee > 0)
                     ? 'Automatic: no delivery fee (Settings delivery fee is $0).'
-                    : `Automatic: free from $${freeDeliveryMin.toFixed(2)} (after discount), otherwise $${(order.deliveryFee > 0 ? order.deliveryFee : standardDeliveryFee).toFixed(2)}.`}
+                    : Number.isFinite(freeDeliveryMin)
+                      ? `Automatic: free from $${freeDeliveryMin.toFixed(2)} (after discount), otherwise $${(order.deliveryFee > 0 ? order.deliveryFee : standardDeliveryFee).toFixed(2)}.`
+                      : `Automatic: $${(order.deliveryFee > 0 ? order.deliveryFee : standardDeliveryFee).toFixed(2)} (free delivery is off in Settings).`}
                 </p>
               )}
               {(feeTouched ? deliveryFeeEnabled : totals.deliveryFee > 0) && (
                 <div className="p-5">
                   {/* ✅ NEW: Warning message if order is below free delivery minimum */}
-                  {totals.subtotal - totals.discountAmount < freeDeliveryMin && (
+                  {Number.isFinite(freeDeliveryMin) && totals.subtotal - totals.discountAmount < freeDeliveryMin && (
                     <div className="mb-4 p-4 bg-[#FFF3E0] border-2 border-[#FF9800] rounded-lg flex items-start gap-2">
                       <span className="text-lg">💡</span>
                       <p className="text-sm text-[#333333]">

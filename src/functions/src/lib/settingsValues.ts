@@ -9,7 +9,7 @@
 type Doc = Record<string, unknown> | null | undefined;
 
 export const DEFAULT_TAX_RATE = 0.05;
-export const DEFAULT_FREE_DELIVERY_MIN = 250;
+export const DEFAULT_FREE_DELIVERY_MIN = 500;
 export const DEFAULT_DELIVERY_FEE = 10;
 export const DEFAULT_SERVICE_CHARGE = 3.99;
 
@@ -33,8 +33,22 @@ export function resolveTaxRate(general: Doc, legacy?: Doc): number {
   return first([general, legacy], ["gstRate", "taxRate"], rate) ?? DEFAULT_TAX_RATE;
 }
 
-/** Order subtotal that qualifies for free delivery: freeDeliveryMin → freeDeliveryThreshold → $250. */
+/**
+ * Admin → Settings → "Free delivery" switch. Off → delivery is always
+ * charged. Settings saved before the switch existed count as on.
+ */
+export function isFreeDeliveryEnabled(general: Doc, legacy?: Doc): boolean {
+  const v = [general, legacy].map((d) => d?.freeDeliveryEnabled).find((x) => typeof x === "boolean");
+  return v !== false;
+}
+
+/**
+ * Order subtotal (after discount) that qualifies for free delivery:
+ * freeDeliveryMin → freeDeliveryThreshold → $500. Infinity when free
+ * delivery is switched off, so no order ever qualifies.
+ */
 export function resolveFreeDeliveryMin(general: Doc, legacy?: Doc): number {
+  if (!isFreeDeliveryEnabled(general, legacy)) return Number.POSITIVE_INFINITY;
   return first([general, legacy], ["freeDeliveryMin", "freeDeliveryThreshold"], amount) ?? DEFAULT_FREE_DELIVERY_MIN;
 }
 
