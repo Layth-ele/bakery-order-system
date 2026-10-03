@@ -13,6 +13,9 @@ import { discountOn, round2 } from '../../../functions/src/lib/orderRevision';
 import { gstLabel } from '../../../utils/orderMoney';
 import { orderAmountDue } from '../../../utils/orderMoney';
 import React from 'react';
+import { changeNotices, documentDays, documentLines, documentTotals, noticeDate, type OrderChange } from '../../../utils/documents/orderDocument';
+import { fetchOrderChanges } from '../../../utils/documents/orderChanges';
+import { downloadCompleteOrderPDF, downloadOrderPDF, downloadRejectedOrderPDF, generateCancelledOrderPDF } from '../../../utils/pdf';
 import { useCachedSettings } from '../../../hooks/useCachedFirebase';
 import {
   FileText, Download, Printer, Calendar,
@@ -71,71 +74,21 @@ export function InvoicePreviewModal({
         : order.customerId)
     || 'N/A';
 
-  // ── Price helper — use retail or wholesale based on customer type ─────────
-  const getItemPrice = (product: Product | undefined): number => {
-    if (!product) return 0;
-    const isCommercial = order.customerType === 'commercial';
-    return (isCommercial ? product.wholesale : product.retail)
-      ?? product.retail
-      ?? product.wholesale
-      ?? (product as any).price
-      ?? 0;
-  };
-
-  // ── Day column date labels ────────────────────────────────────────────────
   const weekNum  = order.week ?? 0;
   const weekYear = (order as any).year ?? new Date().getFullYear();
-  const dayDates: string[] = DAY_KEYS.map((_, idx) => {
-    if (!weekNum) return DAY_LABELS[DAY_KEYS[idx]];
-    try {
-      return formatShortDate(getWeekDayDate(weekNum, idx, weekYear));
-    } catch { return DAY_LABELS[DAY_KEYS[idx]]; }
-  });
+  const grandTotal = Number(order.total) || 0;
 
-  // ── Item quantity per day ─────────────────────────────────────────────────
-  const getDayQty = (item: any, day: DayKey): number =>
-    (typeof item[day] === 'number' ? item[day] : 0);
-
-  const getItemTotalQty = (item: any): number =>
-    DAY_KEYS.reduce((s, d) => s + getDayQty(item, d), 0);
-
-  // ── Grouped items by category ─────────────────────────────────────────────
-  const categoryGroups = categories
-    .map(cat => ({
-      cat,
-      items: order.items.filter(item => {
-        const p = products.find(p => p.id === item.productId);
-        return p?.categoryId === cat.id;
-      }),
-    }))
-    .filter(g => g.items.length > 0);
-
-  // Custom / admin-added items whose productId isn't in the products list
-  const customItems = order.items.filter(item => !products.find(p => p.id === item.productId));
-  // All items that appear in the table (category + custom)
-  const tableItems = [...categoryGroups.flatMap(g => g.items), ...customItems];
-
-  // ── Totals — use order fields first, recompute only if missing ─────────────
-  // ✅ FIX: Never fall back to order.total as subtotal — total includes GST/fees
-  // If subtotal is missing, recompute it from items
-  const subtotal = order.subtotal || (() => {
-    return order.items.reduce((sum, item) => {
-      const totalQty = DAY_KEYS.reduce((s, d) => s + ((item as any)[d] || 0), 0);
-      return sum + totalQty * (item.price || 0);
-    }, 0);
-  })();
-  const deliveryFee   = order.deliveryFee   || 0;
-  const serviceCharge = order.serviceCharge || 0;
-  const discount      = discountOn(subtotal, order as any); // flat + percentage
-  const creditApplied = order.creditApplied || 0;
-  // ✅ FIX: GST on (subtotal - discount), not raw subtotal
-  const discountedBase = Math.max(0, subtotal - discount);
-  // Amounts as the server charged them (GST can legitimately be 0).
-  const gst = order.gst ?? 0;
-  const cancellationFee = Number((order as any).cancellationFee) || 0;
-  // ✅ FIX: amountDue = total - credit (what customer actually pays)
-  const amountDue = orderAmountDue(order as any);
-  const grandTotal = order.total ?? round2(discountedBase + gst + deliveryFee + serviceCharge + cancellationFee);
+  // ── Shared document description (same as PDF / Excel) ─────────────────────
+  const docDays = React.useMemo(() => documentDays(order as any), [order]);
+  const docLines = React.useMemo(() => documentLines(order as any, products, categories), [order, products, categories]);
+  const docTotals = React.useMemo(() => documentTotals(order as any), [order]);
+  const [history, setHistory] = React.useState<OrderChange[]>([]);
+  React.useEffect(() => {
+    let alive = true;
+    fetchOrderChanges(order as any).then((h) => { if (alive) setHistory(h); });
+    return () => { alive = false; };
+  }, [order]);
+  const notices = React.useMemo(() => changeNotices(order as any, history), [order, history]);
 
   // ── Dates ─────────────────────────────────────────────────────────────────
   const fmtDate = (d: any) =>
@@ -158,7 +111,10 @@ export function InvoicePreviewModal({
   }, [weekNum, weekYear, order.weekRange]);
 
   // ── Payment status ────────────────────────────────────────────────────────
-  const ps = order.paymentStatus || ((order as any).paymentReceived === true || order.status === 'completed' || order.status === 'in_process' ? 'paid' : 'unpaid');
+  const ps =
+    (order as any).paymentReceived === true || order.status === 'completed' || order.status === 'in_process'
+      ? 'paid'
+      : (order as any).paymentSubmitted === true ? 'in_review' : 'unpaid';
   const psMap = {
     paid:      { label: 'Paid',      cls: 'text-green-700 bg-green-50 border-green-200', icon: CheckCircle },
     unpaid:    { label: 'Unpaid',    cls: 'text-red-700   bg-red-50   border-red-200',   icon: Clock },
@@ -168,20 +124,14 @@ export function InvoicePreviewModal({
   const PSIcon = psConf.icon;
 
   // ── Download / Print ──────────────────────────────────────────────────────
-  const handlePDF = async () => {
-    try {
-      toast.info('Generating PDF…');
-      // ✅ PASS 3: Dynamic import — jspdf + html-to-image only loaded when needed.
-      const { downloadInvoiceAsPDFAlt } = await import('../../../utils/invoicePDFAlternative');
-      await downloadInvoiceAsPDFAlt(
-        'invoice-preview-content',
-        `Invoice_${invoiceNum}_${order.customerName?.replace(/\s+/g,'_') ?? 'order'}.pdf`
-      );
-      toast.success('Invoice downloaded!');
-    } catch {
-      toast.error('PDF failed — please try again.');
-    }
+  const handlePDF = () => {
+    // Same text PDF as everywhere else (Print / Save as PDF / Share on phones).
+    if (order.status === 'cancelled') generateCancelledOrderPDF(order, products, categories);
+    else if (order.status === 'rejected') downloadRejectedOrderPDF(order, products, categories);
+    else if (order.status === 'completed') downloadCompleteOrderPDF(order, products, categories);
+    else downloadOrderPDF(order, products, categories);
   };
+
 
   return (
     <StyleModalShell
@@ -193,7 +143,7 @@ export function InvoicePreviewModal({
       icon={<FileText className="w-5 h-5" />}
       headerRight={
         <div className="flex items-center gap-2">
-          <button onClick={() => window.print()}
+          <button onClick={handlePDF}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors">
             <Printer className="w-4 h-4" />
             <span className="hidden sm:inline">Print</span>
@@ -301,253 +251,139 @@ export function InvoicePreviewModal({
             )}
           </div>
 
-          {/* ══ ORDER ITEMS TABLE ════════════════════════════════════════ */}
-          <div className="px-6 py-5">
-            <div className="flex items-center gap-2 mb-4">
+          {/* ══ ORDER ITEMS — only the days ordered, at the price charged ══ */}
+          <div className="px-4 sm:px-6 py-5">
+            <div className="flex items-center gap-2 mb-3">
               <Package className="w-4 h-4 text-[#D4A574]" />
               <span className="text-xs font-bold uppercase tracking-widest text-gray-700">Order Items</span>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
-              <table className="w-full text-xs border-collapse" style={{ minWidth: '520px' }}>
+            {/* Phone: one card per product */}
+            <div className="sm:hidden space-y-2">
+              {docLines.map((l, i) => (
+                <div key={l.productId + i} className="rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm leading-snug">{l.name}</p>
+                      <p className="text-[11px] text-gray-500">{l.categoryName}</p>
+                    </div>
+                    <p className="font-bold text-gray-900 text-sm tabular-nums">{formatCurrency(l.amount)}</p>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {docDays.filter((d) => l.qty[d.key] > 0).map((d) => (
+                      <span key={d.key} className="rounded-md bg-[#f5f1eb] px-2 py-0.5 text-[11px] text-[#5a4535]">
+                        {d.short} {d.date} · <strong>{l.qty[d.key]}</strong>
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-gray-500">{l.total} × {formatCurrency(l.price)}</p>
+                </div>
+              ))}
+            </div>
 
-                {/* Column headers with day dates */}
+            {/* Tablet / desktop: table with only the ordered days */}
+            <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+              <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-[#2c2416] text-white">
-                    <th className="text-left py-2.5 px-3 font-semibold rounded-tl-xl" style={{ width: '26%' }}>Product</th>
-                    {DAY_KEYS.map((day, idx) => (
-                      <th key={day} className="text-center py-2.5 px-1 font-semibold" style={{ width: '8%' }}>
-                        <span className="block text-[11px] text-[#D4A574]">{DAY_LABELS[day]}</span>
-                        <span className="block text-[11px] text-gray-400 mt-0.5">{dayDates[idx]}</span>
+                    <th className="text-left py-2.5 px-3 font-semibold">Product</th>
+                    {docDays.map((d) => (
+                      <th key={d.key} className="text-center py-2.5 px-1 font-semibold">
+                        <span className="block text-[11px] text-[#D4A574]">{d.short}</span>
+                        <span className="block text-[11px] text-gray-400 mt-0.5">{d.date}</span>
                       </th>
                     ))}
-                    <th className="text-center py-2.5 px-2 font-semibold" style={{ width: '6%' }}>Qty</th>
-                    <th className="text-right py-2.5 px-3 font-semibold" style={{ width: '10%' }}>Price</th>
-                    <th className="text-right py-2.5 px-3 font-semibold rounded-tr-xl" style={{ width: '12%' }}>Amount</th>
+                    <th className="text-center py-2.5 px-2 font-semibold">Qty</th>
+                    <th className="text-right py-2.5 px-3 font-semibold">Price</th>
+                    <th className="text-right py-2.5 px-3 font-semibold">Amount</th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  {categoryGroups.map((group) => {
-                    const groupQty = group.items.reduce((s, item) => s + getItemTotalQty(item), 0);
-                    const groupAmt = group.items.reduce((s, item) => {
-                      const p = products.find(p => p.id === item.productId);
-                      return s + getItemTotalQty(item) * getItemPrice(p);
-                    }, 0);
-
-                    return (
-                      <React.Fragment key={group.cat.id}>
-                        {/* Category header */}
+                  {docLines.map((l, i) => (
+                    <React.Fragment key={l.productId + i}>
+                      {(i === 0 || docLines[i - 1].categoryName !== l.categoryName) && (
                         <tr className="bg-[#f0ebe2]">
-                          <td colSpan={DAY_KEYS.length + 3} className="py-2 px-3">
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-[#8B6F47]">
-                              {group.cat.name}
-                            </span>
+                          <td colSpan={docDays.length + 4} className="py-1.5 px-3 text-[11px] font-bold uppercase tracking-widest text-[#8B6F47]">
+                            {l.categoryName}
                           </td>
                         </tr>
-
-                        {/* Item rows */}
-                        {group.items.map((item) => {
-                          const prod  = products.find(p => p.id === item.productId);
-                          const price = getItemPrice(prod);
-                          const qty   = getItemTotalQty(item);
-                          const amt   = qty * price;
-                          return (
-                            <tr key={item.productId} className="border-b border-gray-100 hover:bg-[#faf8f5] transition-colors">
-                              <td className="py-2.5 px-3 font-medium text-gray-900 leading-snug">
-                                {prod?.name || 'Unknown product'}
-                              </td>
-                              {DAY_KEYS.map(day => {
-                                const dq = getDayQty(item, day);
-                                return (
-                                  <td key={day} className="text-center py-2.5 px-1">
-                                    {dq > 0
-                                      ? <span className="font-semibold text-gray-800">{dq}</span>
-                                      : <span className="text-gray-300">–</span>}
-                                  </td>
-                                );
-                              })}
-                              <td className="text-center py-2.5 px-2 font-bold text-gray-900">{qty}</td>
-                              <td className="text-right py-2.5 px-3 text-gray-500">
-                                {price > 0 ? formatCurrency(price) : <span className="text-gray-300">—</span>}
-                              </td>
-                              <td className="text-right py-2.5 px-3 font-semibold text-gray-900">
-                                {amt > 0 ? formatCurrency(amt) : <span className="text-gray-300">—</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-
-                        {/* Category subtotal */}
-                        <tr className="bg-[#f5f1eb] border-t border-[#D4A574]/20">
-                          <td className="py-2 px-3 text-[11px] font-bold text-[#8B6F47] italic">
-                            Subtotal — {group.cat.name}
+                      )}
+                      <tr className="border-b border-gray-100">
+                        <td className="py-2.5 px-3 font-medium text-gray-900">{l.name}</td>
+                        {docDays.map((d) => (
+                          <td key={d.key} className="text-center py-2.5 px-1">
+                            {l.qty[d.key] > 0 ? <span className="font-semibold text-gray-800">{l.qty[d.key]}</span> : <span className="text-gray-300">–</span>}
                           </td>
-                          {DAY_KEYS.map(day => {
-                            const dTotal = group.items.reduce((s, item) => s + getDayQty(item, day), 0);
-                            return (
-                              <td key={day} className="text-center py-2 px-1 text-[11px] font-semibold text-[#8B6F47]">
-                                {dTotal > 0 ? dTotal : ''}
-                              </td>
-                            );
-                          })}
-                          <td className="text-center py-2 px-2 text-[11px] font-bold text-[#8B6F47]">{groupQty}</td>
-                          <td />
-                          <td className="text-right py-2 px-3 text-[11px] font-bold text-[#8B6F47]">
-                            {groupAmt > 0 ? formatCurrency(groupAmt) : ''}
-                          </td>
-                        </tr>
-                      </React.Fragment>
-                    );
-                  })}
-                  {/* Custom / admin-added items */}
-                  {customItems.length > 0 && (() => {
-                    const groupQty = customItems.reduce((s, item) => s + getItemTotalQty(item), 0);
-                    const groupAmt = customItems.reduce((s, item) =>
-                      s + getItemTotalQty(item) * ((item as any).price || 0), 0);
-                    return (
-                      <React.Fragment key="custom-items">
-                        <tr className="bg-[#f0ebe2]">
-                          <td colSpan={DAY_KEYS.length + 3} className="py-2 px-3">
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-[#8B6F47]">
-                              Custom Items
-                            </span>
-                          </td>
-                        </tr>
-                        {customItems.map((item, idx) => {
-                          const price = (item as any).price || 0;
-                          const qty   = getItemTotalQty(item);
-                          const amt   = qty * price;
-                          return (
-                            <tr key={idx} className="border-b border-gray-100 hover:bg-[#faf8f5] transition-colors">
-                              <td className="py-2.5 px-3 font-medium text-gray-900 leading-snug">
-                                {(item as any).productName || (item as any).name || 'Custom item'}
-                              </td>
-                              {DAY_KEYS.map(day => {
-                                const dq = getDayQty(item, day);
-                                return (
-                                  <td key={day} className="text-center py-2.5 px-1">
-                                    {dq > 0 ? <span className="font-semibold text-gray-800">{dq}</span>
-                                            : <span className="text-gray-300">–</span>}
-                                  </td>
-                                );
-                              })}
-                              <td className="text-center py-2.5 px-2 font-bold text-gray-900">{qty}</td>
-                              <td className="text-right py-2.5 px-3 text-gray-500">
-                                {price > 0 ? formatCurrency(price) : <span className="text-gray-300">—</span>}
-                              </td>
-                              <td className="text-right py-2.5 px-3 font-semibold text-gray-900">
-                                {amt > 0 ? formatCurrency(amt) : <span className="text-gray-300">—</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        <tr className="bg-[#f5f1eb] border-t border-[#D4A574]/20">
-                          <td className="py-2 px-3 text-[11px] font-bold text-[#8B6F47] italic">Subtotal — Custom Items</td>
-                          {DAY_KEYS.map(day => {
-                            const dTotal = customItems.reduce((s, item) => s + getDayQty(item, day), 0);
-                            return <td key={day} className="text-center py-2 px-1 text-[11px] font-semibold text-[#8B6F47]">{dTotal > 0 ? dTotal : ''}</td>;
-                          })}
-                          <td className="text-center py-2 px-2 text-[11px] font-bold text-[#8B6F47]">{groupQty}</td>
-                          <td />
-                          <td className="text-right py-2 px-3 text-[11px] font-bold text-[#8B6F47]">{groupAmt > 0 ? formatCurrency(groupAmt) : ''}</td>
-                        </tr>
-                      </React.Fragment>
-                    );
-                  })()}
+                        ))}
+                        <td className="text-center py-2.5 px-2 font-bold text-gray-900">{l.total}</td>
+                        <td className="text-right py-2.5 px-3 text-gray-500">{formatCurrency(l.price)}</td>
+                        <td className="text-right py-2.5 px-3 font-semibold text-gray-900">{formatCurrency(l.amount)}</td>
+                      </tr>
+                    </React.Fragment>
+                  ))}
                 </tbody>
-
-                {/* Grand total footer */}
                 <tfoot>
                   <tr className="bg-[#1a1a1a]">
-                    <td className="py-3 px-3 text-[11px] font-bold text-[#D4A574] uppercase tracking-wider">
-                      Grand Total
-                    </td>
-                    {DAY_KEYS.map(day => {
-                      const dt = tableItems.reduce((s, item) => s + getDayQty(item as any, day), 0);
-                      return (
-                        <td key={day} className="text-center py-3 px-1 text-xs font-bold text-white">
-                          {dt > 0 ? dt : <span className="text-gray-700">–</span>}
-                        </td>
-                      );
-                    })}
-                    <td className="text-center py-3 px-2 text-xs font-bold text-[#D4A574]">
-                      {tableItems.reduce((s, item) => s + getItemTotalQty(item as any), 0)}
-                    </td>
+                    <td className="py-3 px-3 text-[11px] font-bold text-[#D4A574] uppercase tracking-wider">Total</td>
+                    {docDays.map((d) => (
+                      <td key={d.key} className="text-center py-3 px-1 text-xs font-bold text-white">
+                        {docLines.reduce((s, l) => s + l.qty[d.key], 0) || ''}
+                      </td>
+                    ))}
+                    <td className="text-center py-3 px-2 text-xs font-bold text-[#D4A574]">{docLines.reduce((s, l) => s + l.total, 0)}</td>
                     <td />
-                    <td className="text-right py-3 px-3 text-sm font-bold text-[#D4A574]">
-                      {formatCurrency(order.subtotal || tableItems.reduce((s, item) => {
-                        const p = products.find(pr => pr.id === item.productId);
-                        return s + getItemTotalQty(item) * (p ? getItemPrice(p) : ((item as any).price || 0));
-                      }, 0))}
-                    </td>
+                    <td className="text-right py-3 px-3 text-sm font-bold text-[#D4A574]">{formatCurrency(docLines.reduce((s, l) => s + l.amount, 0))}</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
 
-          {/* ══ TOTALS ═══════════════════════════════════════════════════ */}
-          <div className="border-t-2 border-[#D4A574]/30 px-6 py-5">
-            <div className="ml-auto max-w-xs space-y-2.5">
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Subtotal</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(subtotal)}</span>
-              </div>
-              {discount > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Discount</span>
-                  <span className="font-semibold">−{formatCurrency(discount)}</span>
+          {/* ══ TOTALS — same rows as the PDF and Excel ════════════════════ */}
+          <div className="border-t-2 border-[#D4A574]/30 px-4 sm:px-6 py-5">
+            <div className="sm:ml-auto sm:max-w-xs space-y-2">
+              {docTotals.map((r) => (
+                <div
+                  key={r.label}
+                  className={
+                    r.kind === 'total'
+                      ? 'flex justify-between pt-2 border-t-2 border-[#D4A574]/40 text-base font-bold text-gray-900'
+                      : r.kind === 'due'
+                        ? 'flex justify-between rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm font-bold text-red-700'
+                        : r.kind === 'paid'
+                          ? 'flex justify-between rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm font-bold text-green-700'
+                          : r.kind === 'discount' || r.kind === 'credit'
+                            ? 'flex justify-between text-sm text-emerald-700'
+                            : 'flex justify-between text-sm text-gray-600'
+                  }
+                >
+                  <span>{r.label}</span>
+                  <span className="tabular-nums font-semibold">{r.amount < 0 ? '−' : ''}{formatCurrency(Math.abs(r.amount))}</span>
                 </div>
-              )}
-              {deliveryFee > 0 && (
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Delivery Fee</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(deliveryFee)}</span>
-                </div>
-              )}
-              {serviceCharge > 0 && (
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Service Charge</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(serviceCharge)}</span>
-                </div>
-              )}
-              {cancellationFee > 0 && (
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Cancellation Fee</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(cancellationFee)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>{gstLabel(gst, subtotal - discount)}</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(gst)}</span>
-              </div>
-              <div className="flex justify-between pt-3 border-t-2 border-[#D4A574]/40 items-baseline">
-                <span className="text-base font-bold text-gray-900">Total</span>
-                <span className="text-xl font-bold text-[#D4A574]">{formatCurrency(grandTotal)}</span>
-              </div>
-              {creditApplied > 0 && (
-                <>
-                  <div className="flex justify-between text-sm text-emerald-600">
-                    <span>Store Credit Applied</span>
-                    <span className="font-semibold">−{formatCurrency(creditApplied)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1">
-                    <span>Amount Due (After Credit)</span>
-                    <span>{formatCurrency(amountDue)}</span>
-                  </div>
-                </>
-              )}
-              {ps === 'paid' && (
-                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 mt-1">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-green-700">
-                    <CheckCircle className="w-4 h-4" /> Paid in Full
-                  </span>
-                  <span className="text-sm font-bold text-green-700">{formatCurrency(grandTotal)}</span>
-                </div>
-              )}
+              ))}
             </div>
           </div>
+
+          {/* ══ CHANGES TO THIS ORDER ══════════════════════════════════════ */}
+          {notices.length > 0 && (
+            <div className="border-t border-gray-100 px-4 sm:px-6 py-5">
+              <p className="text-xs font-bold uppercase tracking-widest text-[#8B6F47] mb-3">Changes to this order</p>
+              <ol className="space-y-2.5">
+                {notices.map((n, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${{ info: 'bg-blue-500', credit: 'bg-emerald-500', fee: 'bg-amber-500', warn: 'bg-red-500', ok: 'bg-green-600' }[n.tone]}`} />
+                    <div className="text-sm">
+                      <p className="font-semibold text-gray-900">
+                        {n.title}
+                        {n.at && <span className="ml-2 text-xs font-normal text-gray-500">{noticeDate(n.at)}</span>}
+                      </p>
+                      <p className="text-gray-600 text-[13px]">{n.detail}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           {/* ══ FOOTER ═══════════════════════════════════════════════════ */}
           <div className="bg-[#f0ebe2] px-6 py-4 text-center border-t border-[#D4A574]/20">

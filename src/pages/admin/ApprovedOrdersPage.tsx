@@ -39,7 +39,7 @@ import { useCachedCategories } from '../../hooks/useCachedCategories';
 import { invalidateCache, useCachedOrders } from '../../hooks/useCachedFirebase';
 import { withAdminGuard } from '../../guards/adminGuards';
 import { ApprovedOrdersView } from '../../components/order/ApprovedOrdersView';
-import { exportOrderToExcel, downloadCSV } from '../../utils/excelExport';
+import { exportOrderToExcelWithChanges, downloadCSV } from '../../utils/excelExport';
 import type { AdminPage } from '../../config/adminNavigation';
 import { downloadBakeryProductionPDF } from '../../utils/pdf';
 import type { User } from '../../services/firebase/authService';
@@ -135,8 +135,8 @@ function ApprovedOrdersPageComponent({
   /**
    * Download order as CSV
    */
-  const handleDownloadOrder = useCallback((order: Order) => {
-    const csv = exportOrderToExcel(order, products, categories);
+  const handleDownloadOrder = useCallback(async (order: Order) => {
+    const csv = await exportOrderToExcelWithChanges(order, products, categories);
     // ✅ PASS 6: Guard the Blob | undefined return (empty orders return early).
     if (!csv) return;
     downloadCSV(

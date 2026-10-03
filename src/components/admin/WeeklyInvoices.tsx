@@ -22,7 +22,7 @@ import { useCachedOrders } from "../../hooks/useCachedFirebase";
 import { useModal } from "../../contexts/ModalContextNew";
 import { toDate } from "../../utils/timestampFormatting";
 
-import { exportOrderToExcel, downloadCSV } from "../../utils/excelExport";
+import { exportOrderToExcelWithChanges, downloadCSV } from "../../utils/excelExport";
 import { downloadOrderPDF } from "../../utils/pdf";
 import { displayOrderLabel, invoiceFilename } from '../../utils/displayId';
 import { canExportInvoiceDocument } from '../../utils/orderSelectors';
@@ -118,14 +118,14 @@ export function WeeklyInvoices({
   );
 
  // Excel download handler
-  const handleDownloadExcel = (order: Order) => {
+  const handleDownloadExcel = async (order: Order) => {
     if (!canExportInvoiceDocument(order)) {
       toast.error('Invoice export is only available for completed paid orders', { duration: 3000 });
       return;
     }
 
     try {
-      const csv = exportOrderToExcel(order, products, categories);
+      const csv = await exportOrderToExcelWithChanges(order, products, categories);
       // ✅ PASS 6: exportOrderToExcel returns Blob | undefined. Guard.
       if (!csv) {
         toast.error('Order has no items to export', { duration: 3000 });

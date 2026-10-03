@@ -2,7 +2,7 @@
  * PDF Components v2.0 — Luxury A4 Format
  * Reusable HTML builders. Consistent brand across all document types.
  */
-import { gstLabel } from '../orderMoney';
+import { documentDays, documentLines, noticeDate, type ChangeNotice, type DocTotalRow } from '../documents/orderDocument';
 import { toDate } from '../timestampFormatting';
 
 // Detect raw Firebase UIDs (20+ random chars with no hyphen-separated pattern)
@@ -34,7 +34,7 @@ interface OrderInfo { orderId: string; orderNumber?: string; invoiceNumber?: str
 // ── Header ──────────────────────────────────────────────────────
 export const generateHeader = (company: CompanyInfo, invoice: InvoiceHeaderData): string => {
   const statusMap: Record<string, string> = {
-    approved: 'Approved', completed: 'Completed & Paid', rejected: 'Rejected',
+    approved: 'Approved · Payment due', paid: 'Paid · In production', review: 'Payment in review', completed: 'Completed & Paid', rejected: 'Rejected',
     cancelled: 'Cancelled', update: 'Update Requested', production: 'Production Sheet', pending: 'Pending',
   };
   const badge = invoice.status
@@ -93,156 +93,83 @@ export const generateCustomerSection = (customer: CustomerInfo, order: OrderInfo
 };
 
 // ── Order Table ──────────────────────────────────────────────────
+// Only the delivery days that have quantities, at the price charged
+// (utils/documents/orderDocument — same as the on-screen invoice and Excel).
 export const generateOrderTable = (
   items: any[], products: any[], categories: any[],
   options: { showPrices?: boolean; weekRange?: string; week?: number; year?: number } | boolean = {}
 ): string => {
-  // Handle legacy boolean arg (backward compat)
-  if (typeof options === 'boolean') {
-    options = { showPrices: options };
-  }
-  if (!items?.length) return '<p style="color:#999;font-size:9pt;padding:8px 0">No items in this order.</p>';
-
-  const prodMap = new Map(products.map(p => [p.id, p]));
-  const catMap  = new Map(categories.map(c => [c.id, c]));
-  const byCat   = new Map<string, any[]>();
-  items.forEach(item => {
-    const prod = prodMap.get(item.productId); // may be undefined for deleted products — keep the item anyway
-    const cid = prod?.categoryId || (item as any).categoryId || 'other';
-    if (!byCat.has(cid)) byCat.set(cid, []);
-    byCat.get(cid)!.push({ item, prod });
-  });
-
-  const sorted = Array.from(byCat.entries())
-    .map(([cid, rows]) => ({ cid, catName: (catMap.get(cid) as any)?.name || 'Other', catOrder: (catMap.get(cid) as any)?.order ?? 999, rows }))
-    .sort((a, b) => a.catOrder - b.catOrder);
-
-  // Parse dates from weekRange
-  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const dayFull = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-
-  // Derive actual dates from ISO week number + year (reliable)
-  let dateLabels: string[] = days;
-  const weekNum = (options as any).week;
-  const weekYear = (options as any).year || new Date().getFullYear();
-  if (weekNum) {
-    try {
-      // ISO week: Jan 4 is always in week 1
-      const jan4 = new Date(weekYear, 0, 4);
-      const jan4Day = jan4.getDay() || 7; // Mon=1..Sun=7
-      const monday = new Date(jan4);
-      monday.setDate(jan4.getDate() - (jan4Day - 1) + (weekNum - 1) * 7);
-      dateLabels = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      });
-    } catch { dateLabels = days; }
-  } else if ((options as any).weekRange) {
-    // Fallback: try to parse weekRange string
-    try {
-      const wRange = (options as any).weekRange as string;
-      const yearMatch = wRange.match(/(20\d{2})/);
-      const yr = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear();
-      const parts = wRange.split(/[–-]/);
-      if (parts.length >= 2) {
-        const startStr = parts[0].trim().replace(/(\d+)\s*$/, `$1 ${yr}`);
-        const start = new Date(startStr);
-        if (!isNaN(start.getTime())) {
-          dateLabels = Array.from({ length: 7 }, (_, i) => {
-            const d = new Date(start); d.setDate(d.getDate() + i);
-            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          });
-        }
-      }
-    } catch { dateLabels = days; }
-  }
-
+  if (typeof options === 'boolean') options = { showPrices: options };
+  const lines = documentLines({ items } as any, products, categories);
+  if (!lines.length) return '<p style="color:#999;font-size:9pt;padding:8px 0">No items in this order.</p>';
+  const days = documentDays({ items, week: options.week, year: options.year } as any);
   const priceCol = options.showPrices !== false;
+  const cols = 2 + days.length + (priceCol ? 2 : 0);
+  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
   const headers = `
     <thead>
       <tr>
-        <th style="width:28%">Product</th>
-        ${days.map((day, i) => `<th style="width:7%" class="day-header">
-          <div>${day}</div>
-          <div style="font-weight:400;font-size:8pt;opacity:0.8">${dateLabels[i]}</div>
-        </th>`).join('')}
-        <th style="width:7%">Total</th>
-        ${priceCol ? '<th style="width:10%">Amount</th>' : ''}
+        <th class="product-col">Product</th>
+        ${days.map((d) => `<th class="day-header"><div>${d.short}</div>${d.date ? `<div class="day-date">${d.date}</div>` : ''}</th>`).join('')}
+        <th>Qty</th>
+        ${priceCol ? '<th class="num">Price</th><th class="num">Amount</th>' : ''}
       </tr>
     </thead>`;
 
-  const rows = sorted.map(({ catName, rows }) => {
-    const catRow = `<tr class="cat-header"><td colspan="${priceCol ? 10 : 9}">${catName.toUpperCase()}</td></tr>`;
-    const prodRows = rows.map(({item, prod}, idx) => {
-      // Guard: item[d] might be an object in migrated data — force numeric
-      const qty = dayFull.reduce((s, d) => {
-        const v = item[d];
-        return s + (typeof v === 'number' ? v : 0);
-      }, 0);
-      const qtyCells = dayFull.map(d => {
-        const v = typeof item[d] === 'number' ? item[d] : 0;
-        return `<td class="qty-cell${v ? ' has-qty' : ''}">${v || ''}</td>`;
-      }).join('');
-      const unitPrice = item.price ?? prod?.retail ?? prod?.price ?? prod?.cost ?? 0;
-      const rawLineTotal = item.subtotal ?? item.lineTotal ?? (qty * unitPrice);
-      const lineTotal = typeof rawLineTotal === 'number' && isFinite(rawLineTotal) ? rawLineTotal : 0;
-      const amount = priceCol ? `<td class="price-cell">$${lineTotal.toFixed(2)}</td>` : '';
-      const stripe = idx % 2 === 0 ? '' : 'style="background:#FDFAF6"';
+  let body = '';
+  let currentCat = '';
+  lines.forEach((l, idx) => {
+    if (l.categoryName !== currentCat) {
+      currentCat = l.categoryName;
+      body += `<tr class="cat-header"><td colspan="${cols}">${esc(currentCat).toUpperCase()}</td></tr>`;
+    }
+    body += `<tr class="product-row"${idx % 2 ? ' style="background:#FDFAF6"' : ''}>
+      <td class="product-name">${esc(l.name)}</td>
+      ${days.map((d) => `<td class="qty-cell${l.qty[d.key] ? ' has-qty' : ''}">${l.qty[d.key] || ''}</td>`).join('')}
+      <td class="total-cell">${l.total}</td>
+      ${priceCol ? `<td class="price-cell">$${l.price.toFixed(2)}</td><td class="price-cell">$${l.amount.toFixed(2)}</td>` : ''}
+    </tr>`;
+  });
+  const dayTotals = days.map((d) => lines.reduce((s, l) => s + l.qty[d.key], 0));
+  const foot = `<tr class="grand-row">
+      <td class="product-name">Total</td>
+      ${dayTotals.map((t) => `<td class="qty-cell has-qty">${t || ''}</td>`).join('')}
+      <td class="total-cell">${lines.reduce((s, l) => s + l.total, 0)}</td>
+      ${priceCol ? `<td></td><td class="price-cell">$${lines.reduce((s, l) => s + l.amount, 0).toFixed(2)}</td>` : ''}
+    </tr>`;
 
-      // productName may be stored as an object in older orders — extract string safely
-      const rawName = item.productName;
-      const productName = typeof rawName === 'string' && rawName
-        ? rawName
-        : (rawName as any)?.en || (rawName as any)?.value
-        || prod?.name
-        || (item as any).name
-        || 'Unknown product';
+  return `<div class="table-scroll"><table class="order-table">${headers}<tbody>${body}${foot}</tbody></table></div>`;
+};
 
-      return `<tr class="product-row" ${stripe}>
-        <td class="product-name">${productName}</td>
-        ${qtyCells}
-        <td class="total-cell">${qty}</td>
-        ${amount}
-      </tr>`;
-    }).join('');
-    return catRow + prodRows;
-  }).join('');
-
-  return `<table class="order-table">${headers}<tbody>${rows}</tbody></table>`;
+// ── Changes to this order ────────────────────────────────────────
+export const generateChangeNotices = (notices: ChangeNotice[]): string => {
+  if (!notices.length) return '';
+  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+  const color = { info: '#2563eb', credit: '#059669', fee: '#b45309', warn: '#dc2626', ok: '#15803d' } as const;
+  return `
+  <div class="changes-section">
+    <div class="box-label">Changes to this order</div>
+    ${notices.map((n) => `
+      <div class="change-row">
+        <span class="change-dot" style="background:${color[n.tone]}"></span>
+        <div>
+          <div class="change-title">${esc(n.title)}${n.at ? `<span class="change-date">${noticeDate(n.at)}</span>` : ''}</div>
+          <div class="change-detail">${esc(n.detail)}</div>
+        </div>
+      </div>`).join('')}
+  </div>`;
 };
 
 // ── Totals ───────────────────────────────────────────────────────
-export const generateTotals = (totals: {
-  subtotal: number; discount?: number; discountPercentage?: number;
-  deliveryFee?: number; serviceCharge?: number; gst?: number; total: number;
-  creditApplied?: number; amountDue?: number; invoiceNumber?: string; cancellationFee?: number;
-}): string => {
-  const fmt = (n: number) => `$${n.toFixed(2)}`;
-  const rows = [
-    totals.invoiceNumber ? `<div class="totals-row"><span class="t-label">Invoice #</span><span class="t-value" style="color:#D4A574">${totals.invoiceNumber}</span></div>` : '',
-    `<div class="totals-row"><span class="t-label">Subtotal</span><span class="t-value">${fmt(totals.subtotal)}</span></div>`,
-    totals.discount ? `<div class="totals-row discount"><span class="t-label">Discount${totals.discountPercentage ? ` (${totals.discountPercentage}%)` : ''}</span><span class="t-value">−${fmt(totals.discount)}</span></div>` : '',
-    totals.deliveryFee !== undefined ? `<div class="totals-row"><span class="t-label">Delivery Fee</span><span class="t-value">${totals.deliveryFee === 0 ? '<span style="color:#2D7A3A">FREE</span>' : fmt(totals.deliveryFee)}</span></div>` : '',
-    totals.serviceCharge ? `<div class="totals-row"><span class="t-label">Service Charge</span><span class="t-value">${fmt(totals.serviceCharge)}</span></div>` : '',
-    totals.gst ? `<div class="totals-row"><span class="t-label">${gstLabel(totals.gst, (totals.subtotal ?? 0) - (totals.discount ?? 0))}</span><span class="t-value">${fmt(totals.gst)}</span></div>` : '',
-    totals.cancellationFee ? `<div class="totals-row"><span class="t-label">Cancellation Fee</span><span class="t-value">${fmt(totals.cancellationFee)}</span></div>` : '',
-    // With store credit: the invoice total first, then the credit taken off it.
-    totals.creditApplied ? `<div class="totals-row"><span class="t-label">Invoice Total</span><span class="t-value">${fmt(totals.total)}</span></div>` : '',
-    totals.creditApplied ? `<div class="totals-row discount"><span class="t-label">Store Credit Applied</span><span class="t-value">−${fmt(totals.creditApplied)}</span></div>` : '',
-  ].filter(Boolean).join('');
-
-  const due = totals.amountDue !== undefined ? totals.amountDue : totals.total;
-
+export const generateTotals = (rows: DocTotalRow[], invoiceNumber?: string): string => {
+  const fmt = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(n).toFixed(2)}`;
+  const cls = { line: '', discount: ' discount', credit: ' discount', total: ' subtotal-row', due: ' grand-total', paid: ' grand-total' } as const;
   return `
   <div class="totals-section">
     <div class="totals-box">
-      ${rows}
-      <div class="totals-row grand-total">
-        <span class="t-label">${totals.creditApplied ? 'AMOUNT DUE' : 'TOTAL'}</span>
-        <span class="t-value">${fmt(due)}</span>
-      </div>
+      ${invoiceNumber ? `<div class="totals-row"><span class="t-label">Invoice #</span><span class="t-value" style="color:#D4A574">${invoiceNumber}</span></div>` : ''}
+      ${rows.map((r) => `<div class="totals-row${cls[r.kind]}"><span class="t-label">${r.label}</span><span class="t-value">${fmt(r.amount)}</span></div>`).join('')}
     </div>
   </div>`;
 };

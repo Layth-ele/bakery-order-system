@@ -20,10 +20,10 @@ import {
   generateTerms,
   generateFooter,
   generatePrintButton,
-  generateStatusBadge,
   generateStatusNotice,
+  generateChangeNotices,
 } from "./pdfComponents";
-import { orderAmountDue } from '../orderMoney';
+import { changeNotices, documentTotals, type OrderChange } from '../documents/orderDocument';
 
 interface PDFTemplateOptions {
   title: string;
@@ -43,6 +43,8 @@ interface PDFTemplateOptions {
   showPaymentInfo?: boolean;
   showTerms?: boolean;
   additionalSections?: string;
+  /** Change history (orderEditHistory) — shown as "Changes to this order". */
+  changes?: OrderChange[];
 }
 
 /** Build complete PDF HTML document */
@@ -61,6 +63,7 @@ export const buildPDFTemplate = (
     showPaymentInfo = false,
     showTerms = false,
     additionalSections = "",
+    changes = [],
   } = options;
 
   const companyInfo = {
@@ -94,7 +97,11 @@ export const buildPDFTemplate = (
     })(),
     orderId: order.id,
     date: invoiceDate,
-    status: documentType,
+    // Badge = the order's real state (an "approved" invoice may be paid by now).
+    status:
+      documentType === 'approved'
+        ? order.paymentReceived === true ? 'paid' : order.paymentSubmitted === true ? 'review' : order.status === 'pending' ? 'pending' : 'approved'
+        : documentType,
   };
 
   const customerInfo = customer
@@ -128,35 +135,10 @@ export const buildPDFTemplate = (
     deliveryFee: order.deliveryFee,
   };
 
-  const totals = {
-    subtotal: order.subtotal || 0,
-    // Flat + percentage, as the server charged it (one discount line).
-    discount: discountOn(order.subtotal ?? 0, order as any) || undefined,
-    discountPercentage: order.discountPercentage,
-    deliveryFee: order.deliveryFee,
-    serviceCharge: order.serviceCharge,
-    gst: order.gst || 0,
-    total:
-      documentType === "rejected"
-        ? 0
-        : documentType === "cancelled"
-          ? order.cancellationFee || 0
-          : order.total || 0,
-    cancellationFee: order.cancellationFee,
-    // Cancelled / rejected documents show only what was kept, not credit use.
-    creditApplied: documentType === "cancelled" || documentType === "rejected" ? 0 : (order as any).creditApplied || 0,
-    // What the customer pays after store credit (stored by the server).
-    amountDue:
-      documentType !== "cancelled" && documentType !== "rejected" && ((order as any).creditApplied ?? 0) > 0
-        ? orderAmountDue(order as any)
-        : undefined,
-    invoiceNumber: (() => {
-      const isUID = (s?: string) => !!s && s.length >= 16 && !(/^[A-Z]{2,}-\d{4}-/.test(s)) && (s.match(/-/g) || []).length === 0;
-      if (order.invoiceNumber && !isUID(order.invoiceNumber)) return order.invoiceNumber;
-      if (order.orderNumber && !isUID(order.orderNumber)) return order.orderNumber;
-      return undefined;
-    })(),
-  };
+  // Totals and change notices: the shared document description
+  // (utils/documents/orderDocument) — identical in every format.
+  const totalRows = documentTotals(order);
+  const notices = documentType === 'production' ? [] : changeNotices(order, changes);
 
   const itemsWithWeekRange = order.items.map((item: Record<string, unknown>) => ({
     ...item,
@@ -174,7 +156,6 @@ export const buildPDFTemplate = (
 <body>
   ${generatePrintButton()}
   ${generateHeader(companyInfo, invoiceInfo)}
-  ${generateStatusBadge(documentType)}
   ${generateCustomerSection(customerInfo, orderInfo)}
   ${order.note ? generateNotes(order.note) : ""}
   ${
@@ -194,31 +175,44 @@ export const buildPDFTemplate = (
   }
   ${additionalSections}
   ${generateOrderTable(itemsWithWeekRange, products, categories, { showPrices, weekRange: order.weekRange, week: order.week, year: order.year })}
-  ${showPrices ? generateTotals(totals) : ""}
+  ${showPrices ? generateTotals(totalRows) : ""}
+  ${generateChangeNotices(notices)}
   ${documentType === 'production'
       ? generateStatusNotice('info', '📋 Internal Production Copy', 'For bakery use only — do not share with customers.')
       : documentType === 'completed'
       ? generateStatusNotice('success', '✅ Order Completed', 'This order has been fulfilled and payment received.')
       : ''}
-  ${showPaymentInfo && documentType === "approved" ? generatePaymentMethods(settings) : ""}
+  ${showPaymentInfo && documentType === "approved" && order.paymentReceived !== true ? generatePaymentMethods(settings) : ""}
   ${showTerms && documentType === "approved" ? generateTerms(settings) : ""}
   ${generateFooter((companyInfo.name ?? ""))}
 </body>
 </html>`;
 };
 
-/** Open PDF in a new window and trigger the print dialog */
-export const openPDFWindow = (htmlContent: string): void => {
+/**
+ * Open the document window NOW (inside the tap, so phones don't block it),
+ * then fill it when the content is ready. The page has a Print / Save as PDF
+ * button and opens the print dialog (share sheet on phones) automatically.
+ */
+export const openPDFWindowAsync = (build: () => Promise<string> | string): void => {
   const win = window.open("", "_blank");
   if (!win) {
     alert("Please allow pop-ups to generate PDFs.");
     return;
   }
-  win.document.write(htmlContent);
-  win.document.close();
-  win.onload = () =>
-    setTimeout(() => {
-      win.focus();
-      win.print();
-    }, 250);
+  win.document.write('<!DOCTYPE html><title>Preparing…</title><p style="font-family:sans-serif;padding:24px;color:#8B6F47">Preparing your document…</p>');
+  Promise.resolve()
+    .then(build)
+    .then((html) => {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => { win.focus(); win.print(); }, 400);
+    })
+    .catch(() => {
+      win.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px;color:#b91c1c">Sorry — the document could not be created. Please try again.</p>';
+    });
 };
+
+/** Open PDF in a new window and trigger the print dialog */
+export const openPDFWindow = (htmlContent: string): void => openPDFWindowAsync(() => htmlContent);

@@ -354,8 +354,8 @@ export function useUnpaidOrderActions(
       debug.log('📥 [useUnpaidOrderActions] Downloading order:', order.id);
 
       // ✅ PASS 3: Dynamic import — xlsx-js-style only loaded on demand.
-      const { exportOrderToExcel, downloadCSV } = await import('../../utils/excelExport');
-      const csv = exportOrderToExcel(order, productsRef.current, categoriesRef.current);
+      const { exportOrderToExcelWithChanges, downloadCSV } = await import('../../utils/excelExport');
+      const csv = await exportOrderToExcelWithChanges(order, productsRef.current, categoriesRef.current);
       // ✅ PASS 6: Guard the Blob | undefined return.
       if (!csv) {
         showAlert({
