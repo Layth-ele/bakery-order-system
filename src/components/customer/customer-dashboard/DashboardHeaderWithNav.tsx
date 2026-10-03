@@ -116,7 +116,7 @@ export function DashboardHeaderWithNav({
             {/* Row 2: Welcome + Balance + Credit + Notifications */}
             <div className="flex items-center justify-between gap-2 pb-3">
               <div className="flex items-center gap-2 md:gap-3">
-                <p className="text-xs md:text-sm text-neutral-300">
+                <p className="text-xs md:text-sm text-neutral-300 min-w-0 truncate">
                   Welcome,{" "}
                   <span className="text-[#e8dcc8] font-bold">
                     {user.contactPerson || user.storeName || user.email?.split('@')[0] || 'Customer'}

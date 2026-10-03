@@ -75,6 +75,8 @@ export interface EditOrderState {
   totals: OrderTotals & { autoFee: number; creditApplied: number; creditReturned: number; amountDue: number };
   gstRate: number;
   freeDeliveryMin: number;
+  /** Standard delivery fee from Settings (0 = no delivery fee). */
+  standardDeliveryFee: number;
   /** false → the delivery fee follows the free-delivery rule automatically. */
   feeTouched: boolean;
   setFeeTouched: (v: boolean) => void;
@@ -229,7 +231,7 @@ export function useEditOrderState(
     customProductDays, setCustomProductDays,
     customProductQty, setCustomProductQty,
     editPermission,
-    itemsSubtotal, finalOrderTotal, totals, gstRate, freeDeliveryMin,
+    itemsSubtotal, finalOrderTotal, totals, gstRate, freeDeliveryMin, standardDeliveryFee,
     feeTouched, setFeeTouched,
     getProduct, getProductTotal, getItemSubtotal,
   };

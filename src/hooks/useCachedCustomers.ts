@@ -70,6 +70,9 @@ export function useCachedCustomers() {
     // as never[] in TS, which conflicts with TData. initialData with a cast is the
     // canonical TanStack Query v5 fix.
     initialData: [] as Customer[],
+    // The empty list is a placeholder, not data: mark it stale so the real
+    // list loads as soon as the screen opens (not after staleTime).
+    initialDataUpdatedAt: 0,
     // Cache configuration (customers change more frequently than products/categories)
     staleTime: 2 * 60 * 1000, // 2 minutes - consider data fresh for 2 min
     gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache for 5 min

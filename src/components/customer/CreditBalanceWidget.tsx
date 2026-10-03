@@ -55,7 +55,7 @@ export function CreditBalanceWidget({ customerId, variant = 'full', onNavigateTo
         ) : (
           <DollarSign className="w-3 h-3 md:w-4 md:h-4 text-[#D4A574]" />
         )}
-        <span className="text-xs md:text-sm font-medium text-[#D4A574]">
+        <span className="text-xs md:text-sm font-medium whitespace-nowrap text-[#D4A574]">
           {isLoading ? '...' : `${formatCreditAmount(availableCredit)} Credit`}
         </span>
       </button>

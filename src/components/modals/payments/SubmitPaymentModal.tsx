@@ -27,6 +27,7 @@ import { submitPaymentAction } from "../../../services/orders/paymentActionServi
  // 🔥 TIMESTAMP FIX: Use new utility
 import { ModalThreeSections } from '../orders/ModalOrderSections';
 import { displayOrderNumber, displayInvoiceNumber } from '../../../utils/displayId';
+import { orderAmountDue } from '../../../utils/orderMoney';
 
 interface SubmitPaymentModalProps {
   order: Order;
@@ -183,6 +184,11 @@ export function SubmitPaymentModal({
               {paymentEmail || 'Ask the bakery for the e-transfer address'}
             </p>
             {paymentEmail && <CopyButton text={paymentEmail} label="E-transfer email" />}
+          </div>
+          {/* How much to send — after any store credit used on the order */}
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#D4A574]/30 pt-3">
+            <p className="text-sm text-neutral-600">Amount to send:</p>
+            <p className="text-lg font-bold text-[#8B6F47] tabular-nums">${orderAmountDue(order as any).toFixed(2)}</p>
           </div>
         </div>
 

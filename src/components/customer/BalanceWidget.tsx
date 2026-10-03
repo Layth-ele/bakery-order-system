@@ -111,7 +111,7 @@ export function BalanceWidget({ customerId, customerEmail, variant = 'full', onN
         ) : (
           <AlertCircle className={`w-3 h-3 md:w-4 md:h-4 ${colorClass}`} />
         )}
-        <span className={`text-xs md:text-sm font-medium ${colorClass}`}>
+        <span className={`text-xs md:text-sm font-medium whitespace-nowrap ${colorClass}`}>
           {isLoading ? '...' : `${formatAmount(outstandingBalance)} Owed`}
         </span>
       </button>
