@@ -430,6 +430,7 @@ async function main() {
   });
   const mon = new Date(Date.UTC(year, 0, 4));
   mon.setUTCDate(mon.getUTCDate() - ((mon.getUTCDay() + 6) % 7) + (week - 1) * 7);
+  check('the order carries the account type for the production sheet (commercial)', () => assert.equal(bunOrder.customerType, 'commercial'));
   check('yearMonth is the delivery week’s month', () =>
     assert.equal(bunOrder.yearMonth, `${mon.getUTCFullYear()}-${String(mon.getUTCMonth() + 1).padStart(2, '0')}`));
 

@@ -17,7 +17,7 @@ import {ClipboardList, RefreshCw, CheckCircle, AlertCircle, ChevronDown, Chevron
 import { StatCard } from '../shared/StatCard';
 import { AdminPageLayout } from './AdminPageLayout';
 import { Order, Product, Category } from '../../types';
-import { useCachedActiveOrders } from '../../hooks/useCachedFirebase'  // BUG 2 FIX
+import { useCachedActiveOrders, useCachedCustomers, useCachedOrders } from '../../hooks/useCachedFirebase'  // BUG 2 FIX
 import { useCachedProducts } from '../../hooks/useCachedProducts';
 import { useCachedCategories } from '../../hooks/useCachedCategories';
 import { isProductionEligible } from '../../utils/orderSelectors';
@@ -39,6 +39,7 @@ import {
   calculateCustomerCounts,
   groupProductsByCategory,
   getOrdersForDate,
+  type EligibilityFn,
 } from '../../services/production/productionAggregationService';
 
 interface ProductionToDoSheetProps {
@@ -220,9 +221,26 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
     }
   }, [refetchOrders, refetchProducts, refetchCategories]);
   
+  // Recent orders (includes completed ones, for the "Delivered" days) and the
+  // customer list (orders don't carry the account type — commercial vs individual).
+  const { data: recentOrders = [] } = useCachedOrders(isActive, 200);
+  const { data: customers = [] } = useCachedCustomers(isActive);
+
   const inProcessOrders = useMemo(() => {
-    return allOrders.filter(order => isProductionEligible(order));
-  }, [allOrders]);
+    const typeOf = new Map((customers as any[]).map((c) => [c.id, c.customerType]));
+    const byId = new Map<string, Order>();
+    for (const o of [...recentOrders, ...allOrders]) if (o.id) byId.set(o.id, o);
+    return [...byId.values()]
+      .filter((o) => isProductionEligible(o) || o.status === 'completed' || o.status === 'pending' || o.status === 'approved')
+      .map((o) => (o.customerType ? o : { ...o, customerType: typeOf.get(o.customerId) as any }));
+  }, [allOrders, recentOrders, customers]);
+
+  // Which orders count on a day: paid orders in production; on days already
+  // delivered also the orders completed since (they were baked that day).
+  const eligibleFor = useCallback((date: Date): EligibilityFn => {
+    const done = getProductionStatusForDate(date) === 'done';
+    return (o) => isProductionEligible(o) || (done && o.status === 'completed');
+  }, []);
 
   // Refresh dates when isActive changes (user navigates to page) OR at Vancouver midnight
   const weekDates = useMemo(() => getDynamicProductionDates(), [isActive, midnightToken]); // BUG 4 FIX
@@ -238,7 +256,8 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
         date,
         index,
         getProductionStatusForDate,
-        getWeekDayDate
+        getWeekDayDate,
+        eligibleFor(date)
       );
       
       const dayIndex = date.getDay();
@@ -250,7 +269,7 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
         dayShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][monBasedIndex],
       };
     });
-  }, [inProcessOrders, weekDates]);
+  }, [inProcessOrders, weekDates, eligibleFor]);
 
   // Default to today's index (or first upcoming locked/open day)
   // Compute today index inline for useState initializer
@@ -301,9 +320,20 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
       selectedDayInfo.date,
       products,
       categories,
-      getWeekDayDate
+      getWeekDayDate,
+      eligibleFor(selectedDayInfo.date)
     );
-  }, [inProcessOrders, selectedDayInfo, products, categories]);
+  }, [inProcessOrders, selectedDayInfo, products, categories, eligibleFor]);
+
+  // Orders for this day that are NOT on the sheet yet (not approved / not paid).
+  const notYetInProduction = useMemo(() => {
+    if (!selectedDayInfo || selectedDayInfo.status === 'done') return { pending: 0, unpaid: 0 };
+    const d = selectedDayInfo.date;
+    return {
+      pending: getOrdersForDate(inProcessOrders, d, getWeekDayDate, (o) => o.status === 'pending').length,
+      unpaid: getOrdersForDate(inProcessOrders, d, getWeekDayDate, (o) => o.status === 'approved' && !o.paymentReceived).length,
+    };
+  }, [inProcessOrders, selectedDayInfo]);
 
   const productsByCategory = useMemo(() => {
     return groupProductsByCategory(productionSummary);
@@ -315,9 +345,10 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
     return calculateCustomerCounts(
       inProcessOrders,
       selectedDayInfo.date,
-      getWeekDayDate
+      getWeekDayDate,
+      eligibleFor(selectedDayInfo.date)
     );
-  }, [inProcessOrders, selectedDayInfo]);
+  }, [inProcessOrders, selectedDayInfo, eligibleFor]);
 
   const toggleCategory = useCallback((categoryName: string) => {
     setExpandedCategories(prev => {
@@ -334,7 +365,7 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
   const handlePrint = useCallback(() => {
     if (!selectedDayInfo) return;
 
-    const ordersForDay = getOrdersForDate(inProcessOrders, selectedDayInfo.date, getWeekDayDate);
+    const ordersForDay = getOrdersForDate(inProcessOrders, selectedDayInfo.date, getWeekDayDate, eligibleFor(selectedDayInfo.date));
     const { week, year } = getISOWeekInfo(selectedDayInfo.date);
     
     openProductionPrintView({
@@ -345,7 +376,7 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
       products,
       categories,
     });
-  }, [selectedDayInfo, inProcessOrders, products, categories]);
+  }, [selectedDayInfo, inProcessOrders, products, categories, eligibleFor]);
 
   // BUG 11 FIX: Generate a real downloadable PDF instead of opening the browser print dialog.
   // Previously handleExportPDF was byte-for-byte identical to handlePrint — both called
@@ -353,7 +384,7 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
   const handleExportPDF = useCallback(async () => {
     if (!selectedDayInfo) return;
 
-    const ordersForDay = getOrdersForDate(inProcessOrders, selectedDayInfo.date, getWeekDayDate);
+    const ordersForDay = getOrdersForDate(inProcessOrders, selectedDayInfo.date, getWeekDayDate, eligibleFor(selectedDayInfo.date));
     const { week, year } = getISOWeekInfo(selectedDayInfo.date);
     const dateLabel = selectedDayInfo.date.toLocaleDateString('en-CA'); // YYYY-MM-DD
 
@@ -447,7 +478,7 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
         categories,
       });
     }
-  }, [selectedDayInfo, inProcessOrders, products, categories, productsByCategory]);
+  }, [selectedDayInfo, inProcessOrders, products, categories, productsByCategory, eligibleFor]);
 
   const loading = ordersLoading || productsLoading || categoriesLoading;
 
@@ -497,6 +528,27 @@ export function ProductionToDoSheet({ isActive, setCurrentPage }: ProductionToDo
             <StatCard icon={Briefcase} label="Commercial" value={customerCounts.commercial} color="blue" />
             <StatCard icon={Users} label="Individual" value={customerCounts.individual} color="purple" />
             <StatCard icon={Package} label="Total Items" value={selectedDayInfo.productCount} color="green" />
+          </div>
+        )}
+
+        {(notYetInProduction.pending > 0 || notYetInProduction.unpaid > 0) && (
+          <div className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+            <p className="font-semibold">Not on this sheet yet</p>
+            <p className="text-xs mt-0.5">
+              Only paid orders are baked. For this day there {notYetInProduction.pending + notYetInProduction.unpaid === 1 ? 'is' : 'are'} also{' '}
+              {notYetInProduction.pending > 0 && (
+                <button type="button" className="underline font-semibold" onClick={() => setCurrentPage?.('pending')}>
+                  {notYetInProduction.pending} awaiting approval
+                </button>
+              )}
+              {notYetInProduction.pending > 0 && notYetInProduction.unpaid > 0 && ' and '}
+              {notYetInProduction.unpaid > 0 && (
+                <button type="button" className="underline font-semibold" onClick={() => setCurrentPage?.('unpaid')}>
+                  {notYetInProduction.unpaid} awaiting payment
+                </button>
+              )}
+              .
+            </p>
           </div>
         )}
       </div>

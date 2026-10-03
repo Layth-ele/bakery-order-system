@@ -7,6 +7,7 @@ import {
   deliveryWeekCloseAt,
   deliveryWeekEndDate,
   isDueForAutoComplete,
+  orderDeliveredAt,
   completionBlocker,
   buildFinalInvoice,
   buildCompletionSnapshot,
@@ -169,5 +170,25 @@ describe('buildFinalInvoice with store credit (credit counted once)', () => {
     );
     expect(inv.snapshots.totals).toMatchObject({ baseTotal: 120, creditsApplied: 20, totalPaid: 100, balanceDue: 0 });
     expect(inv.invoiceStatus).toBe('paid');
+  });
+});
+
+describe('orderDeliveredAt — noon Vancouver on the last delivery day', () => {
+  const z = { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 };
+  const item = (days: Record<string, number>) => ({ productId: 'p', ...z, ...days });
+  it('a weekend order is due Sunday noon, not Friday', () => {
+    // 2026-W40: Sun Oct 4 12:00 PDT = 19:00Z
+    const order = { status: 'in_process', paymentReceived: true, year: 2026, week: 40, items: [item({ monday: 2, sunday: 3 })] };
+    expect(orderDeliveredAt(order)?.toISOString()).toBe('2026-10-04T19:00:00.000Z');
+    const fridayRun = new Date('2026-10-02T19:05:00.000Z');
+    expect(isDueForAutoComplete(order, fridayRun)).toBe(false); // still to be baked Sunday
+    expect(isDueForAutoComplete(order, new Date('2026-10-04T19:05:00.000Z'))).toBe(true);
+  });
+  it('a Monday-only order is due Monday noon', () => {
+    const order = { year: 2026, week: 40, items: [item({ monday: 5 })] };
+    expect(orderDeliveredAt(order)?.toISOString()).toBe('2026-09-28T19:00:00.000Z');
+  });
+  it('falls back to Friday noon when the order has no item days', () => {
+    expect(orderDeliveredAt({ year: 2026, week: 40, items: [] })?.toISOString()).toBe(deliveryWeekCloseAt(2026, 40)?.toISOString());
   });
 });

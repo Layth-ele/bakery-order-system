@@ -6,8 +6,12 @@
  * countdown timer (deliveryWeekCloseAt), so the "when is this order due"
  * rule exists exactly once.
  *
- *   Due date:  Friday 12:00 (America/Vancouver) of the order's ISO delivery
- *              week (order.year + order.week).
+ *   Due date:  12:00 (America/Vancouver) on the order's LAST delivery day
+ *              with items — the moment the production sheet marks that day
+ *              "Delivered". (Orders with no item days fall back to Friday
+ *              12:00 of the delivery week.) The schedule runs daily at 12:05,
+ *              so a Saturday/Sunday delivery is never completed — and dropped
+ *              from the production sheet — before it is baked.
  *   Auto-complete: paid, unlocked, not yet invoiced, active status, due, and
  *              due within the last AUTO_COMPLETE_WINDOW_DAYS (older leftovers
  *              are left for an admin, so a first run can't mass-complete a
@@ -56,6 +60,24 @@ export function deliveryWeekCloseAt(year: unknown, week: unknown): Date | null {
   return vancouverTimeToUtc(friday.getUTCFullYear(), friday.getUTCMonth(), friday.getUTCDate(), 12);
 }
 
+const DELIVERY_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+
+/** 12:00 Vancouver on the order's last delivery day with items (see header). */
+export function orderDeliveredAt(order: Doc): Date | null {
+  const y = num(order.year);
+  const w = num(order.week);
+  if (!Number.isInteger(y) || !Number.isInteger(w) || y < 2000 || w < 1 || w > 53) return null;
+  const items = Array.isArray(order.items) ? (order.items as Doc[]) : [];
+  let last = -1;
+  DELIVERY_DAYS.forEach((day, i) => {
+    if (items.some((it) => num(it?.[day]) > 0)) last = i;
+  });
+  if (last < 0) return deliveryWeekCloseAt(y, w);
+  const day = isoWeekMonday(y, w);
+  day.setUTCDate(day.getUTCDate() + last);
+  return vancouverTimeToUtc(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 12);
+}
+
 /** Sunday of the delivery week as YYYY-MM-DD (the order's deliveryDate). */
 export function deliveryWeekEndDate(year: unknown, week: unknown): string | null {
   const y = num(year);
@@ -88,7 +110,7 @@ export function isDueForAutoComplete(order: Doc, now: Date, windowDays = AUTO_CO
   if (!(AUTO_COMPLETE_STATUSES as readonly unknown[]).includes(order.status)) return false;
   if (order.paymentReceived !== true || order.finalInvoiceId) return false;
   if (completionBlocker(order)) return false;
-  const closeAt = deliveryWeekCloseAt(order.year, order.week);
+  const closeAt = orderDeliveredAt(order);
   if (!closeAt) return false;
   const overdueMs = now.getTime() - closeAt.getTime();
   return overdueMs >= 0 && overdueMs <= windowDays * DAY_MS;

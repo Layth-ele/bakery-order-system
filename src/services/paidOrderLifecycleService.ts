@@ -2,15 +2,14 @@
  * Paid order lifecycle — the countdown shown on paid orders.
  *
  * Display only: completion itself runs on the server (completeOrder callable
- * and the Friday autoCompleteOrders schedule). The due time comes from the
+ * and the daily autoCompleteOrders schedule). The due time comes from the
  * shared rule in src/functions/src/lib/orderCompletion.ts, so the timer and
  * the scheduler always agree.
  */
 
 import { Order } from '../types';
 import { toDate } from '../utils/timestampFormatting';
-import { getNowInVancouver } from '../utils/timezone';
-import { deliveryWeekCloseAt } from '../functions/src/lib/orderCompletion';
+import { orderDeliveredAt } from '../functions/src/lib/orderCompletion';
 import { logger } from '../utils/logger';
  // ✅ MAR 17: Use data service
 
@@ -41,17 +40,18 @@ export function getOrderLifecycleStatus(order: Order): OrderLifecycleStatus | nu
     return null;
   }
 
-  // Calculate delivery end date: Next Friday at 12:00 PM Vancouver time
-  // Friday 12:00 Vancouver of the order's delivery week — the same rule the
-  // server's weekly autoCompleteOrders uses (shared lib/orderCompletion.ts).
-  const deliveryEndDate = deliveryWeekCloseAt(order.year, order.week);
+  // Noon (Vancouver) on the order's last delivery day — the same rule the
+  // server's daily autoCompleteOrders uses (shared lib/orderCompletion.ts).
+  const deliveryEndDate = orderDeliveredAt(order as any);
   
   if (!deliveryEndDate) {
     if (DEBUG) logger.warn('⚠️ Could not calculate delivery end date for order:', order.id);
     return null;
   }
 
-  const now = getNowInVancouver();
+  // deliveryEndDate is a real instant, so compare with the real current time
+  // (getNowInVancouver() is a wall-clock copy, off by the browser's offset).
+  const now = new Date();
   const timeUntilCompletion = deliveryEndDate.getTime() - now.getTime();
   
   // Calculate time components
