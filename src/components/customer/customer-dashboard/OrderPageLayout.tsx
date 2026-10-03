@@ -76,7 +76,6 @@ interface OrderPageLayoutProps {
 
   areAllDaysDisabled: (week: number) => boolean;
   isWeekDisabled: (week: number) => boolean;
-  isBeforeThursdayNoon: boolean;
 
   onWeekChange: (week: number) => void;
   onCategoryChange: (categoryId: string) => void;
@@ -133,7 +132,6 @@ export function OrderPageLayout({
   summaryPanelHeight = 180,
   areAllDaysDisabled,
   isWeekDisabled,
-  isBeforeThursdayNoon,
   onWeekChange,
   onCategoryChange,
   onUpdateQuantity,
@@ -191,7 +189,6 @@ export function OrderPageLayout({
           showAllWeeks={showAllWeeks}
           areAllDaysDisabled={areAllDaysDisabled}
           isWeekDisabled={isWeekDisabled}
-          isBeforeThursdayNoon={isBeforeThursdayNoon}
           onWeekChange={onWeekChange}
           onToggleWeekSelection={onToggleWeekSelection}
           onToggleAllWeeks={onToggleAllWeeks}

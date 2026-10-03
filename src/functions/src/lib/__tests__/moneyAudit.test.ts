@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { autoDeliveryFee, normalizeItems, planCancellation, reducedTotals, reduceItems } from '../orderRevision';
-import { PlacementError, priceOrder, unitPriceFor } from '../orderPlacement';
+import { PlacementError, deliveryNoon, passedDaysMessage, passedDeliveryDays, priceOrder, unitPriceFor } from '../orderPlacement';
 import { buildCreditNote, gstShareOf } from '../creditNotes';
 
 const zero = { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 };
@@ -77,5 +77,20 @@ describe('credit note GST', () => {
     expect(n.gst).toBe(o.gst);
     const manual = buildCreditNote({ id: 'abd', customerId: 'c', amount: 20, type: 'refund', reason: '', createdBy: 'a', gstShare: 0, now: new Date() });
     expect(manual.gst).toBe(0);
+  });
+});
+
+describe('delivery days that are already over', () => {
+  const order = { year: 2026, week: 40, items: [{ productId: 'p', ...zero, monday: 2, thursday: 3 }] };
+  it('a day is over at noon Vancouver on that day', () => {
+    expect(deliveryNoon(2026, 40, 'monday').toISOString()).toBe('2026-09-28T19:00:00.000Z');
+  });
+  it('lists only ordered days whose noon has passed', () => {
+    expect(passedDeliveryDays(order, new Date('2026-09-28T18:59:00Z'))).toEqual([]);
+    expect(passedDeliveryDays(order, new Date('2026-09-29T00:00:00Z'))).toEqual(['monday']);
+    expect(passedDeliveryDays(order, new Date('2026-10-05T00:00:00Z'))).toEqual(['monday', 'thursday']);
+  });
+  it('explains what to do', () => {
+    expect(passedDaysMessage(['monday', 'thursday'], 'approved')).toMatch(/^Monday and Thursday have already passed, so this order can't be approved\. Cancel those days/);
   });
 });

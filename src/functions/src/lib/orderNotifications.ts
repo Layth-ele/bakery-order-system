@@ -184,7 +184,10 @@ export function buildOrderNotifications(
           ...base,
           type: "PAYMENT_CONFIRMED",
           title: "🎉 Payment Confirmed — Order in Production",
-          message: `Your payment for order ${describe(o)} has been confirmed.\n\n✓ Payment received\n✓ Your order is now in production\n\nThank you for your business!`,
+          message:
+            raw.paymentMethod === "credit"
+              ? `Your order ${describe(o)} was approved and paid in full with your store credit.\n\n✓ Nothing to pay\n✓ Your order is now in production\n\nThank you for your business!`
+              : `Your payment for order ${describe(o)} has been confirmed.\n\n✓ Payment received\n✓ Your order is now in production\n\nThank you for your business!`,
           amount: o.amountDue,
           actions: [{ ...viewOrder, label: "View Production Status" }],
           metadata: { ...orderMeta, amount: o.amountDue, invoiceNumber: o.invoiceNumber },

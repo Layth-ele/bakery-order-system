@@ -35,6 +35,7 @@ import { useState } from 'react';
 import { useCachedSettings } from '../../../hooks/useCachedFirebase';
 import { normalizeItems, orderTotals } from '../../../functions/src/lib/orderRevision';
 import { resolveTaxRate } from '../../../functions/src/lib/settingsValues';
+import { passedDeliveryDays, passedDaysMessage } from '../../../functions/src/lib/orderPlacement';
  // Using canonical formatCurrency
 
 interface ConfirmApproveOrderModalProps {
@@ -71,9 +72,12 @@ export function ConfirmApproveOrderModal({
       })
     : null;
   const creditOnOrder = Number((order as any).creditApplied) || 0;
+  // Same rule as approveOrder: days already over can't be approved.
+  const passedDays = passedDeliveryDays(order as any, new Date());
   const previewCredit = preview ? Math.min(creditOnOrder, preview.total) : 0;
 
   const handleConfirm = async () => {
+    if (passedDays.length > 0) return; // also blocks the Enter shortcut
     const fee = Number(feeInput);
     if (feeInput.trim() === '' || !Number.isFinite(fee) || fee < 0) {
       setFeeError('Enter a delivery fee of $0 or more.');
@@ -104,6 +108,7 @@ export function ConfirmApproveOrderModal({
           onCancel={onClose}
           onConfirm={handleConfirm}
           isProcessing={isProcessing}
+          disabled={passedDays.length > 0}
           confirmLabel="Confirm Approval"
           confirmVariant="success"
         />
@@ -130,11 +135,19 @@ export function ConfirmApproveOrderModal({
         <p className="mt-2 text-xs text-green-800">
           Pre-filled with the estimate the customer saw. Change it if needed — GST and the total are recalculated on approval.
         </p>
+        {passedDays.length > 0 && (
+          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+            {passedDaysMessage(passedDays, 'approved')}
+          </p>
+        )}
         {preview && (
           <div className="mt-3 rounded-lg bg-white/80 border border-green-200 px-3 py-2 text-sm text-green-900 space-y-1">
             <div className="flex justify-between"><span>Total after approval</span><strong>${preview.total.toFixed(2)}</strong></div>
             {previewCredit > 0 && (
               <div className="flex justify-between"><span>Amount due after store credit</span><strong>${Math.max(0, preview.total - previewCredit).toFixed(2)}</strong></div>
+            )}
+            {previewCredit > 0 && preview.total - previewCredit <= 0 && (
+              <p className="text-xs text-green-800">Store credit covers it all — the order goes straight to production (nothing to pay).</p>
             )}
           </div>
         )}

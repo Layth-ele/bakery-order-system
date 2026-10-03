@@ -24,6 +24,7 @@ import {
 } from "./lib/accountNotifications";
 import { buildCreditNote, type CreditNoteType } from "./lib/creditNotes";
 import { round2 } from "./lib/orderRevision";
+import { passedDeliveryDays, passedDaysMessage } from "./lib/orderPlacement";
 
 const db = getFirestore();
 
@@ -64,6 +65,8 @@ export const sendPaymentReminder = onCall(WITH_EMAIL, async (request): Promise<P
     if (order.paymentSubmitted === true) {
       throw new HttpsError("failed-precondition", "The customer already submitted payment — review and confirm it instead.");
     }
+    const passedDays = passedDeliveryDays(order, new Date());
+    if (passedDays.length > 0) throw new HttpsError("failed-precondition", passedDaysMessage(passedDays, "paid"));
     const amountDue = round2(typeof order.amountDue === "number" ? order.amountDue : Math.max(0, num(order.total) - num(order.creditApplied)));
     if (amountDue <= 0) throw new HttpsError("failed-precondition", "Nothing is due on this order.");
     if (!str(order.customerId)) throw new HttpsError("failed-precondition", "This order has no customer.");

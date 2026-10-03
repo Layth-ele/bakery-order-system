@@ -485,6 +485,38 @@ async function main() {
     near(oc.total, 45.49, 'total');
   });
 
+  console.log('\n17. Lifecycle: days already over, orders paid by store credit');
+  // An unpaid order for last week (written directly — placeOrder refuses past days).
+  const lastWeek = isoWeekOf(new Date(Date.now() - 7 * 86400000));
+  await db.doc('orders/stale-pending').set({ customerId: CUST.uid, status: 'pending', paymentReceived: false, week: lastWeek.week, year: lastWeek.year,
+    items: [{ productId: 'bread', productName: 'Sourdough', price: 4, ...zero, monday: 5, total: 5 }], subtotal: 20, gst: 1, deliveryFee: 10, serviceCharge: 3.99, total: 34.99, amountDue: 34.99, creditApplied: 0 });
+  await admin.fails('approveOrder', { orderId: 'stale-pending', deliveryFee: 10 }, /Monday has already passed/);
+  check('a pending order whose delivery day is over cannot be approved', () => {});
+  await db.doc('orders/stale-approved').set({ customerId: CUST.uid, status: 'approved', paymentReceived: false, paymentSubmitted: false, week: lastWeek.week, year: lastWeek.year,
+    items: [{ productId: 'bread', productName: 'Sourdough', price: 4, ...zero, monday: 5, total: 5 }], subtotal: 20, gst: 1, deliveryFee: 10, serviceCharge: 3.99, total: 34.99, amountDue: 34.99, creditApplied: 0 });
+  await cust.fails('submitPaymentProof', { orderId: 'stale-approved', paymentMethod: 'etransfer', paymentReference: 'x' }, /already passed/);
+  check('…nor paid by the customer', () => {});
+  await admin.fails('sendPaymentReminder', { orderId: 'stale-approved' }, /already passed/);
+  check('…nor reminded about', () => {});
+  await admin.fails('editOrder', { orderId: 'stale-pending', items: [{ productId: 'bread', quantities: { ...zero, monday: 9 } }] }, /can only be reduced/);
+  check('…and its past day can only be reduced, not increased', () => {});
+
+  // Fully covered by store credit → straight to production on approval.
+  await admin.call('issueStoreCredit', { customerId: CUST.uid, amount: 100, reason: 'Test credit', type: 'refund' });
+  const covered = await cust.call('placeOrder', { requestId: reqId(), week, year, items: [{ productId: 'cake', quantities: { ...zero, friday: 1 } }], creditToApply: 100 });
+  near(covered.amountDue, 0, 'nothing due');
+  const apCovered = await admin.call('approveOrder', { orderId: covered.orderId, deliveryFee: 10 });
+  const oCovered = await order(covered.orderId);
+  check('a credit-covered order goes straight to production (paid with store credit), not "pay $0"', () => {
+    assert.equal(apCovered.status, 'in_process');
+    assert.equal(oCovered.status, 'in_process');
+    assert.equal(oCovered.paymentReceived, true);
+    assert.equal(oCovered.paymentMethod, 'credit');
+  });
+  await waitFor(async () => (await customerNotes(CUST.uid)).find((n) => n.id === `order_${covered.orderId}_paid`), 'paid-by-credit notification');
+  const coveredNote = (await customerNotes(CUST.uid)).find((n) => n.id === `order_${covered.orderId}_paid`);
+  check('the customer is told it was paid with store credit', () => assert.match(coveredNote.message, /store credit/));
+
   await deleteApp(admin.app);
   await deleteApp(cust.app);
   console.log(`\n✅ ${passed} end-to-end checks passed`);

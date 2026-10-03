@@ -22,6 +22,7 @@ import { ModalThreeSections } from './ModalOrderSections';
 import { StyleModalShell } from "../../../ui/modals/StyleModalShell";
 import { ModalFooterButtons } from "../../../ui/modals/ModalFooterButtons"; // ✅ FEB 21, 2026
 import type { Order, Product, Category } from "../../../types";
+import { passedDeliveryDays, passedDaysMessage } from '../../../functions/src/lib/orderPlacement';
  // 🔥 TIMESTAMP FIX: Use new utility
 
 interface CustomerUnpaidOrderDetailsModalProps {
@@ -46,6 +47,8 @@ export function CustomerUnpaidOrderDetailsModal({
   // Calculate order total
   const orderTotal = order.total || 0;
   const amountDue = orderAmountDue(order as any);
+  // Same rule as the server: a delivery day already over can't be paid for.
+  const passedDays = passedDeliveryDays(order as any, new Date());
 
   return (
     <StyleModalShell
@@ -62,7 +65,7 @@ export function CustomerUnpaidOrderDetailsModal({
       footer={
         <ModalFooterButtons
           leftAction={
-            onPayNow && !paymentSubmitted
+            onPayNow && !paymentSubmitted && passedDays.length === 0
               ? {
                   label: `PAY NOW - $${amountDue.toFixed(2)}`,
                   onClick: () => {
@@ -82,6 +85,12 @@ export function CustomerUnpaidOrderDetailsModal({
         />
       }
     >
+      {passedDays.length > 0 && !paymentSubmitted && (
+        <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Please contact the bakery before paying</p>
+          <p className="mt-1">{passedDaysMessage(passedDays, 'paid').replace(/ Cancel .*$/, '')} The bakery will update the order so you only pay for the days you receive.</p>
+        </div>
+      )}
       <ModalThreeSections order={order} products={products ?? []}>
       </ModalThreeSections>
     </StyleModalShell>

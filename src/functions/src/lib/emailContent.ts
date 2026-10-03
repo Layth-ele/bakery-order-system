@@ -73,6 +73,8 @@ export interface EmailOrder {
   /** Store credit issued when the order was cancelled. */
   creditAmount: number;
   paid: boolean;
+  /** Paid in full with store credit (nothing was sent). */
+  paidWithCredit: boolean;
   total: number;
   amountDue: number;
   invoiceNumber: string;
@@ -130,6 +132,7 @@ export function normalizeOrder(raw: Record<string, unknown>, id: string): EmailO
     cancellationFee: num(raw.cancellationFee),
     creditAmount: num(raw.creditAmount),
     paid: raw.paymentReceived === true,
+    paidWithCredit: raw.paymentMethod === "credit",
     total,
     amountDue: typeof raw.amountDue === "number" ? num(raw.amountDue) : Math.max(0, Math.round((total - creditApplied) * 100) / 100),
     invoiceNumber: str(raw.invoiceNumber),
@@ -320,7 +323,11 @@ export function buildOrderStatusEmail(
           title: "We're baking your order",
           body: [
             p(greeting(o)),
-            p(`Thank you — we've confirmed payment for ${strong(esc(ref))} and it's now in production.`),
+            p(
+              o.paidWithCredit
+                ? `${strong(esc(ref))} was approved and paid in full with your store credit — nothing to pay. It's now in production.`
+                : `Thank you — we've confirmed payment for ${strong(esc(ref))} and it's now in production.`
+            ),
             orderSummaryBox(o),
             totals(o, { final: true }),
             callout("Status", "Paid · In production", "ok"),
