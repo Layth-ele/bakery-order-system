@@ -27,6 +27,24 @@ import { CloseFooter } from "../../../ui/modals/ModalFooterButtons";
 import { displayInvoiceNumber } from '../../../utils/displayId';
 import { orderAmountDue } from '../../../utils/orderMoney';
 
+const STEPS = [
+  {
+    icon: Clock, ring: 'bg-blue-100', color: 'text-blue-600',
+    title: '1. Payment Verification',
+    body: <>Our admin team will verify your e-transfer payment. This typically takes <span className="font-semibold text-blue-600">1-2 business hours</span> during business hours.</>,
+  },
+  {
+    icon: Bell, ring: 'bg-emerald-100', color: 'text-emerald-600',
+    title: '2. Confirmation Notification',
+    body: <>Once your payment is verified, you'll receive a notification confirming that payment has been received and your order is moving to production.</>,
+  },
+  {
+    icon: Package, ring: 'bg-[#D4A574]/20', color: 'text-[#D4A574]',
+    title: '3. Production Begins',
+    body: <>After payment confirmation, your order will enter production and be prepared for delivery according to your scheduled week.</>,
+  },
+];
+
 interface PaymentSubmittedModalProps {
   order: Order;
   onClose?: () => void;
@@ -55,116 +73,63 @@ export function PaymentSubmittedModal({
       footer={<CloseFooter onClose={onClose || (() => {})} />}
     >
       {/* Success Message */}
-      <div className="bg-gradient-to-br from-emerald-50 to-green-100 rounded-xl p-6 border-2 border-emerald-500 mb-6">
-        <div className="flex items-start gap-4">
-          <div className="flex-shrink-0">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
-              <CheckCircle className="w-8 h-8 text-white" />
-            </div>
+      <div className="bg-gradient-to-br from-emerald-50 to-green-100 rounded-xl p-4 sm:p-6 border sm:border-2 border-emerald-500 mb-4 sm:mb-6">
+        <div className="flex items-center gap-3 sm:gap-4 mb-2 sm:mb-3">
+          <div className="flex-shrink-0 w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-md">
+            <CheckCircle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
           </div>
-          <div className="flex-1">
-            <h3 className="text-[#333333] font-bold text-xl mb-2">
-              Payment Successfully Submitted!
-            </h3>
-            <p className="text-[#666666] text-sm mb-4">
-              We've received your payment information for Order #{invoiceNumber}. 
-              Your payment is now being verified by our team.
-            </p>
-            <div className="bg-white rounded-lg p-4 border border-emerald-200">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-[#666666]">
-                  Amount Submitted:
-                </span>
-                <span className="text-2xl font-bold text-emerald-600">
-                  ${amountPaid.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
+          <h3 className="text-[#333333] font-bold text-base sm:text-xl leading-snug">
+            Payment Successfully Submitted!
+          </h3>
+        </div>
+        <p className="text-[#666666] text-sm mb-3 sm:mb-4">
+          We've received your payment information for Order #{invoiceNumber}.
+          Your payment is now being verified by our team.
+        </p>
+        <div className="bg-white rounded-lg px-3 py-2.5 sm:p-4 border border-emerald-200 flex items-center justify-between gap-3">
+          <span className="text-xs sm:text-sm font-semibold text-[#666666] whitespace-nowrap">
+            Amount Submitted
+          </span>
+          <span className="text-xl sm:text-2xl font-bold text-emerald-600 tabular-nums whitespace-nowrap">
+            ${amountPaid.toFixed(2)}
+          </span>
         </div>
       </div>
 
       {/* What Happens Next */}
-      <div className="mb-6">
-        <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-4 px-1">
+      <div className="mb-4 sm:mb-6">
+        <h3 className="text-xs sm:text-sm font-bold text-neutral-400 uppercase tracking-widest mb-3 sm:mb-4 px-1">
           What Happens Next
         </h3>
-        
-        <div className="space-y-4">
-          {/* Step 1 */}
-          <div className="bg-white rounded-xl p-5 border border-neutral-200 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-neutral-800 mb-1">
-                  1. Payment Verification
-                </h4>
-                <p className="text-sm text-neutral-600">
-                  Our admin team will verify your e-transfer payment. This typically 
-                  takes <span className="font-semibold text-blue-600">1-2 business hours</span> during 
-                  business hours.
-                </p>
-              </div>
-            </div>
-          </div>
 
-          {/* Step 2 */}
-          <div className="bg-white rounded-xl p-5 border border-neutral-200 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                  <Bell className="w-5 h-5 text-emerald-600" />
+        <div className="space-y-2.5 sm:space-y-4">
+          {STEPS.map(({ icon: Icon, ring, color, title, body }) => (
+            <div key={title} className="bg-white rounded-xl p-3 sm:p-5 border border-neutral-200 shadow-sm">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 ${ring} rounded-full flex items-center justify-center`}>
+                  <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${color}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-sm sm:text-base text-neutral-800 mb-0.5 sm:mb-1">{title}</h4>
+                  <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">{body}</p>
                 </div>
               </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-neutral-800 mb-1">
-                  2. Confirmation Notification
-                </h4>
-                <p className="text-sm text-neutral-600">
-                  Once your payment is verified, you'll receive a notification confirming 
-                  that payment has been received and your order is moving to production.
-                </p>
-              </div>
             </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="bg-white rounded-xl p-5 border border-neutral-200 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-[#D4A574]/20 rounded-full flex items-center justify-center">
-                  <Package className="w-5 h-5 text-[#D4A574]" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-neutral-800 mb-1">
-                  3. Production Begins
-                </h4>
-                <p className="text-sm text-neutral-600">
-                  After payment confirmation, your order will enter production and be 
-                  prepared for delivery according to your scheduled week.
-                </p>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
       {/* Additional Info */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3 sm:p-5 border border-blue-200">
         <div className="flex items-start gap-3">
-          <DollarSign className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
             <h4 className="font-bold text-neutral-800 mb-1 text-sm">
               Track Your Payment Status
             </h4>
             <p className="text-xs text-neutral-600 leading-relaxed">
-              You can check your payment status anytime in your dashboard. 
-              We'll notify you immediately when your payment is confirmed and 
+              You can check your payment status anytime in your dashboard.
+              We'll notify you immediately when your payment is confirmed and
               your order moves to production.
             </p>
           </div>
