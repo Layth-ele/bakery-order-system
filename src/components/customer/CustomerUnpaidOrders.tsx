@@ -354,7 +354,8 @@ export function CustomerUnpaidOrders({ user, onNavigateBack, onOpenPolicies }: C
           <div className="flex-1">
             <h4 className="text-xs sm:text-sm font-semibold text-[#8B6F47] mb-1.5 sm:mb-2">About Outstanding Orders</h4>
             <ul className="text-[10px] sm:text-xs text-neutral-500 space-y-1 sm:space-y-1.5">
-              <li>• <span className="text-[#EF4444] font-bold">WAITING PAYMENT:</span> Approved orders — payment not yet submitted</li>
+              <li>• <span className="text-[#EF4444] font-bold">PAYMENT DUE:</span> approved — send your e-transfer and tap Submit Payment</li>
+              <li>• <span className="text-[#2563EB] font-bold">PAYMENT IN REVIEW:</span> you submitted payment — it moves to Active as soon as the bakery confirms it</li>
               <li>• <span className="text-[#F57C00] font-medium">Pending / Under Review / Confirmed</span> orders appear in the Active tab</li>
               <li>• After submitting payment, order moves to Active Orders</li>
             </ul>

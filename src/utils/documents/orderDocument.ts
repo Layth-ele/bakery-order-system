@@ -145,7 +145,8 @@ export function documentTotals(order: Order): DocTotalRow[] {
 
   const rows: DocTotalRow[] = [{ label: 'Subtotal', amount: subtotal, kind: 'line' }];
   if (discount > 0) rows.push({ label: pct > 0 ? `Discount (${pct}%)` : 'Discount', amount: -discount, kind: 'discount' });
-  rows.push({ label: delivery > 0 ? 'Delivery' : 'Delivery (free)', amount: delivery, kind: 'line' });
+  // Never "free" by default — a $0 fee is shown as $0.00, exactly as charged.
+  rows.push({ label: 'Delivery fee', amount: delivery, kind: 'line' });
   if (service > 0) rows.push({ label: 'Service charge', amount: service, kind: 'line' });
   if (fee > 0) rows.push({ label: 'Cancellation fee', amount: fee, kind: 'line' });
   rows.push({ label: gstLabel(gst, subtotal - discount), amount: gst, kind: 'line' });
@@ -167,6 +168,12 @@ export function documentTotals(order: Order): DocTotalRow[] {
 }
 
 const fmt = (n: number) => `$${money(n).toFixed(2)}`;
+/** Admin who did it: their name, else the part of their email before @. */
+const byWhom = (name: unknown, email: unknown): string => {
+  if (typeof name === 'string' && name.trim()) return name.trim();
+  if (typeof email === 'string' && email.includes('@') && email !== 'store-credit') return email.split('@')[0];
+  return '';
+};
 const FULL: Record<DayKey, string> = {
   monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday',
 };
@@ -189,7 +196,7 @@ export function changeNotices(order: Order, history: OrderChange[] = []): Change
     out.push({
       at: toDate(o.approvedAt),
       title: 'Approved by the bakery',
-      detail: `Delivery fee confirmed: ${num(o.deliveryFee) > 0 ? fmt(num(o.deliveryFee)) : 'free'}.` +
+      detail: `${byWhom(o.approvedByName, o.approvedBy) ? `Approved by ${byWhom(o.approvedByName, o.approvedBy)}. ` : ''}Delivery fee: ${fmt(num(o.deliveryFee))}.` +
         (o.creditReturnedNoteId ? ' Store credit beyond the order total was returned to your account.' : ''),
       tone: 'ok',
     });
@@ -241,7 +248,9 @@ export function changeNotices(order: Order, history: OrderChange[] = []): Change
     out.push({
       at: toDate(o.paidAt) ?? toDate(o.paymentConfirmedAt),
       title: o.paymentMethod === 'credit' ? 'Paid with store credit' : 'Payment confirmed',
-      detail: o.paymentMethod === 'credit' ? 'Store credit covered the full amount.' : `${fmt(orderAmountDue(o))} received.`,
+      detail: o.paymentMethod === 'credit'
+        ? 'Store credit covered the full amount.'
+        : `${fmt(orderAmountDue(o))} received${byWhom(o.paymentConfirmedByName, o.paymentConfirmedBy) ? ` by ${byWhom(o.paymentConfirmedByName, o.paymentConfirmedBy)}` : ''}.`,
       tone: 'ok',
     });
   }
