@@ -27,7 +27,7 @@ export const BADGE_THEMES = {
   orange: 'bg-[#FF9800] text-white',         // Orange with white text
   purple: 'bg-[#9C27B0] text-white',         // Purple with white text
   blue: 'bg-[#2196F3] text-white',           // Blue with white text
-  red: 'bg-[#FF6B6B] text-white',            // Red with white text
+  red: 'bg-[#F44336] text-white',            // Red with white text (same strength as the others)
   green: 'bg-[#4CAF50] text-white',          // Green with white text
 } as const;
 
@@ -198,7 +198,9 @@ export function NavTab({
       <span className="hidden whitespace-nowrap sm:inline">{desktopLabel}</span>
       {badge !== undefined && (
         <span 
-          className={`${badgeColor} absolute right-1 top-1 min-w-[18px] rounded-full px-1.5 py-px text-center text-[10px] font-bold leading-4 shadow-sm sm:static sm:ml-1 sm:min-w-0 sm:px-2 sm:py-0.5 sm:text-xs`}
+          // Same round shape for every count: a fixed-height circle that grows
+          // into a pill only for 2+ digits ("1" and "4" look identical).
+          className={`${badgeColor} absolute right-1 top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none tabular-nums shadow-sm sm:static sm:ml-1.5 sm:h-5 sm:min-w-[20px] sm:px-1.5 sm:text-xs`}
           aria-label={`${badge} ${badgeLabel}`}
         >
           {badge}
