@@ -556,6 +556,11 @@ export function SystemSettingsView({
               icon={DollarSign}
               required
             />
+            {!(Number(settings.deliveryFee) > 0) && settings.freeDeliveryEnabled !== true && (
+              <p className="md:col-span-2 -mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                Delivery fee is $0 and free delivery is off — every order would be delivered at no charge. Enter your delivery fee.
+              </p>
+            )}
             
             <div className="md:col-span-2 rounded-lg border border-[#D4A574]/30 p-3">
               <CheckboxField

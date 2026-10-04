@@ -520,8 +520,11 @@ async function main() {
   console.log('\n18. Policies from Settings');
   // Order cutoff = 14 days → next week's Monday is already closed.
   await db.doc('settings/general').set({ orderCutoffHours: 336 }, { merge: true });
-  const soon = isoWeekOf(new Date(Date.now() + 8 * 86400000));
-  await cust.fails('placeOrder', { requestId: reqId(), week: soon.week, year: soon.year, items: [{ productId: 'bread', quantities: { ...zero, sunday: 5 } }] }, /Ordering has closed/);
+  // A delivery day 3 days from now (any weekday) is always inside a 14-day cutoff.
+  const target = new Date(Date.now() + 3 * 86400000);
+  const soon = isoWeekOf(target);
+  const soonDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][target.getUTCDay()];
+  await cust.fails('placeOrder', { requestId: reqId(), week: soon.week, year: soon.year, items: [{ productId: 'bread', quantities: { ...zero, [soonDay]: 5 } }] }, /Ordering has closed/);
   check('the server refuses days inside the order cutoff set in Settings', () => {});
   await db.doc('settings/general').set({ orderCutoffHours: 48 }, { merge: true });
 

@@ -227,7 +227,7 @@ ${printButton ? `<div class="no-print bar"><button onclick="window.print()">Prin
 }
 
 const INVOICE_CSS = `
-@page { size: A4; margin: 14mm 14mm 16mm; }
+@page { size: A4; margin: 11mm 12mm 12mm; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root { --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb; --soft: #f9fafb; --accent: #8B6F47; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -258,6 +258,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
 .kv td.due { color: #92400e; }
 
 .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 16px 0; font-size: 9.5pt; }
+.parties > div:last-child { text-align: right; }
 .note { padding: 8px 12px; margin-bottom: 12px; background: var(--soft); border-radius: 6px; font-size: 9pt; }
 .note .label { display: inline; margin-right: 6px; }
 
@@ -300,7 +301,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
 
 @media print {
   .no-print { display: none !important; }
+  body { font-size: 9pt; }
   .doc { max-width: none; padding: 0; }
+  .top { padding-bottom: 12px; }
+  .parties { padding: 10px 0; }
+  .items td { padding: 5px 8px; }
+  .items thead th { padding: 6px 8px; }
+  .bottom { margin-top: 12px; }
+  .changes { margin-top: 14px; }
+  .terms { margin-top: 12px; }
+  .foot { margin-top: 12px; }
   .items tr, .totals, .pay { break-inside: avoid; }
   thead { display: table-header-group; }
 }
@@ -310,7 +320,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
   .meta { text-align: left; }
   .kv { margin-left: 0; }
   .kv td { text-align: left; }
-  .parties { grid-template-columns: 1fr; gap: 12px; }
+  .parties { grid-template-columns: 1fr 1fr; gap: 14px; font-size: 9pt; }
+  .parties > div:last-child { text-align: right; }
   .bottom { flex-direction: column-reverse; }
   .totals { width: 100%; }
   .items { font-size: 9pt; }

@@ -34,7 +34,7 @@ import type { Order, Product, Category } from '../../../types';
 import { useState } from 'react';
 import { useCachedSettings } from '../../../hooks/useCachedFirebase';
 import { normalizeItems, orderTotals } from '../../../functions/src/lib/orderRevision';
-import { resolveTaxRate } from '../../../functions/src/lib/settingsValues';
+import { resolvePolicy, resolveTaxRate } from '../../../functions/src/lib/settingsValues';
 import { passedDeliveryDays, passedDaysMessage } from '../../../functions/src/lib/orderPlacement';
  // Using canonical formatCurrency
 
@@ -72,6 +72,10 @@ export function ConfirmApproveOrderModal({
       })
     : null;
   const creditOnOrder = Number((order as any).creditApplied) || 0;
+  // Policy check: a $0 fee is only right when the order qualifies for free delivery.
+  const policyNow = resolvePolicy((settings ?? null) as Record<string, unknown> | null);
+  const qualifiesFree = Number((order as any).subtotal ?? 0) >= policyNow.freeDeliveryMin;
+  const zeroFeeAgainstPolicy = Number(feeInput) === 0 && !qualifiesFree;
   // Same rule as approveOrder: days already over can't be approved.
   const passedDays = passedDeliveryDays(order as any, new Date());
   const previewCredit = preview ? Math.min(creditOnOrder, preview.total) : 0;
@@ -135,6 +139,15 @@ export function ConfirmApproveOrderModal({
         <p className="mt-2 text-xs text-green-800">
           Pre-filled with the estimate the customer saw. Change it if needed — GST and the total are recalculated on approval.
         </p>
+        {zeroFeeAgainstPolicy && (
+          <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
+            Delivery fee is $0, but this order doesn't qualify for free delivery
+            {policyNow.freeDeliveryEnabled && Number.isFinite(policyNow.freeDeliveryMin) && policyNow.freeDeliveryMin < 1_000_000
+              ? ` (minimum ${'$'}${policyNow.freeDeliveryMin.toFixed(2)})`
+              : ' (free delivery is off)'}
+            . Enter the delivery fee{policyNow.deliveryFee > 0 ? ` — standard fee ${'$'}${policyNow.deliveryFee.toFixed(2)}` : ' (set your standard fee in Settings)'}.
+          </p>
+        )}
         {passedDays.length > 0 && (
           <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
             {passedDaysMessage(passedDays, 'approved')}

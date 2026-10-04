@@ -39,8 +39,7 @@ import {
   getFreeDeliveryMin,
   getTaxRate,
   round2,
-  type OrderDoc,
-} from "./_shared";
+  type OrderDoc, adminDisplayName } from "./_shared";
 
 const db = getFirestore();
 
@@ -150,6 +149,7 @@ export const approveOrder = onCall<ApproveOrderInput>(async (request) => {
       deliveryFee: finalDeliveryFee,
       ...(creditNoteId ? { creditReturnedNoteId: creditNoteId } : {}),
       approvedBy: admin.email,
+      approvedByName: adminDisplayName(admin),
       approvedAt: FieldValue.serverTimestamp(),
       updateRequested: false,
       updateRequestedAt: FieldValue.delete(),

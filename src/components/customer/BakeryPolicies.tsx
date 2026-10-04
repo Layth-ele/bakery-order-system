@@ -73,7 +73,7 @@ export function BakeryPolicies({ onBack }: { onBack?: () => void }): JSX.Element
 
         <Section icon={Receipt} title="Prices & charges">
           <Row label="GST" value={`${gstPct}%`} />
-          <Row label="Delivery fee" value={p.deliveryFee > 0 ? `${money(p.deliveryFee)} per order` : 'Free'} />
+          <Row label="Delivery fee" value={`${money(p.deliveryFee)} per order`} />
           <Row
             label="Free delivery"
             value={p.freeDeliveryEnabled && p.freeDeliveryMin < 1_000_000 ? `Orders from ${money(p.freeDeliveryMin)}` : 'Not offered'}

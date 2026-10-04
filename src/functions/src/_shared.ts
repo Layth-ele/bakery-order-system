@@ -93,6 +93,10 @@ export async function requireAuth(
   };
 }
 
+/** How an admin is named on records customers see ("Received by …"). */
+export const adminDisplayName = (admin: CallerProfile): string =>
+  (admin.storeName && admin.storeName.trim()) || admin.email;
+
 /** Require the caller to be an admin. */
 export async function requireAdmin(
   request: CallableRequest<unknown>

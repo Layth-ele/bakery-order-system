@@ -19,8 +19,7 @@ import {
   loadOrder,
   assertTransitionAllowed,
   logStatusChange,
-  appendAuditLog,
-} from "./_shared";
+  appendAuditLog, adminDisplayName } from "./_shared";
 
 const db = getFirestore();
 
@@ -164,6 +163,7 @@ export const confirmOrderPayment = onCall<ConfirmOrderPaymentInput>(async (reque
       paidAt: FieldValue.serverTimestamp(),
       ...(invoiceNumber && !freshData.invoiceNumber && { invoiceNumber }),
       paymentConfirmedBy: admin.email,
+      paymentConfirmedByName: adminDisplayName(admin),
       paymentConfirmedAt: FieldValue.serverTimestamp(),
       // FIX R5-S5-F16 (CRITICAL — PIPEDA compliance): The e-transfer security
       // answer is the customer's question/password used to receive the funds.

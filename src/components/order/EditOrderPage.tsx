@@ -519,7 +519,7 @@ export function EditOrderPage({
                 <>
                   {totals.discountAmount > 0 &&
                     row(`Discount${discountType === 'percentage' ? ` (${discount}%)` : ''}`, `-${$(totals.discountAmount)}`, 'text-red-600')}
-                  {row('Delivery Fee', totals.deliveryFee > 0 ? $(totals.deliveryFee) : 'Free')}
+                  {row('Delivery Fee', $(totals.deliveryFee))}
                   {totals.serviceCharge > 0 && row('Service Charge', $(totals.serviceCharge))}
                   {totals.cancellationFee > 0 && row('Cancellation Fee', $(totals.cancellationFee))}
                   {row(gstLabel(totals.gst, totals.subtotal - totals.discountAmount), $(totals.gst))}
