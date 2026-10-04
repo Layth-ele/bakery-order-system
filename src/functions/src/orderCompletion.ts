@@ -2,10 +2,10 @@
  * Order completion — the ONLY place an order becomes `completed`.
  *
  *   completeOrder        Admin callable ("Mark complete" button).
- *   autoCompleteOrders   Fridays 12:05 Vancouver: completes paid orders whose
- *                        delivery week closed (Friday noon) within the last
- *                        7 days. Replaces the legacy deployed function of the
- *                        same name and the old browser-side auto-completers.
+ *   autoCompleteOrders   Daily 12:05 Vancouver: completes paid orders whose
+ *                        last delivery day is done, and cancels unpaid orders
+ *                        whose every delivery day is over (no fee; any store
+ *                        credit used is returned — see autoCancelUnpaidOrders).
  *
  * One Firestore transaction per order: status → completed + locked, invoice
  * number (from the daily DBH counter), invoices/{orderId}, completion
@@ -28,7 +28,10 @@ import {
   completionBlocker,
   deliveryWeekEndDate,
   isDueForAutoComplete,
+  isDueForAutoCancelUnpaid,
+  UNPAID_EXPIRED_REASON,
 } from "./lib/orderCompletion";
+import { cancelOrderAs } from "./orderActions";
 
 const db = getFirestore();
 
@@ -166,5 +169,34 @@ export const autoCompleteOrders = onSchedule(
       }
     }
     console.log(`[autoCompleteOrders] completed ${completed}/${due.length}`);
+
+    await autoCancelUnpaidOrders(now);
   }
 );
+
+/**
+ * Cancel approved-but-unpaid orders whose delivery dates are all over, through
+ * the same code path as the admin's Cancel button (store credit used on the
+ * order is returned, the invoice number is voided, the customer is notified
+ * with the reason). Orders with a payment awaiting confirmation are skipped.
+ */
+export async function autoCancelUnpaidOrders(now: Date): Promise<number> {
+  const snap = await db.collection("orders").where("status", "==", "approved").get();
+  const due = snap.docs.filter((d) => isDueForAutoCancelUnpaid(d.data(), now));
+  console.log(`[autoCancelUnpaid] ${snap.size} unpaid orders checked, ${due.length} past their delivery dates`);
+
+  let cancelled = 0;
+  for (const doc of due) {
+    try {
+      await cancelOrderAs(
+        { uid: "system", email: "auto-scheduler", storeName: "Automatic" },
+        { orderId: doc.id, reason: UNPAID_EXPIRED_REASON }
+      );
+      cancelled += 1;
+    } catch (err) {
+      console.error(`[autoCancelUnpaid] ${doc.id} failed:`, err);
+    }
+  }
+  console.log(`[autoCancelUnpaid] cancelled ${cancelled}/${due.length}`);
+  return cancelled;
+}

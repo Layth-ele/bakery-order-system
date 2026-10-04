@@ -116,6 +116,30 @@ export function isDueForAutoComplete(order: Doc, now: Date, windowDays = AUTO_CO
   return overdueMs >= 0 && overdueMs <= windowDays * DAY_MS;
 }
 
+// ── Unpaid orders past their delivery dates ────────────────────────────────
+
+/** Reason recorded on (and shown to the customer for) an automatic cancellation. */
+export const UNPAID_EXPIRED_REASON = "Not paid by the delivery date";
+
+/**
+ * An approved order that was never paid, whose every delivery day is over
+ * (end of the last delivery day, Vancouver). It was never baked — production
+ * starts only after payment — so it can be cancelled with no fee.
+ *
+ * Never when the customer has sent a payment the admin hasn't confirmed yet:
+ * that money may really be in the account, so a person must check it.
+ */
+export function isDueForAutoCancelUnpaid(order: Doc, now: Date): boolean {
+  if (order.status !== "approved") return false;
+  if (order.paymentReceived === true || order.paymentSubmitted === true) return false;
+  if (order.locked === true) return false;
+  const lastDeliveryNoon = orderDeliveredAt(order);
+  if (!lastDeliveryNoon) return false;
+  // Grace: the rest of that day, so a late e-transfer can still be confirmed.
+  const endOfDay = lastDeliveryNoon.getTime() + 12 * 60 * 60 * 1000;
+  return now.getTime() >= endOfDay;
+}
+
 // ── Final invoice (port of the web app's finalizeOrderToInvoice) ───────────
 
 interface Adjustment {

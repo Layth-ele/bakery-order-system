@@ -90,6 +90,10 @@ export function BakeryPolicies({ onBack }: { onBack?: () => void }): JSX.Element
             Payment is due <strong>{p.paymentDueHours} hours before noon</strong> on your first delivery day. Orders are baked once the
             bakery confirms your payment.
           </p>
+          <p>
+            An approved order that still isn't paid after its last delivery day is <strong>cancelled automatically</strong> (no fee;
+            any store credit you used on it is returned).
+          </p>
           <p>Store credit on your account can be used when you place an order.</p>
         </Section>
 
