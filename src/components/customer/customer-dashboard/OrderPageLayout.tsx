@@ -287,31 +287,9 @@ export function OrderPageLayout({
                           )}
 
                           <div className="min-w-0 flex-1">
-                            {/* Name + Info icon (always visible on mobile) */}
-                            <div className="flex items-start gap-1">
-                              <span className="text-[#3d3832] text-[10px] sm:text-xs lg:text-sm font-semibold leading-tight line-clamp-2">
-                                {(product.name ?? "")}
-                              </span>
-                              {/* Info icon — mobile only; lg+ uses the dedicated Info column */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openModal("PRODUCT_DETAILS", {
-                                    product,
-                                    products,
-                                    onAddToCart: handleQuickAddToCart,
-                                    lockedDaysForWeek,
-                                    selectedWeek,
-                                    selectedYear,
-                                    customerType: user.customerType,
-                                  })
-                                }
-                                className="lg:hidden flex-shrink-0 p-0.5 text-[#D4A574] hover:text-[#8B6F47] transition-colors mt-0.5"
-                                title="Product Info"
-                              >
-                                <Info className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                              </button>
-                            </div>
+                            <span className="block text-[#3d3832] text-[10px] sm:text-xs lg:text-sm font-semibold leading-tight line-clamp-2 break-words">
+                              {(product.name ?? "")}
+                            </span>
                             {/* Price */}
                             <span className="text-emerald-600 font-bold text-[10px] sm:text-xs block mt-0.5">
                               ${finalPrice.toFixed(2)}
@@ -323,6 +301,28 @@ export function OrderPageLayout({
                               </span>
                             )}
                           </div>
+
+                          {/* Info icon — mobile/tablet only, fixed slot at the cell's right edge so
+                              every row's icon lines up; lg+ uses the dedicated Info column */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openModal("PRODUCT_DETAILS", {
+                                product,
+                                products,
+                                onAddToCart: handleQuickAddToCart,
+                                lockedDaysForWeek,
+                                selectedWeek,
+                                selectedYear,
+                                customerType: user.customerType,
+                              })
+                            }
+                            className="lg:hidden flex-shrink-0 self-center w-6 h-6 -mr-1 flex items-center justify-center rounded-full text-[#D4A574] hover:text-[#8B6F47] active:bg-[#D4A574]/10 transition-colors"
+                            title="Product Info"
+                            aria-label={`Info about ${product.name ?? "product"}`}
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
 
