@@ -81,7 +81,7 @@ function UnpaidOrderCardComponent({
   const passedNote = !reminderBlocked
     ? null
     : allPassed
-      ? 'Every delivery day passed without payment. Cancel this order.'
+      ? 'Every delivery day passed without payment. It will be cancelled automatically at the next daily check (no fee, any store credit used is returned), or cancel it now.'
       : passedDaysMessage(daysOver, 'paid');
   const emailCount = order.emailReminderCount || 0;
   const isEmailMode = reminderCount >= 2;

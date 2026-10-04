@@ -39,7 +39,7 @@ import {
   getFreeDeliveryMin,
   getTaxRate,
   round2,
-  type OrderDoc, adminDisplayName } from "./_shared";
+  type OrderDoc, type CallerProfile, adminDisplayName } from "./_shared";
 
 const db = getFirestore();
 
@@ -273,7 +273,7 @@ export const rejectOrder = onCall<RejectOrderInput>(async (request) => {
 // cancelOrder — whole order, or some of its delivery days
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface CancelOrderInput {
+export interface CancelOrderInput {
   orderId: string;
   reason: string;
   /** Days to cancel; omitted = every day (the whole order). */
@@ -294,8 +294,19 @@ export interface CancelOrderResult {
 
 export const cancelOrder = onCall<CancelOrderInput>(async (request): Promise<CancelOrderResult> => {
   const admin = await requireAdmin(request);
+  return cancelOrderAs(admin, request.data ?? ({} as CancelOrderInput));
+});
 
-  const { orderId, reason: rawReason, cancelledDays, cancellationFeePercentage } = request.data ?? {};
+/** Who is cancelling: an admin, or the daily scheduler (see orderCompletion.autoCancelUnpaidOrders). */
+type CancelActor = Pick<CallerProfile, "uid" | "email"> & Partial<CallerProfile>;
+
+/**
+ * Cancel a whole order or some of its days — the one implementation shared by
+ * the admin callable and the scheduler, so credit, fees, invoice voiding and
+ * the customer notification are identical either way.
+ */
+export async function cancelOrderAs(admin: CancelActor, input: CancelOrderInput): Promise<CancelOrderResult> {
+  const { orderId, reason: rawReason, cancelledDays, cancellationFeePercentage } = input;
   if (!orderId) {
     throw new HttpsError("invalid-argument", "orderId is required.");
   }
@@ -316,7 +327,7 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request): Promise<Can
     throw new HttpsError("invalid-argument", "cancelledDays must be a list of weekday names.");
   }
 
-  const { ref, data: order } = await loadOrder(orderId, admin);
+  const { ref, data: order } = await loadOrder(orderId, { isAdmin: true, ...admin } as CallerProfile);
   assertTransitionAllowed(order.status, "cancelled");
   const gstRate = await getTaxRate();
   const fromStatus = order.status;
@@ -456,4 +467,4 @@ export const cancelOrder = onCall<CancelOrderInput>(async (request): Promise<Can
   console.log(`[cancelOrder] ${orderId} ${outcome.full ? "cancelled" : `days ${outcome.days.join(",")} cancelled`}; credit ${outcome.credit}, fee ${outcome.fee}`);
 
   return { success: true, orderId, full: outcome.full, credit: outcome.credit, fee: outcome.fee, creditNoteId: outcome.creditNoteId };
-});
+}

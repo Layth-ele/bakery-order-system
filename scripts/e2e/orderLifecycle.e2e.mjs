@@ -528,6 +528,48 @@ async function main() {
   check('the server refuses days inside the order cutoff set in Settings', () => {});
   await db.doc('settings/general').set({ orderCutoffHours: 48 }, { merge: true });
 
+  console.log('\n19. Unpaid orders past every delivery day are cancelled automatically');
+  // The daily scheduler's step, run directly against the emulators.
+  const { autoCancelUnpaidOrders } = require('./lib/orderCompletion.js');
+  const pastWeek = isoWeekOf(new Date(Date.now() - 7 * 86400000));
+  // A real order that used $5 of store credit, approved, then moved to last week.
+  const withCredit = await cust.call('placeOrder', { requestId: reqId(), week, year, items: [{ productId: 'bread', quantities: { ...zero, monday: 3 } }], creditToApply: 5 });
+  await admin.call('approveOrder', { orderId: withCredit.orderId, deliveryFee: 10 });
+  await db.doc(`orders/${withCredit.orderId}`).update({ week: pastWeek.week, year: pastWeek.year });
+  // Customer sent an e-transfer the admin hasn't confirmed yet → must be left alone.
+  await db.doc('orders/stale-submitted').set({ customerId: CUST.uid, status: 'approved', paymentReceived: false, paymentSubmitted: true, week: pastWeek.week, year: pastWeek.year,
+    items: [{ productId: 'bread', productName: 'Sourdough', price: 4, ...zero, monday: 5, total: 5 }], subtotal: 20, gst: 1, deliveryFee: 10, serviceCharge: 3.99, total: 34.99, amountDue: 34.99, creditApplied: 0 });
+  const futureApproved = (await db.collection('orders').where('status', '==', 'approved').get()).docs
+    .filter((d) => d.data().week === week && d.data().year === year).map((d) => d.id);
+  const creditBefore = await creditBalance(CUST.uid);
+
+  const autoCancelled = await autoCancelUnpaidOrders(new Date());
+  const oCredit = await order(withCredit.orderId);
+  const oStale = await order('stale-approved');
+  check('unpaid orders whose delivery days are all over are cancelled (no fee)', () => {
+    assert.equal(autoCancelled, 2);
+    for (const o of [oCredit, oStale]) {
+      assert.equal(o.status, 'cancelled');
+      assert.equal(o.cancellationReason, 'Not paid by the delivery date');
+      assert.equal(o.cancelledBy, 'auto-scheduler');
+      near(o.cancellationFee ?? 0, 0, 'no fee');
+    }
+  });
+  near(await creditBalance(CUST.uid), creditBefore + 5, 'credit returned');
+  check('store credit used on the cancelled order is returned', () => {});
+  const oSubmitted = await order('stale-submitted');
+  check('an order with a payment awaiting confirmation is left for the admin', () => assert.equal(oSubmitted.status, 'approved'));
+  for (const fid of futureApproved) assert.equal((await order(fid)).status, 'approved', `future order ${fid} untouched`);
+  check('orders with delivery days still ahead are untouched', () => {});
+  await waitFor(async () => (await customerNotes(CUST.uid)).find((n) => n.id === `order_${withCredit.orderId}_cancelled`), 'auto-cancel notification');
+  const autoNote = (await customerNotes(CUST.uid)).find((n) => n.id === `order_${withCredit.orderId}_cancelled`);
+  check('the customer is told why, and about the returned credit', () => {
+    assert.match(autoNote.message, /Not paid by the delivery date/);
+    assert.match(autoNote.message, /store credit/);
+  });
+  const again = await autoCancelUnpaidOrders(new Date());
+  check('running it again changes nothing', () => assert.equal(again, 0));
+
   await deleteApp(admin.app);
   await deleteApp(cust.app);
   console.log(`\n✅ ${passed} end-to-end checks passed`);

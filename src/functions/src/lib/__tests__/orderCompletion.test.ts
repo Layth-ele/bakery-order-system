@@ -12,6 +12,8 @@ import {
   buildFinalInvoice,
   buildCompletionSnapshot,
   AUTO_COMPLETE_WINDOW_DAYS,
+  isDueForAutoCancelUnpaid,
+  UNPAID_EXPIRED_REASON,
 } from '../orderCompletion';
 
 const HOUR = 3_600_000;
@@ -190,5 +192,53 @@ describe('orderDeliveredAt — noon Vancouver on the last delivery day', () => {
   });
   it('falls back to Friday noon when the order has no item days', () => {
     expect(orderDeliveredAt({ year: 2026, week: 40, items: [] })?.toISOString()).toBe(deliveryWeekCloseAt(2026, 40)?.toISOString());
+  });
+});
+
+describe('isDueForAutoCancelUnpaid — unpaid orders past every delivery day', () => {
+  // ISO 2026-W40: Mon Sep 28 … Wed Sep 30. Last delivery Wednesday noon PDT = 19:00Z.
+  const wedNoon = new Date('2026-09-30T19:00:00.000Z').getTime();
+  const unpaid = (extra: Record<string, unknown> = {}) => ({
+    status: 'approved',
+    year: 2026,
+    week: 40,
+    items: [{ productId: 'p', monday: 8, wednesday: 8 }],
+    ...extra,
+  });
+
+  it('waits out the rest of the last delivery day (grace for a late e-transfer)', () => {
+    expect(isDueForAutoCancelUnpaid(unpaid(), new Date(wedNoon + 1 * HOUR))).toBe(false);
+    expect(isDueForAutoCancelUnpaid(unpaid(), new Date(wedNoon + 11.9 * HOUR))).toBe(false);
+    expect(isDueForAutoCancelUnpaid(unpaid(), new Date(wedNoon + 12 * HOUR))).toBe(true);
+  });
+
+  it('cancels long-forgotten unpaid orders too (no time window)', () => {
+    expect(isDueForAutoCancelUnpaid(unpaid(), new Date(wedNoon + 180 * DAY))).toBe(true);
+  });
+
+  it('never while a delivery day is still to come', () => {
+    // Monday passed, Wednesday still ahead → admin decides (cancel days / chase payment).
+    expect(isDueForAutoCancelUnpaid(unpaid(), new Date(wedNoon - 1 * DAY))).toBe(false);
+  });
+
+  it('never when the customer has sent a payment awaiting confirmation', () => {
+    expect(isDueForAutoCancelUnpaid(unpaid({ paymentSubmitted: true }), new Date(wedNoon + 30 * DAY))).toBe(false);
+  });
+
+  it('never for paid, pending, completed, cancelled or locked orders', () => {
+    const later = new Date(wedNoon + 30 * DAY);
+    expect(isDueForAutoCancelUnpaid(unpaid({ paymentReceived: true }), later)).toBe(false);
+    for (const status of ['pending', 'in_process', 'delivered', 'completed', 'cancelled', 'rejected']) {
+      expect(isDueForAutoCancelUnpaid(unpaid({ status }), later)).toBe(false);
+    }
+    expect(isDueForAutoCancelUnpaid(unpaid({ locked: true }), later)).toBe(false);
+  });
+
+  it('ignores orders without a valid week', () => {
+    expect(isDueForAutoCancelUnpaid(unpaid({ week: undefined }), new Date(wedNoon + 30 * DAY))).toBe(false);
+  });
+
+  it('gives the customer a plain reason', () => {
+    expect(UNPAID_EXPIRED_REASON).toBe('Not paid by the delivery date');
   });
 });
