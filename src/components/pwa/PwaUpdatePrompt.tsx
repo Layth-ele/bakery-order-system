@@ -3,29 +3,71 @@
  *
  * After a deploy, the new version downloads in the background; this bar lets
  * the user reload when they're ready, so code never changes under them in the
- * middle of placing or approving an order. Checks for updates hourly while
- * the app stays open (installed apps can stay open for days).
+ * middle of placing or approving an order.
+ *
+ * Installed apps are rarely reloaded: phones freeze background timers and
+ * resume the app without a page load, so an hourly timer alone meant users
+ * only saw updates after logging out and back in. We therefore also check
+ * whenever the app comes back to the foreground, regains focus or comes back
+ * online, plus every few minutes while it's open. A dismissed bar returns the
+ * next time the app is reopened, until the user reloads.
  */
+import { useEffect, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { RefreshCw, X } from 'lucide-react';
 
-const UPDATE_CHECK_MS = 60 * 60 * 1000;
+const UPDATE_CHECK_MS = 5 * 60 * 1000;
+/** Don't hit the server more than once per this window (focus + visibility fire together). */
+const MIN_GAP_MS = 30 * 1000;
 
 export function PwaUpdatePrompt() {
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  const lastCheckRef = useRef(0);
+
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
-      setInterval(() => {
-        if (navigator.onLine) registration.update().catch(() => {});
-      }, UPDATE_CHECK_MS);
+      registrationRef.current = registration;
+      setInterval(() => checkForUpdate(true), UPDATE_CHECK_MS);
     },
     onRegisterError(error) {
       console.warn('[pwa] service worker registration failed:', error);
     },
   });
+
+  /** Ask the server for a new sw.js; a found update shows the bar via onNeedRefresh. */
+  function checkForUpdate(force = false) {
+    const registration = registrationRef.current;
+    if (!registration || !navigator.onLine) return;
+    // A version already downloaded (e.g. bar dismissed earlier): show it again.
+    if (registration.waiting && navigator.serviceWorker.controller) setNeedRefresh(true);
+    const now = Date.now();
+    if (!force && now - lastCheckRef.current < MIN_GAP_MS) return;
+    lastCheckRef.current = now;
+    registration.update().catch(() => {});
+  }
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkForUpdate();
+    };
+    const onActive = () => checkForUpdate();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onActive);
+    window.addEventListener('online', onActive);
+    window.addEventListener('pageshow', onActive);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onActive);
+      window.removeEventListener('online', onActive);
+      window.removeEventListener('pageshow', onActive);
+    };
+    // checkForUpdate only reads refs and a stable state setter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!needRefresh) return null;
 
