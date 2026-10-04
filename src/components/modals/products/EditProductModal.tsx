@@ -39,6 +39,12 @@ const DIETARY_LABELS = [
   { id: 'low-sugar',   label: 'Low Sugar',   icon: '✦'  },
 ];
 
+const PRICE_LABELS = {
+  wholesale: 'Commercial *',
+  retail: 'Individual *',
+  cost: 'Your cost',
+} as const;
+
 interface NutritionForm {
   servingSize: string;
   calories:    string;
@@ -186,12 +192,13 @@ export function EditProductModal({
 
     if (!formData.name.trim())          errs.name = 'Product name is required';
     if (!formData.categoryId)           errs.categoryId = 'Please select a category';
+    // Cost is the bakery's own cost (optional, never shown to customers).
     const cost = parseFloat(formData.cost);
-    if (!formData.cost || isNaN(cost) || cost < 0) errs.cost = 'Valid cost required';
+    if (formData.cost && (isNaN(cost) || cost < 0)) errs.cost = 'Enter a valid cost or leave it empty';
     const retail = parseFloat(formData.retail);
-    if (!formData.retail || isNaN(retail) || retail < 0) errs.retail = 'Valid retail price required';
+    if (!formData.retail || isNaN(retail) || retail <= 0) errs.retail = 'Individual price required';
     const wholesale = parseFloat(formData.wholesale);
-    if (!formData.wholesale || isNaN(wholesale) || wholesale < 0) errs.wholesale = 'Valid wholesale price required';
+    if (!formData.wholesale || isNaN(wholesale) || wholesale <= 0) errs.wholesale = 'Commercial price required';
 
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
@@ -222,7 +229,7 @@ export function EditProductModal({
         id:                 formData.id,
         name:               formData.name.trim(),
         categoryId:         formData.categoryId,
-        cost:               parseFloat(formData.cost),
+        cost:               formData.cost && cost > 0 ? cost : undefined,
         retail:             parseFloat(formData.retail),
         wholesale:          parseFloat(formData.wholesale),
         minQty:             parseFloat(formData.minQty) || 0,
@@ -302,11 +309,13 @@ export function EditProductModal({
         </div>
 
         {/* ── Pricing ──────────────────────────────────────── */}
+        {/* Commercial accounts pay the commercial price, individual accounts the
+            individual price (stored as wholesale / retail). */}
         <div className="grid grid-cols-3 gap-3">
-          {(['cost','retail','wholesale'] as const).map(field => (
+          {(['wholesale','retail','cost'] as const).map(field => (
             <div key={field}>
               <label htmlFor={field} className={labelCls}>
-                {field === 'cost' ? 'Cost *' : field === 'retail' ? 'Retail *' : 'Wholesale *'}
+                {PRICE_LABELS[field]}
               </label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -322,6 +331,10 @@ export function EditProductModal({
             </div>
           ))}
         </div>
+
+        <p className="-mt-2 text-xs text-gray-500">
+          Commercial = business accounts · Individual = individual accounts · Cost is for your records only.
+        </p>
 
         {/* ── Additional Settings ───────────────────────────── */}
         <div className="grid grid-cols-3 gap-3">

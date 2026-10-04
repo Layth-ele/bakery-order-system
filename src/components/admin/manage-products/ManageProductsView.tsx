@@ -61,6 +61,20 @@ export interface ManageProductsViewProps {
 // COMPONENT
 // ============================================================================
 
+/** A price as customers pay it: struck-through original + discounted price when on sale. */
+function PriceValue({ price, discount, bold }: { price?: number; discount?: number; bold?: boolean }) {
+  const base = price ?? 0;
+  const pct = discount && discount > 0 && discount < 100 ? discount : 0;
+  if (!pct) return <div className={`text-[#333333] ${bold ? 'font-bold' : ''}`}>${base.toFixed(2)}</div>;
+  const sale = Math.round(base * (1 - pct / 100) * 100) / 100;
+  return (
+    <div>
+      <div className="text-[#888888] line-through text-xs">${base.toFixed(2)}</div>
+      <div className="text-[#FF5722] font-bold">${sale.toFixed(2)}</div>
+    </div>
+  );
+}
+
 export function ManageProductsView({
   categories,
   filteredProducts,
@@ -276,8 +290,8 @@ export function ManageProductsView({
               <thead className="bg-[#E8C4A2]">
                 <tr>
                   <th className="px-4 py-3 text-left text-[#333333]">Product</th>
-                  <th className="px-4 py-3 text-left text-[#333333]">Cost</th>
-                  <th className="px-4 py-3 text-left text-[#333333]">Retail</th>
+                  <th className="px-4 py-3 text-left text-[#333333]">Commercial</th>
+                  <th className="px-4 py-3 text-left text-[#333333]">Individual</th>
                   <th className="px-4 py-3 text-left text-[#333333]">Discount</th>
                   <th className="px-4 py-3 text-left text-[#333333]">Actions</th>
                 </tr>
@@ -285,9 +299,6 @@ export function ManageProductsView({
               <tbody>
                 {pagedMgmtProducts.map((product, index) => {
                   const hasDiscount = !!product.discount && product.discount > 0;
-                  const discountedRetail: number = hasDiscount
-                    ? (product.retail ?? product.price ?? 0) * (1 - product.discount! / 100)
-                    : (product.retail ?? product.price ?? 0);
 
                   return (
                     <tr
@@ -308,24 +319,11 @@ export function ManageProductsView({
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-[#333333]">
-                        ${(product.cost ?? 0).toFixed(2)}
+                      <td className="px-4 py-3">
+                        <PriceValue price={product.wholesale ?? product.price} discount={product.discount} />
                       </td>
                       <td className="px-4 py-3">
-                        {hasDiscount ? (
-                          <div>
-                            <div className="text-[#888888] line-through text-sm">
-                              ${(product.retail ?? 0).toFixed(2)}
-                            </div>
-                            <div className="text-[#FF5722] font-bold">
-                              ${(discountedRetail ?? 0).toFixed(2)}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-[#333333]">
-                            ${(product.retail ?? 0).toFixed(2)}
-                          </span>
-                        )}
+                        <PriceValue price={product.retail ?? product.price} discount={product.discount} />
                       </td>
                       <td className="px-4 py-3">
                         {hasDiscount ? (
@@ -382,9 +380,6 @@ export function ManageProductsView({
             <div className="lg:hidden space-y-4">
               {pagedMgmtProducts.map((product) => {
                 const hasDiscount = !!product.discount && product.discount > 0;
-                const discountedRetail: number = hasDiscount
-                  ? (product.retail ?? product.price ?? 0) * (1 - product.discount! / 100)
-                  : (product.retail ?? product.price ?? 0);
 
                 return (
                   <div
@@ -407,35 +402,20 @@ export function ManageProductsView({
 
                     {/* Product Details Grid */}
                     <div className="grid grid-cols-3 gap-3 mb-4">
-                      {/* Cost */}
+                      {/* Commercial (business accounts) */}
                       <div>
                         <div className="text-[#333333] opacity-60 text-xs mb-1">
-                          Cost
+                          Commercial
                         </div>
-                        <div className="text-[#333333] font-bold">
-                          ${(product.cost ?? 0).toFixed(2)}
-                        </div>
+                        <PriceValue price={product.wholesale ?? product.price} discount={product.discount} bold />
                       </div>
 
-                      {/* Retail */}
+                      {/* Individual (individual accounts) */}
                       <div>
                         <div className="text-[#333333] opacity-60 text-xs mb-1">
-                          Retail
+                          Individual
                         </div>
-                        {hasDiscount ? (
-                          <div>
-                            <div className="text-[#888888] line-through text-xs">
-                              ${(product.retail ?? 0).toFixed(2)}
-                            </div>
-                            <div className="text-[#FF5722] font-bold">
-                              ${(discountedRetail ?? 0).toFixed(2)}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-[#333333] font-bold">
-                            ${(product.retail ?? 0).toFixed(2)}
-                          </div>
-                        )}
+                        <PriceValue price={product.retail ?? product.price} discount={product.discount} bold />
                       </div>
 
                       {/* Discount */}
