@@ -103,18 +103,19 @@ export function StatCard({ icon: Icon, label, value, color, onClick, isActive }:
   // icon-on-top card.
   return (
     <div
-      className={`w-full h-full min-h-[64px] sm:min-h-[132px] ${style.bg} rounded-2xl border sm:border-2 ${isActive ? 'border-[#D4A574] ring-2 ring-[#D4A574]/25 shadow-lg' : `${style.border} shadow-sm`} hover:shadow-md transition-all flex items-center gap-3 p-3 text-left sm:flex-col sm:justify-center sm:gap-0 sm:p-4 sm:text-center ${onClick ? 'cursor-pointer active:scale-[0.99] hover:scale-[1.01]' : ''}`}
+      className={`w-full h-full min-h-[84px] sm:min-h-[132px] ${style.bg} rounded-xl sm:rounded-2xl border sm:border-2 ${isActive ? 'border-[#D4A574] ring-2 ring-[#D4A574]/25 shadow-lg' : `${style.border} shadow-sm`} hover:shadow-md transition-all flex flex-col items-start justify-between gap-1.5 p-2.5 text-left sm:items-center sm:justify-center sm:gap-0 sm:p-4 sm:text-center ${onClick ? 'cursor-pointer active:scale-[0.99] hover:scale-[1.01]' : ''}`}
       onClick={onClick}
     >
-      <div className={`flex-shrink-0 p-2 sm:p-2.5 ${style.iconBg} rounded-xl sm:mb-3 shadow-inner`}>
-        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${style.iconColor}`} />
+      <div className={`flex-shrink-0 p-1.5 sm:p-2.5 ${style.iconBg} rounded-lg sm:rounded-xl sm:mb-3 shadow-inner`}>
+        <Icon className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${style.iconColor}`} />
       </div>
 
-      <div className="min-w-0">
-        <div className="truncate text-[11px] sm:text-sm text-neutral-700 font-medium leading-tight sm:mb-1">
+      <div className="min-w-0 w-full">
+        {/* Phones: label may wrap to two lines instead of "…" */}
+        <div className="line-clamp-2 text-[11px] sm:text-sm text-neutral-700 font-medium leading-tight sm:mb-1 break-words">
           {label}
         </div>
-        <div className={`text-xl sm:text-3xl font-bold leading-tight sm:leading-none ${style.valueColor}`}>
+        <div className={`whitespace-nowrap text-lg sm:text-3xl font-bold leading-tight sm:leading-none tabular-nums ${style.valueColor}`}>
           {value}
         </div>
       </div>

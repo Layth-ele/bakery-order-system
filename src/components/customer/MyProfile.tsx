@@ -258,14 +258,14 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack, onOpenPolicie
       <Card className="bg-white backdrop-blur-sm border-[#D4A574]/30 shadow-lg border-2 mb-6">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="icon-container-lg flex items-center justify-center bg-gradient-to-br from-[#8B6F47] to-[#D4A574] rounded-2xl shadow-md flex-shrink-0">
-              <UserIcon className="icon-lg text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-to-br from-[#8B6F47] to-[#D4A574] rounded-xl sm:rounded-2xl shadow-md flex-shrink-0">
+              <UserIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <CardTitle className="text-2xl text-[#8B6F47]" style={{ letterSpacing: '0.05em' }}>
+              <CardTitle className="text-lg sm:text-2xl leading-tight text-[#8B6F47]" style={{ letterSpacing: "0.02em" }}>
                 Profile Information
               </CardTitle>
-              <CardDescription className="text-neutral-600 mt-1">
+              <CardDescription className="text-xs sm:text-sm text-neutral-600 mt-0.5 sm:mt-1">
                 Update your personal and business details
               </CardDescription>
             </div>
@@ -387,14 +387,14 @@ export function MyProfile({ user, onProfileUpdate, onNavigateBack, onOpenPolicie
       <Card className="bg-white backdrop-blur-sm border-[#D4A574]/30 shadow-lg border-2">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="icon-container-lg flex items-center justify-center bg-gradient-to-br from-[#8B6F47] to-[#D4A574] rounded-2xl shadow-md flex-shrink-0">
-              <Lock className="icon-lg text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-to-br from-[#8B6F47] to-[#D4A574] rounded-xl sm:rounded-2xl shadow-md flex-shrink-0">
+              <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <CardTitle className="text-2xl text-[#8B6F47]" style={{ letterSpacing: '0.05em' }}>
+              <CardTitle className="text-lg sm:text-2xl leading-tight text-[#8B6F47]" style={{ letterSpacing: "0.02em" }}>
                 Change Password
               </CardTitle>
-              <CardDescription className="text-neutral-600 mt-1">
+              <CardDescription className="text-xs sm:text-sm text-neutral-600 mt-0.5 sm:mt-1">
                 Update your account password for enhanced security
               </CardDescription>
             </div>

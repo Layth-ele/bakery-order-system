@@ -101,10 +101,10 @@ export function PaidOrderDetailsModal({
       <>
         {/* ── Status Alert ───────────────────────────────────── */}
         {isEditedOrder ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-1">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4 mb-1">
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-9 h-9 bg-amber-500 rounded-full flex items-center justify-center">
-                <FileText className="w-5 h-5 text-white" />
+              <div className="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-amber-500 rounded-full flex items-center justify-center">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-amber-900 text-sm">Order Has Been Updated</p>
@@ -118,10 +118,10 @@ export function PaidOrderDetailsModal({
             </div>
           </div>
         ) : (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-1">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 mb-1">
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-9 h-9 bg-green-600 rounded-full flex items-center justify-center">
-                <Truck className="w-5 h-5 text-white" />
+              <div className="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-green-600 rounded-full flex items-center justify-center">
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-green-900 text-sm">Order in Production!</p>
@@ -129,8 +129,8 @@ export function PaidOrderDetailsModal({
                 <div className="flex items-center gap-1 mt-1">
                   <CheckCircle2 className="w-3 h-3 text-green-600" />
                   <span className="text-xs text-green-600">
-                    Payment confirmed on{" "}
-                    {formatOrderDateWithFallback(order.paymentReceivedAt)}
+                    Confirmed{" "}
+                    {formatOrderDateWithFallback((order as any).paidAt ?? (order as any).paymentConfirmedAt ?? order.paymentReceivedAt)}
                   </span>
                 </div>
               </div>
@@ -139,20 +139,20 @@ export function PaidOrderDetailsModal({
         )}
 
         {/* ── Payment Information ────────────────────────────── */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden mt-6">
-          <div className="bg-gradient-to-r from-[#333333] to-[#4a4238] px-6 py-3">
-            <h3 className="text-white font-bold flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
+        <div className="bg-white rounded-xl border sm:border-2 border-gray-200 overflow-hidden mt-4 sm:mt-6">
+          <div className="bg-gradient-to-r from-[#333333] to-[#4a4238] px-4 py-2.5 sm:px-6 sm:py-3">
+            <h3 className="text-white text-sm sm:text-base font-bold flex items-center gap-2">
+              <DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />
               Payment Information
             </h3>
           </div>
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-500 text-sm mb-1">
+          <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="min-w-0">
+                <p className="text-gray-500 text-xs sm:text-sm mb-1">
                   {creditApplied > 0 ? 'Invoice Total' : 'Order Amount'}
                 </p>
-                <p className="text-[#333333] font-bold text-2xl">${orderTotal.toFixed(2)}</p>
+                <p className="text-[#333333] font-bold text-xl sm:text-2xl tabular-nums">${orderTotal.toFixed(2)}</p>
                 {/* Show credit applied + amount due when credit was used */}
                 {creditApplied > 0 && (
                   <div className="mt-2 space-y-1">
@@ -165,18 +165,18 @@ export function PaidOrderDetailsModal({
                   </div>
                 )}
               </div>
-              <div>
-                <p className="text-gray-500 text-sm mb-1">Order Number</p>
-                <p className="text-[#333333] font-semibold font-mono text-sm">
+              <div className="min-w-0">
+                <p className="text-gray-500 text-xs sm:text-sm mb-1">Order Number</p>
+                <p className="text-[#333333] font-semibold font-mono text-xs sm:text-sm break-all">
                   {displayOrderNumber(order)}
                 </p>
               </div>
             </div>
-            <div className="pt-4 border-t border-gray-200">
-              <p className="text-gray-500 text-sm mb-2">Status</p>
+            <div className="pt-3 sm:pt-4 border-t border-gray-200">
+              <p className="text-gray-500 text-xs sm:text-sm mb-1.5 sm:mb-2">Status</p>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-green-600 font-semibold">Paid - In Production</span>
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
+                <span className="text-green-600 text-sm sm:text-base font-semibold">Paid - In Production</span>
               </div>
             </div>
           </div>
@@ -184,15 +184,15 @@ export function PaidOrderDetailsModal({
 
         {/* ── Credit Refund Breakdown (only when credit was actually issued) ── */}
         {isEditedOrder && creditAmount > 0 && (
-          <div className="bg-white rounded-xl border-2 border-green-200 overflow-hidden mt-6">
-            <div className="bg-gradient-to-r from-green-600 to-green-500 px-6 py-3">
-              <h3 className="text-white font-bold flex items-center gap-2">
-                <TrendingDown className="w-5 h-5" />
+          <div className="bg-white rounded-xl border sm:border-2 border-green-200 overflow-hidden mt-4 sm:mt-6">
+            <div className="bg-gradient-to-r from-green-600 to-green-500 px-4 py-2.5 sm:px-6 sm:py-3">
+              <h3 className="text-white text-sm sm:text-base font-bold flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5" />
                 Credit Refund Breakdown
               </h3>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-green-50 rounded-lg p-4 space-y-3">
+            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+              <div className="bg-green-50 rounded-lg p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-700 text-sm">Items removed (before tax):</span>
                   <span className="text-[#333333] font-semibold">${subtotalCredit.toFixed(2)}</span>
@@ -205,7 +205,7 @@ export function PaidOrderDetailsModal({
                 </div>
                 <div className="pt-3 border-t border-green-300">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#333333] font-bold text-lg">Total Credit Issued:</span>
+                    <span className="text-[#333333] font-bold text-sm sm:text-lg">Total Credit Issued:</span>
                     <span className="text-green-600 font-bold text-base">${creditAmount.toFixed(2)}</span>
                   </div>
                 </div>
